@@ -1,74 +1,201 @@
-/* 14th_ua's MoE Calculator bar. Uses WoT's native Gameface palette by VALUE (PFDINMax font +
-   literal hex). We intentionally do NOT use `var(--color-*)` custom properties:
-   Gameface's CSS engine drops a declaration whole when it can't resolve a var() (it
-   ignores the hex fallback), which renders the element invisible. Sizing in rem (the
-   engine scales the root font). See the wotmod-gameface-widget skill for the full
-   list of Coherent CSS quirks. */
-#moe_calculator-root {
+/* 14th_ua's MoE Calculator widget. Uses WoT's native Gameface palette by VALUE
+   (PFDINMax font + parchment/gold hex). We do NOT use var(--color-*) custom
+   properties: Gameface's CSS engine drops a whole declaration when it can't resolve a
+   var() (ignoring the fallback), which renders elements invisible. Sizing in rem (the
+   engine scales the root font); viewport-anchored offsets in vh/vw (rem is quantized
+   per resolution bucket by WoT's UI scale and drifts across resolutions).
+
+   Layout: a horizontal percentile bar (0..100) anchored bottom-right, above the
+   carousel, styled like the garage's top-right Battlepass chapter-progress widget.
+   Three milestone ticks (65/85/95) carry the nation mark art ON TOP of the bar and the
+   damage requirement BELOW; a top-left readout shows current avg damage + percentage. */
+
+#moe-root {
     position: fixed;
-    left: 50%;
-    /* Anchor vertically in vh (viewport height), NOT rem: WoT's UI scale is quantized
-       per resolution bucket, so a rem top-offset drifts across resolutions. vh tracks
-       the header's viewport-relative position on every 16:9 / 21:9 resolution. */
-    top: 17.6vh;
-    transform: translateX(-50%);
-    width: 520rem;
+    /* Bottom-right, above the carousel, aligned toward the vehicle-info column's right
+       edge. These offsets are CALIBRATED LIVE in-client (read the resolved px with
+       getComputedStyle in the hangar console); the values here are the starting point
+       for a single-row carousel at the 1080 design baseline. */
+    right: 2.4vw;
+    bottom: 20vh;                 /* single-row carousel clearance (calibrate) */
+    width: 360rem;                /* match the top-right Battlepass/missions widget (calibrate) */
     z-index: 9000;
     font-family: "PFDINMax", sans-serif;
     color: #ede6d9;
-    pointer-events: none;   /* let clicks through except where re-enabled below */
+    pointer-events: none;         /* never steal the hangar's drag-to-rotate */
 }
 
-#moe_calculator-root .wg-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;   /* title left, XP right */
-    margin-bottom: 5rem;
-    font-size: 16rem;
-}
+/* Responsive lift: raise the bar to clear a taller carousel. A double row is taller
+   than a single row; the small (shorter) double-row tiles need less lift than the tall
+   adaptive tiles. .moe-small must follow .moe-rows2 in source order so it wins. Values
+   calibrated live per resolution. */
+#moe-root.moe-rows2 { bottom: 28vh; }
+#moe-root.moe-rows2.moe-small { bottom: 24vh; }
 
-/* The bar track. A box-shadow only renders in Gameface on a FILLED element, so the
-   track carries its own background rather than relying on a shadow over transparency. */
-#moe_calculator-root .wg-bar {
-    position: relative;
-    height: 10rem;
-    background: rgba(0, 0, 0, 0.45);
-    border-radius: 2rem;
-    overflow: visible;
-}
-
-/* Two stacked fill segments, left-anchored, drawn vehicle-first then free on top. */
-#moe_calculator-root .wg-fill-vehicle,
-#moe_calculator-root .wg-fill-free {
+/* Soft dark glow behind the bar so it reads as one floating panel over the busy hangar,
+   with NO hard backing plate. A painted radial-gradient (gradients always render in
+   Gameface; a box-shadow on a transparent box does not), extended past the widget and
+   kept behind all content + drag-through. */
+#moe-root::before {
+    content: "";
     position: absolute;
-    left: 0;
-    top: 0;
-    height: 100%;
-    border-radius: 2rem;
+    top: -34rem;
+    left: -40rem;
+    right: -40rem;
+    bottom: -30rem;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center,
+        rgba(0, 0, 0, 0.42) 0%,
+        rgba(0, 0, 0, 0.22) 46%,
+        rgba(0, 0, 0, 0) 80%);
 }
-#moe_calculator-root .wg-fill-free   { background: #6a8fb0; z-index: 1; }
-#moe_calculator-root .wg-fill-vehicle { background: #cfa24a; z-index: 2; }
 
-/* Ticks layer spans the track exactly (left:0/right:0), so a tick's left:% is over
-   the SAME basis the JS measures against. */
-#moe_calculator-root .wg-ticks {
+/* --- header row: current readout (left) + title (right) -------------------- */
+#moe-root .moe-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 6rem;
+}
+
+/* Top-left readout: current average combined damage + current mark percentage. */
+#moe-root .moe-cur {
+    font-size: 16rem;
+    font-weight: 700;
+    text-shadow: 0 1rem 4rem rgba(0, 0, 0, 0.9), 0 0 2rem rgba(0, 0, 0, 0.6);
+}
+#moe-root .moe-cur-dmg { color: #ffd977; }        /* gold, the MoE accent */
+#moe-root .moe-cur-sep { color: #b2afab; margin: 0 4rem; }
+#moe-root .moe-cur-pct { color: #ede6d9; }
+
+#moe-root .moe-title {
+    font-size: 11rem;
+    font-weight: 700;
+    letter-spacing: 1rem;
+    text-transform: uppercase;
+    color: #b2afab;
+    text-shadow: 0 1rem 4rem rgba(0, 0, 0, 0.9);
+}
+
+/* --- bar body: room above for icons, below for requirement labels ---------- */
+#moe-root .moe-body {
+    position: relative;
+    padding-top: 34rem;           /* room for the nation mark art sitting on top */
+    padding-bottom: 22rem;        /* room for the requirement labels below */
+}
+
+#moe-root .moe-track {
+    position: relative;
+    height: 12rem;
+    background: rgba(0, 0, 0, 0.75);        /* black channel, same tone as the frame */
+    border: 2rem solid rgba(0, 0, 0, 0.75);
+    box-shadow:
+        inset 0 0 1rem rgba(255, 255, 190, 0.3),
+        0 3rem 8rem rgba(0, 0, 0, 0.75);
+}
+
+/* Warm gold fill for the reached percentile (flat, like the client's EditableProgress
+   bar). Eases when the value changes / vehicle switches; Gameface that drops transition
+   just cuts instantly. */
+#moe-root .moe-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    background: #e0b24a;
+    box-shadow: inset 0 0 6rem rgba(255, 224, 150, 0.5);
+    transition: width 0.3s ease;
+    z-index: 1;
+}
+
+/* Current-position leading-edge marker (mimics the Battle Pass in-chapter edge): a
+   bright sliver with a soft white bloom. box-shadow only renders on a FILLED box, hence
+   the solid background. JS sets `left`. */
+#moe-root .moe-cur-marker {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2.5rem;
+    margin-left: -1.25rem;
+    background: rgba(255, 255, 255, 0.7);
+    box-shadow:
+        0 0 12rem rgba(255, 255, 255, 0.9),
+        0 -6rem 10rem rgba(255, 255, 255, 0.6),
+        0 6rem 10rem rgba(255, 255, 255, 0.6);
+    transition: left 0.3s ease;
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* --- milestone ticks (65/85/95) -------------------------------------------- */
+#moe-root .moe-ticks {
     position: absolute;
     left: 0;
     right: 0;
     top: 0;
     height: 100%;
-    pointer-events: auto;   /* re-enable clicks on the interactive ticks */
+    z-index: 3;
+    pointer-events: none;
 }
 
-#moe_calculator-root .wg-tick {
+/* One tick, horizontally centered on its percentile position (JS sets `left`). */
+#moe-root .moe-tick {
     position: absolute;
-    top: -2rem;
-    width: 4rem;
-    height: 14rem;
-    margin-left: -2rem;     /* center the tick on its % position */
-    background: #ede6d9;
-    /* A transform needs explicit dimensions to render in Gameface (it does here). */
-    cursor: pointer;
+    top: 0;
+    height: 100%;
+    transform: translateX(-50%);
 }
-#moe_calculator-root .wg-tick-affordable { background: #7ac77a; }
-#moe_calculator-root .wg-tick-vehicle    { height: 18rem; top: -4rem; }
+
+/* Nation mark art ON TOP of the bar. Dim + desaturated when not yet earned; full color
+   with a gold bloom when reached. drop-shadow (hugs the art alpha) not box-shadow. */
+#moe-root .moe-tick-icon {
+    position: absolute;
+    bottom: 8rem;                 /* sits just above the track top */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40rem;
+    height: 34rem;
+    background-repeat: no-repeat;
+    background-position: center bottom;
+    background-size: contain;
+    opacity: 0.38;
+    filter: grayscale(70%) drop-shadow(0 1rem 3rem rgba(0, 0, 0, 0.9));
+}
+#moe-root .moe-tick-reached .moe-tick-icon {
+    opacity: 1;
+    filter: drop-shadow(0 1rem 3rem rgba(0, 0, 0, 0.9))
+            drop-shadow(0 0 6rem rgba(255, 205, 90, 0.6));
+}
+
+/* A thin notch on the track marking the milestone position. */
+#moe-root .moe-tick-notch {
+    position: absolute;
+    top: -1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2rem;
+    height: 14rem;
+    background: rgba(255, 255, 255, 0.35);
+    z-index: 2;
+}
+#moe-root .moe-tick-reached .moe-tick-notch {
+    background: #ffd977;
+    box-shadow: 0 0 4rem rgba(255, 205, 90, 0.7);
+}
+
+/* Damage requirement BELOW each mark. Blank when unknown (external table not loaded). */
+#moe-root .moe-tick-req {
+    position: absolute;
+    top: 16rem;                   /* below the track */
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12rem;
+    font-weight: 700;
+    color: #d8cfbf;
+    white-space: nowrap;
+    text-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.9);
+}
+#moe-root .moe-tick-reached .moe-tick-req {
+    color: #ffd977;
+}
