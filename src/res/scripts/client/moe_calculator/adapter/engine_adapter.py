@@ -1,61 +1,68 @@
 # -*- coding: utf-8 -*-
-"""PC-only engine adapter: read the live WoT client into a VehicleSnapshot.
+"""PC-only engine adapter: read the live WoT client into a MoESnapshot.
 
 This is the ONLY layer that touches live game symbols on the read side. Every read is
-wrapped in a _safe guard so one unreadable subsystem degrades gracefully (a safe
-default) instead of blanking the whole bar. As your mod grows, split the per-subsystem
-reads into their own reader modules and compose them here (see the wotmod-architecture
-harness skill). Symbols must be verified against the decompiled client.
+wrapped in a _safe guard so one unreadable subsystem degrades gracefully instead of
+blanking the whole bar. Symbols verified against the EU 2.3 decompiled client:
+- vehicle dossier TOTAL block: MarkOnGunAchievement.getValue()/getDamageRating() and
+  the movingAvgDamage record (gui/shared/gui_items/dossier/achievements/mark_on_gun.py;
+  read pattern from gui/impl/lobby/tooltips/carousel_vehicle_tooltip.py).
+- the 65/85/95% damage thresholds come from adapter/moe_data (external table).
 """
 from CurrentVehicle import g_currentVehicle
 
 from moe_calculator._compat import LOG_CURRENT_EXCEPTION, _safe, _safe_int
 from moe_calculator.domain import types as t
-from moe_calculator.domain.constants import Category
+from moe_calculator.adapter import moe_data
 
 
 def build_snapshot():
-    """Read the selected vehicle into a VehicleSnapshot, or None if unavailable."""
-    if not g_currentVehicle.isPresent():
-        return None
+    """Read the selected vehicle into a MoESnapshot. Returns a snapshot with
+    has_vehicle=False (never None) when no vehicle is selected, so the bridge can hide
+    the bar uniformly."""
     try:
+        if not g_currentVehicle.isPresent():
+            return t.MoESnapshot(has_vehicle=False)
         veh = g_currentVehicle.item
     except Exception:
         LOG_CURRENT_EXCEPTION()
-        return None
+        return t.MoESnapshot(has_vehicle=False)
 
-    return t.VehicleSnapshot(
-        tier=_safe_int(lambda: veh.level, 0),
-        is_elite=_safe(lambda: bool(veh.isElite), False),
-        vehicle_xp=_safe_int(lambda: veh.xp, 0),
-        free_xp=_free_xp(),
-        tech_unlocks=_read_tech_unlocks(veh),
-        vehicle_class=_safe(lambda: veh.type, "") or "",
-        vehicle_int_cd=_safe_int(lambda: veh.intCD, 0))
+    int_cd = _safe_int(lambda: veh.intCD, 0)
+    nation = _safe(lambda: veh.nationName, "") or ""
+    marks, percentile, avg_damage = _read_moe(int_cd)
+    thresholds = moe_data.get_thresholds(int_cd)
+
+    return t.MoESnapshot(
+        vehicle_int_cd=int_cd,
+        nation=nation,
+        marks=marks,
+        cur_percentile=percentile,
+        cur_avg_damage=avg_damage,
+        thresholds=thresholds,
+        has_vehicle=True)
 
 
-def _free_xp():
-    """Global free XP from the items cache, guarded to 0 when unreadable."""
+def _read_moe(int_cd):
+    """Read (marks 0-3, current percentile float, current moving-avg combined damage)
+    from the vehicle's TOTAL dossier. Guarded/fail-soft to (0, 0.0, 0): a never-played
+    vehicle simply has no records (getRecordValue would KeyError)."""
     try:
         from helpers import dependency
         from skeletons.gui.shared import IItemsCache
-        stats = dependency.instance(IItemsCache).items.stats
-        return _safe_int(lambda: stats.freeXP, 0)
+        from dossiers2.ui.achievements import MARK_ON_GUN_RECORD, ACHIEVEMENT_BLOCK
+        items = dependency.instance(IItemsCache).items
+        dossier = items.getVehicleDossier(int_cd)
+        if dossier is None:
+            return 0, 0.0, 0
+        stats = dossier.getTotalStats()
+        mog = stats.getAchievement(MARK_ON_GUN_RECORD)
+        marks = _safe_int(lambda: mog.getValue(), 0)
+        # getDamageRating() already divides the stored damageRating by 100 -> e.g. 84.7.
+        percentile = float(_safe(lambda: mog.getDamageRating(), 0.0) or 0.0)
+        avg_damage = _safe_int(
+            lambda: dossier.getRecordValue(ACHIEVEMENT_BLOCK.TOTAL, "movingAvgDamage"), 0)
+        return marks, percentile, avg_damage
     except Exception:
         LOG_CURRENT_EXCEPTION()
-        return 0
-
-
-def _read_tech_unlocks(veh):
-    """The vehicle's tech-tree unlock rows -> [UnlockItem]. A minimal stub: fill in
-    the real read against the decompiled client (veh.getUnlocksDescrs() and the
-    items cache). Guarded -> [] so a read failure leaves the bar empty, not broken."""
-    try:
-        items = []
-        # TODO: iterate veh.getUnlocksDescrs() (unlockIdx, xpCost, itemCD, required)
-        # and classify each itemCD as Category.VEHICLE or Category.MODULE.
-        _ = Category  # kept referenced until the real read is wired in
-        return items
-    except Exception:
-        LOG_CURRENT_EXCEPTION()
-        return []
+        return 0, 0.0, 0

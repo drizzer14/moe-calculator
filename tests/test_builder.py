@@ -1,86 +1,83 @@
 # -*- coding: utf-8 -*-
-"""Starter tests for the engine-free layers. These run on Python 3 (no game engine)
+"""Tests for the engine-free domain layer. These run on Python 3 (no game engine)
 because the domain + wulf_args modules import zero game symbols -- that separation is
-the whole point of the layering. Grow these as you add resolvers and modes."""
+the whole point of the layering."""
 from moe_calculator.domain import types as t
 from moe_calculator.domain.builder import build_model, bar_visible
+from moe_calculator.domain.constants import MARK_PERCENTS
 from moe_calculator.bridge import wulf_args as w
-
-
-def _u(cd, cost, researched=False, kind="module"):
-    return t.UnlockItem(cd, "u%d" % cd, "u%d.png" % cd, cost, kind, researched, True)
 
 
 # --- build_model -------------------------------------------------------------
 
-def test_not_elite_is_tech_tree():
-    snap = t.VehicleSnapshot(tier=6, is_elite=False, vehicle_xp=500, free_xp=0,
-                             tech_unlocks=[_u(1, 1000), _u(2, 500)])
-    m = build_model(snap)
-    assert m.mode == t.Mode.TECH_TREE
-    assert m.scale_min == 0
-    assert m.scale_max == 1000          # max own cost (per-item, not cumulative)
-    assert m.fill_vehicle == 500
-    assert m.fill_free == 0
-    # ticks sort by cost; each carries the unlock kind as its category + int_cd id
-    assert [tk.xp_position for tk in m.ticks] == [500, 1000]
-    assert [tk.action_id for tk in m.ticks] == [2, 1]
-    assert all(tk.category == "module" for tk in m.ticks)
+def _snap(**kw):
+    base = dict(vehicle_int_cd=1073, nation="germany", marks=1, cur_percentile=72.5,
+                cur_avg_damage=1500, thresholds={1: 1291, 2: 1858, 3: 2287})
+    base.update(kw)
+    return t.MoESnapshot(**base)
 
 
-def test_fill_is_two_segments_and_affordability():
-    snap = t.VehicleSnapshot(tier=5, is_elite=False, vehicle_xp=800, free_xp=300,
-                             tech_unlocks=[_u(1, 600), _u(2, 5000)])
-    m = build_model(snap)
-    assert m.fill_vehicle == 800
-    assert m.fill_free == 300
-    assert m.spendable_xp == 1100
-    # spendable = 1100 affords the 600 tick, not the 5600 tick
-    assert [tk.affordable for tk in m.ticks] == [True, False]
+def test_three_ticks_at_fixed_percents():
+    m = build_model(_snap())
+    assert [tk.percent for tk in m.ticks] == list(MARK_PERCENTS)
+    assert [tk.mark_count for tk in m.ticks] == [1, 2, 3]
 
 
-def test_nothing_left_is_complete():
-    snap = t.VehicleSnapshot(tier=8, is_elite=True, vehicle_xp=0, free_xp=0,
-                             tech_unlocks=[_u(1, 1000, researched=True)])
-    m = build_model(snap)
-    assert m.mode == t.Mode.COMPLETE
-    assert m.ticks == []
-    assert m.scale_min == m.scale_max     # zero-width range -> view renders 100%
+def test_thresholds_mapped_per_mark():
+    m = build_model(_snap())
+    assert [tk.damage_required for tk in m.ticks] == [1291, 1858, 2287]
+    assert m.has_data is True
 
 
-# --- per-mode toggles (enabled set) -----------------------------------------
+def test_reached_reflects_current_marks():
+    m = build_model(_snap(marks=2))
+    assert [tk.reached for tk in m.ticks] == [True, True, False]
+    m0 = build_model(_snap(marks=0))
+    assert [tk.reached for tk in m0.ticks] == [False, False, False]
+    m3 = build_model(_snap(marks=3))
+    assert [tk.reached for tk in m3.ticks] == [True, True, True]
 
-def test_tech_tree_disabled_hides():
-    snap = t.VehicleSnapshot(tier=6, is_elite=False, vehicle_xp=500, free_xp=0,
-                             tech_unlocks=[_u(1, 1000)])
-    m = build_model(snap, {t.Mode.COMPLETE})   # TECH_TREE not in the enabled set
-    assert m.mode == t.Mode.HIDDEN
-    assert m.ticks == []
+
+def test_fill_is_current_percentile_clamped():
+    assert build_model(_snap(cur_percentile=72.5)).fill == 72.5
+    assert build_model(_snap(cur_percentile=140.0)).fill == 100.0
+    assert build_model(_snap(cur_percentile=-5.0)).fill == 0.0
 
 
-def test_enabled_none_is_all_on():
-    snap = t.VehicleSnapshot(tier=6, is_elite=False, vehicle_xp=0, free_xp=0,
-                             tech_unlocks=[_u(1, 1000)])
-    assert build_model(snap).mode == t.Mode.TECH_TREE
-    assert build_model(snap, None).mode == t.Mode.TECH_TREE
+def test_missing_thresholds_degrade_gracefully():
+    m = build_model(_snap(thresholds={}))
+    # still three ticks with reached state + current readout, just no damage labels
+    assert len(m.ticks) == 3
+    assert [tk.damage_required for tk in m.ticks] == [0, 0, 0]
+    assert m.has_data is False
+    assert m.cur_avg_damage == 1500
+    assert m.marks == 1
+
+
+def test_partial_thresholds():
+    m = build_model(_snap(thresholds={1: 1291}))
+    assert [tk.damage_required for tk in m.ticks] == [1291, 0, 0]
+    assert m.has_data is True
+
+
+def test_never_played_zeros():
+    m = build_model(_snap(marks=0, cur_percentile=0.0, cur_avg_damage=0, thresholds={}))
+    assert m.fill == 0.0
+    assert m.marks == 0
+    assert all(not tk.reached for tk in m.ticks)
 
 
 # --- bar_visible -------------------------------------------------------------
 
 def test_bar_visible_gates():
-    # visible in the plain garage with the overlay closed
-    assert bar_visible(True, False, False, t.Mode.TECH_TREE, True) is True
+    # visible in the plain garage, overlay closed, vehicle selected
+    assert bar_visible(True, True, True) is True
     # hidden while a setup overlay is open
-    assert bar_visible(False, False, False, t.Mode.TECH_TREE, True) is False
-    # master hide-always wins
-    assert bar_visible(True, True, False, t.Mode.TECH_TREE, True) is False
+    assert bar_visible(False, True, True) is False
     # not in the plain garage -> hidden (fail-closed allowlist)
-    assert bar_visible(True, False, False, t.Mode.TECH_TREE, False) is False
-    # hide-when-complete only affects COMPLETE
-    assert bar_visible(True, False, True, t.Mode.COMPLETE, True) is False
-    assert bar_visible(True, False, True, t.Mode.TECH_TREE, True) is True
-    # a HIDDEN model is never shown
-    assert bar_visible(True, False, False, t.Mode.HIDDEN, True) is False
+    assert bar_visible(True, False, True) is False
+    # no vehicle selected -> hidden
+    assert bar_visible(True, True, False) is False
 
 
 # --- wulf_args (JS command argument parsing) --------------------------------

@@ -1,86 +1,61 @@
 # -*- coding: utf-8 -*-
-"""Mode state machine: turn a VehicleSnapshot into a ResearchProgressModel.
+"""Turn a MoESnapshot into a MoEModel. Pure and engine-free.
 
-Per selected vehicle, in priority order:
-- something still to research -> TECH_TREE (modules + next vehicles).
-- nothing left -> COMPLETE (a "fully researched" badge).
-
-Fill is the player's spendable XP shown as two stacked segments: vehicle XP first,
-then global free XP. The view treats a scale_min == scale_max range as 100% (guard
-divide-by-zero). This is the extension point: add a resolver + a branch here for each
-new mode (field mods, prestige, ...), highest priority first. Pure and engine-free.
+The bar axis is the percentile 0..100. The three ticks sit at the fixed MARK_PERCENTS
+(65/85/95); each carries the combined-damage requirement for that mark (from the
+external table, or 0 when unknown) and whether the player already holds it. `fill` is
+the current damage rating (percentile) -- the game's own authoritative "distance to
+next mark", independent of the fetched thresholds, so the fill stays correct even if
+the external table is a different vintage.
 """
 from moe_calculator.domain import types as t
-from moe_calculator.domain.resolvers import techtree
+from moe_calculator.domain.constants import MARK_PERCENTS, MARK_COUNTS, AXIS_MIN, AXIS_MAX
 
 
-def _max_pos(ticks, default):
-    return max([tk.xp_position for tk in ticks]) if ticks else default
+def _clamp(value, lo, hi):
+    return lo if value < lo else hi if value > hi else value
 
 
-def _on(enabled, mode):
-    """Whether `mode` is enabled. `enabled` is a set of Mode strings the user has left
-    ON; None means "all on" (the default, so callers/tests that pass no toggle set
-    behave exactly as before). A mode absent from a non-None set is OFF."""
-    return enabled is None or mode in enabled
+def build_model(snapshot):
+    """Build the three-tick MoE model from the snapshot. Always returns a model with
+    three ticks; visibility is decided separately by bar_visible()."""
+    percentile = _clamp(float(snapshot.cur_percentile or 0.0), AXIS_MIN, AXIS_MAX)
+    thresholds = snapshot.thresholds or {}
+
+    ticks = []
+    has_data = False
+    for percent, count in zip(MARK_PERCENTS, MARK_COUNTS):
+        required = int(thresholds.get(count, 0) or 0)
+        if required > 0:
+            has_data = True
+        ticks.append(t.MarkTick(
+            percent=percent,
+            mark_count=count,
+            damage_required=required,
+            reached=(snapshot.marks or 0) >= count,
+            icon=""))
+
+    return t.MoEModel(
+        nation=snapshot.nation or "",
+        marks=snapshot.marks or 0,
+        cur_percentile=percentile,
+        cur_avg_damage=int(snapshot.cur_avg_damage or 0),
+        fill=percentile,
+        ticks=ticks,
+        vehicle_int_cd=snapshot.vehicle_int_cd or 0,
+        has_data=has_data)
 
 
-def bar_visible(overlay_closed, hide_always, hide_when_complete, mode, in_garage):
-    """Whether the bar should render, combining engine state (a tank-setup overlay
-    open -> overlay_closed is False; the plain garage is mounted -> in_garage is True)
-    with two user settings. Pure and engine-free so it unit-tests on plain inputs.
+def bar_visible(overlay_closed, in_garage, has_vehicle):
+    """Whether the bar should render. Pure/engine-free so it unit-tests on plain inputs.
 
-    - hide_always: master switch -> never show.
-    - Mode.HIDDEN: the vehicle's resolved mode is turned off by a per-mode toggle.
-    - in_garage: show ONLY in the plain garage view (fail-closed allowlist).
-    - hide_when_complete: hide only on fully-progressed vehicles (Mode.COMPLETE).
-    - otherwise follow the overlay state (hidden while a setup overlay is open)."""
-    if hide_always:
-        return False
-    if mode == t.Mode.HIDDEN:
+    - has_vehicle : a vehicle must be selected.
+    - in_garage   : show ONLY in the plain garage (fail-closed allowlist; the vehicle-
+                    params sub-view we inject into stays mounted on other lobby views).
+    - overlay_closed : hidden while a tank-setup overlay (ammo/equipment/...) is open.
+    """
+    if not has_vehicle:
         return False
     if not in_garage:
         return False
-    if hide_when_complete and mode == t.Mode.COMPLETE:
-        return False
     return overlay_closed
-
-
-def build_model(snapshot, enabled=None):
-    """`enabled` is the set of Mode strings the user has left ON (None = all on). The
-    mode is resolved by the priority chain; if the resolved mode is OFF, the bar is
-    HIDDEN -- there is NO fall-through to a lower-priority mode, and COMPLETE is
-    reached only when the vehicle is genuinely done (no branch matched)."""
-    fill_vehicle = snapshot.vehicle_xp
-    fill_free = snapshot.free_xp
-    spendable = fill_vehicle + fill_free
-    veh_class = snapshot.vehicle_class
-
-    def _hidden():
-        # The resolved mode is toggled off: a placeholder model carrying Mode.HIDDEN so
-        # bar_visible() hides the bar (the view never renders it).
-        return t.ResearchProgressModel(
-            mode=t.Mode.HIDDEN, scale_min=0, scale_max=0,
-            fill_vehicle=fill_vehicle, fill_free=fill_free, ticks=[],
-            spendable_xp=spendable, vehicle_class=veh_class)
-
-    def _emit(mode, model):
-        # Honor the per-mode toggle: a mode this vehicle RESOLVED to but which the user
-        # turned off hides the bar -- NO fall-through to a lower-priority mode.
-        return model if _on(enabled, mode) else _hidden()
-
-    # Research takes priority: while ANY tech unlock is still unresearched, show the
-    # tech tree. techtree.resolve returns remaining-only ticks, so its emptiness is
-    # the exact "nothing left to research" signal.
-    ticks = techtree.resolve(snapshot)
-    if ticks:
-        return _emit(t.Mode.TECH_TREE, t.ResearchProgressModel(
-            mode=t.Mode.TECH_TREE, scale_min=0, scale_max=_max_pos(ticks, 0),
-            fill_vehicle=fill_vehicle, fill_free=fill_free, ticks=ticks,
-            spendable_xp=spendable, vehicle_class=veh_class))
-
-    # Nothing left to research: COMPLETE (a genuine end-state, never toggled).
-    return t.ResearchProgressModel(
-        mode=t.Mode.COMPLETE, scale_min=0, scale_max=0,
-        fill_vehicle=fill_vehicle, fill_free=fill_free, ticks=[],
-        spendable_xp=spendable, vehicle_class=veh_class)
