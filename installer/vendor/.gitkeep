@@ -1,0 +1,5 @@
+# Drop the bundled vendor .wotmod dependencies here (tracked despite the
+# repo-wide *.wotmod ignore, via the .gitignore exception):
+#   net.openwg.gameface_1.1.6.wotmod   (REQUIRED)
+#   izeberg.modssettingsapi_1.7.0.wotmod  (optional, in-game settings)
+# The installer bundles whatever is present here (see installer/build_installer.ps1).

@@ -1,0 +1,11 @@
+# Development dependencies -- install with Python 3.13 (NOT the 2.7 packaging runtime).
+#
+# The dual-Python split (see CLAUDE.md):
+#   * Packaging the .wotmod runs on Python 2.7.18 and needs NOTHING from this file
+#     (build/build_wotmod.py uses only the stdlib).
+#   * Tests, linting, and the version check run on Python 3.13 and use the below.
+#
+#   py -3.13 -m pip install -r requirements-dev.txt
+
+pytest>=7,<10
+ruff>=0.6

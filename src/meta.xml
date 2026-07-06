@@ -1,0 +1,13 @@
+<root>
+    <!-- Reverse-domain unique id. Controls load order; mods with the same id
+         are treated as versions/parts of the same modification. -->
+    <id>com.14th_ua.moe_calculator</id>
+    <!-- Compared character-by-character (ASCII). Use zero-padded segments. -->
+    <version>0.1.0</version>
+    <name>14th_ua's MoE Calculator</name>
+    <description>14th_ua's MoE Calculator — a World of Tanks Garage mod.
+
+REQUIRES OpenWG Gameface (install it first) — without it the widget will not appear.
+
+Author: 14th_ua</description>
+</root>

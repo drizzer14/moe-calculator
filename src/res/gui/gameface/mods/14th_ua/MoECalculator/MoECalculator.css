@@ -1,0 +1,74 @@
+/* 14th_ua's MoE Calculator bar. Uses WoT's native Gameface palette by VALUE (PFDINMax font +
+   literal hex). We intentionally do NOT use `var(--color-*)` custom properties:
+   Gameface's CSS engine drops a declaration whole when it can't resolve a var() (it
+   ignores the hex fallback), which renders the element invisible. Sizing in rem (the
+   engine scales the root font). See the wotmod-gameface-widget skill for the full
+   list of Coherent CSS quirks. */
+#moe_calculator-root {
+    position: fixed;
+    left: 50%;
+    /* Anchor vertically in vh (viewport height), NOT rem: WoT's UI scale is quantized
+       per resolution bucket, so a rem top-offset drifts across resolutions. vh tracks
+       the header's viewport-relative position on every 16:9 / 21:9 resolution. */
+    top: 17.6vh;
+    transform: translateX(-50%);
+    width: 520rem;
+    z-index: 9000;
+    font-family: "PFDINMax", sans-serif;
+    color: #ede6d9;
+    pointer-events: none;   /* let clicks through except where re-enabled below */
+}
+
+#moe_calculator-root .wg-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;   /* title left, XP right */
+    margin-bottom: 5rem;
+    font-size: 16rem;
+}
+
+/* The bar track. A box-shadow only renders in Gameface on a FILLED element, so the
+   track carries its own background rather than relying on a shadow over transparency. */
+#moe_calculator-root .wg-bar {
+    position: relative;
+    height: 10rem;
+    background: rgba(0, 0, 0, 0.45);
+    border-radius: 2rem;
+    overflow: visible;
+}
+
+/* Two stacked fill segments, left-anchored, drawn vehicle-first then free on top. */
+#moe_calculator-root .wg-fill-vehicle,
+#moe_calculator-root .wg-fill-free {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    border-radius: 2rem;
+}
+#moe_calculator-root .wg-fill-free   { background: #6a8fb0; z-index: 1; }
+#moe_calculator-root .wg-fill-vehicle { background: #cfa24a; z-index: 2; }
+
+/* Ticks layer spans the track exactly (left:0/right:0), so a tick's left:% is over
+   the SAME basis the JS measures against. */
+#moe_calculator-root .wg-ticks {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 100%;
+    pointer-events: auto;   /* re-enable clicks on the interactive ticks */
+}
+
+#moe_calculator-root .wg-tick {
+    position: absolute;
+    top: -2rem;
+    width: 4rem;
+    height: 14rem;
+    margin-left: -2rem;     /* center the tick on its % position */
+    background: #ede6d9;
+    /* A transform needs explicit dimensions to render in Gameface (it does here). */
+    cursor: pointer;
+}
+#moe_calculator-root .wg-tick-affordable { background: #7ac77a; }
+#moe_calculator-root .wg-tick-vehicle    { height: 18rem; top: -4rem; }

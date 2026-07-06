@@ -1,0 +1,23 @@
+# Tooling config only -- this project is NOT pip-installable (the mod ships as a
+# packaged .wotmod, see build/build_wotmod.py). No [project]/[build-system] table on
+# purpose. Test/lint tooling runs on Python 3.13; the mod source stays 2.7-compatible.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# tests/conftest.py puts src/res/scripts/client on sys.path so the engine-free
+# domain imports without the game engine.
+
+[tool.ruff]
+# py37 is ruff's floor; the shipped source must remain Python 2.7-compatible, so the
+# lint set below deliberately excludes any py3-only / upgrade rules (no UP/pyupgrade).
+target-version = "py37"
+line-length = 100
+# The in-game debug REPL server is Python-2-only source (print statement, `exec x in
+# ns`) that ships inside a 2.7 .wotmod; a py3-based linter can't parse it.
+extend-exclude = ["tools/dev/mod_moe_calculator_debug.py"]
+
+[tool.ruff.lint]
+# Intentionally minimal -- high-signal, no-reformat rules only. E9 = syntax errors,
+# F = pyflakes (unused/misplaced imports, unused vars, undefined names). This
+# formalizes the existing `# noqa: F401`/`E402` markers without churning formatting.
+select = ["E9", "F"]

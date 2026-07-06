@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "bash .claude/hooks/sync-ideas.sh 2>/dev/null || true",
+            "statusMessage": "Checking TASKS.md for changes"
+          }
+        ]
+      }
+    ]
+  }
+}
