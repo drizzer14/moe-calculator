@@ -14,6 +14,7 @@ from CurrentVehicle import g_currentVehicle
 from moe_calculator._compat import LOG_CURRENT_EXCEPTION, _safe, _safe_int
 from moe_calculator.domain import types as t
 from moe_calculator.adapter import moe_data
+from moe_calculator.adapter import baseline_cache
 
 
 def build_snapshot():
@@ -31,6 +32,9 @@ def build_snapshot():
     int_cd = _safe_int(lambda: veh.intCD, 0)
     nation = _safe(lambda: veh.nationName, "") or ""
     marks, percentile, avg_damage = _read_moe(int_cd)
+    # Snapshot the career baseline for the in-battle overlay -- the dossier this reads is
+    # unavailable in battle, so battle_adapter falls back to this cache (see baseline_cache).
+    baseline_cache.remember(int_cd, percentile, avg_damage)
     thresholds = moe_data.get_thresholds(int_cd)
 
     return t.MoESnapshot(

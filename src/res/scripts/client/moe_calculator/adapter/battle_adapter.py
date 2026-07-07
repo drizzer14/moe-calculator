@@ -22,10 +22,11 @@ and moe_data.
 """
 import BigWorld
 
-from moe_calculator._compat import LOG_CURRENT_EXCEPTION, _safe, _safe_int
+from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_NOTE, _safe, _safe_int
 from moe_calculator.domain import battle_types as bt
 from moe_calculator.adapter import engine_adapter
 from moe_calculator.adapter import moe_data
+from moe_calculator.adapter import baseline_cache
 
 
 def _session_provider():
@@ -123,8 +124,18 @@ def build_battle_snapshot():
             return bt.BattleSnapshot(has_vehicle=False, in_battle=_in_battle())
 
         damage, assist, stun = _read_efficiency()
-        # Reuse the garage dossier read for the career baseline (readable in battle too).
+        # Career baseline. The dossier engine_adapter._read_moe uses is a LOBBY resource --
+        # getVehicleDossier returns None in battle, so this reads (0, 0.0) here. Fall back to
+        # the baseline snapshotted while the tank was in the garage (see baseline_cache).
         _marks, pre_percentile, pre_avg = engine_adapter._read_moe(int_cd)
+        if (pre_percentile or 0) <= 0 and (pre_avg or 0) <= 0:
+            cached = baseline_cache.get(int_cd)
+            if cached is not None:
+                pre_percentile, pre_avg = cached
+                LOG_NOTE("[moe-battle] baseline from garage cache: pct=%.2f avg=%d"
+                         % (pre_percentile, pre_avg))
+            else:
+                LOG_NOTE("[moe-battle] no baseline (tank not seen in garage this session)")
         thresholds = moe_data.get_thresholds(int_cd)
         nation = _player_nation(descr)
 
