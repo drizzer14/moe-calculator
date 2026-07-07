@@ -51,9 +51,11 @@ class MoEVM(ViewModel):
         self._addBoolProperty("visible", True)         # 0  false hides the bar
         self._addStringProperty("nation", "")          # 1  nation id ('germany', ...)
         self._addNumberProperty("marks", 0)            # 2  current marks 0..3
-        self._addNumberProperty("curPercent", 0)       # 3  current percentile (float)
+        self._addRealProperty("curPercent", 0.0)       # 3  current percentile (float -- MUST be Real:
+                                                       #    _setNumber casts to int() and drops the decimals)
         self._addNumberProperty("curAvgDamage", 0)     # 4  current moving-avg combined dmg
-        self._addNumberProperty("fill", 0)             # 5  bar fill 0..100 (== curPercent)
+        self._addRealProperty("fill", 0.0)             # 5  bar fill 0..100 (== curPercent; Real for a
+                                                       #    smooth sub-percent edge, same int() reason)
         self._addBoolProperty("hasData", False)        # 6  external thresholds loaded
         self._addNumberProperty("carouselRows", 1)     # 7  1 single / 2 double (positioning)
         self._addBoolProperty("carouselSmall", False)  # 8  double-row: small vs tall adaptive
@@ -71,13 +73,13 @@ class MoEVM(ViewModel):
         self._setNumber(2, v)
 
     def setCurPercent(self, v):
-        self._setNumber(3, v)
+        self._setReal(3, v)
 
     def setCurAvgDamage(self, v):
         self._setNumber(4, v)
 
     def setFill(self, v):
-        self._setNumber(5, v)
+        self._setReal(5, v)
 
     def setHasData(self, v):
         self._setBool(6, v)
@@ -115,8 +117,9 @@ class BattleMoEVM(ViewModel):
         self._addBoolProperty("visible", False)          # 0  false hides the overlay
         self._addNumberProperty("combinedDamage", 0)     # 1  live CD this battle
         self._addNumberProperty("projAvgDamage", 0)      # 2  EWMA-projected avg incl. this CD
-        self._addNumberProperty("curPercent", 0)         # 3  MoE percentile of the projection
-        self._addNumberProperty("pctDelta", 0)           # 4  signed delta vs pre-battle standing
+        self._addRealProperty("curPercent", 0.0)         # 3  MoE percentile of the projection (float --
+                                                         #    MUST be Real: _setNumber casts to int())
+        self._addRealProperty("pctDelta", 0.0)           # 4  signed delta vs pre-battle standing (float, Real)
         self._addBoolProperty("hasData", False)          # 5  threshold table usable (percent real)
 
     def setVisible(self, v):
@@ -129,10 +132,10 @@ class BattleMoEVM(ViewModel):
         self._setNumber(2, v)
 
     def setCurPercent(self, v):
-        self._setNumber(3, v)
+        self._setReal(3, v)
 
     def setPctDelta(self, v):
-        self._setNumber(4, v)
+        self._setReal(4, v)
 
     def setHasData(self, v):
         self._setBool(5, v)
