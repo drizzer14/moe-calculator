@@ -2,7 +2,8 @@
 """DEV: drive the in-game WoT REPL (the moe_calculator_debug mod) from the host PC.
 
 The debug mod (tools/dev/mod_moe_calculator_debug.py, packaged as com.14th_ua.moe_calculator_debug.wotmod)
-runs a TCP REPL on 127.0.0.1:2223 inside the live client. This client sends one
+runs a TCP REPL on 127.0.0.1:2224 inside the live client (the research bar's debug REPL
+owns 2223). This client sends one
 command per line and reads until the server's __WGEND__ sentinel.
 
   python tools/dev/repl_client.py "<python expr/stmt>"     # single command
@@ -19,7 +20,7 @@ import socket
 import sys
 import time
 
-HOST, PORT = "127.0.0.1", 2223
+HOST, PORT = "127.0.0.1", 2224
 SENTINEL = "__WGEND__"
 
 

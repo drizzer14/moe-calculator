@@ -19,7 +19,7 @@ META = """<root>
     <id>com.14th_ua.moe_calculator_debug</id>
     <version>0.0.1</version>
     <name>14th_ua's MoE Calculator Debug REPL</name>
-    <description>DEV-ONLY: TCP REPL on 127.0.0.1:2223. Not for distribution.</description>
+    <description>DEV-ONLY: TCP REPL on 127.0.0.1:2224. Not for distribution.</description>
 </root>
 """
 
@@ -29,7 +29,7 @@ def _check_python():
         sys.exit("ERROR: build_debug_wotmod must run under Python 2.7 (got {0}.{1}). "
                  "The game executes the .pyc and bytecode is version-locked, so a "
                  "debug mod built under any other version will NOT load (symptom: "
-                 "connection refused on the REPL port 2223). Re-run with "
+                 "connection refused on the REPL port 2224). Re-run with "
                  "C:\\Python27\\python.exe."
                  .format(sys.version_info[0], sys.version_info[1]))
 

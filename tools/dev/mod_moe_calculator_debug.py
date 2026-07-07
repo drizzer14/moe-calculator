@@ -2,7 +2,8 @@
 """DEV-ONLY: TCP REPL into the running WoT client (adapted from juho-p/wot-debugserver).
 
 Packaged as com.14th_ua.moe_calculator_debug.wotmod (see build_debug_wotmod.py) and dropped
-in mods/<version>/. Listens on 127.0.0.1:2223. NOT shipped with the real mod.
+in mods/<version>/. Listens on 127.0.0.1:2224 (the research bar's debug REPL owns 2223;
+distinct ports let both mods' debug servers run at once). NOT shipped with the real mod.
 IMPORTANT: keep this package SLIM (only this file) so it does not conflict with the
 real mod's moe_calculator package (duplicate files make WoT ignore the whole package).
 Python 2.7 (BigWorld runtime).
@@ -19,7 +20,7 @@ except Exception:
         import traceback
         traceback.print_exc()
 
-PORT = 2223
+PORT = 2224
 SENTINEL = '__WGEND__'
 NEWLINE = '\r\n'
 
