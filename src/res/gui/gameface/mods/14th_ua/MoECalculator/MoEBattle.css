@@ -1,0 +1,181 @@
+/* 14th_ua's MoE Calculator -- in-battle overlay. Mirrors WG's own personal-efficiency
+   panel (damage dealt / blocked / assisted): a left-aligned vertical stack of
+   [icon] [value] rows over a soft dark radial shape, NO text labels, NO frame.
+
+   FONT: the panel is Flash (Scaleform) text in MoEBattle ($FieldFont) / MoEBattle
+   ($TitleFont) -- confirmed Flash: gui/Scaleform/daapi/view/battle/shared/damage_panel.py.
+   Gameface can't reach the Flash-embedded font, so we bundle the SAME glyphs as TrueType --
+   extracted straight out of gui/flash/fontlib.swf via tools/dev/swf_font_to_ttf.py
+   (SWF DefineFont3 -> TTF).
+     LOADING QUIRK (learned the hard way): Coherent's @font-face resolves its src url like the
+   garage's card_border.png border-image -- a BARE SIBLING filename against the document dir
+   works, but a SUBDIR-relative path (fonts/..) silently fails and the text falls back to
+   Arial Narrow. So the ttfs sit RIGHT BESIDE this CSS (not in a fonts/ subdir), referenced
+   unquoted + bare, with a coui:// absolute as a belt-and-suspenders fallback. The family is
+   given a mod-unique name ("MoEBattle") so it can never collide with the engine's own
+   Flash-registered "MoEBattle".
+
+   Geometry/typography values below were tuned in the browser overlay tuner
+   (tools/dev/gen_overlay_tuner.ps1) against a real 4K battle backdrop and copied verbatim.
+   Palette by VALUE (hex, NO var(--color-*) -- Gameface drops the whole declaration when a
+   var() can't resolve); sizing in rem (engine scales the root font). */
+
+/* The overlay uses ONE cut only -- MoEBattle 600 (the MoEBattle glyphs, subset to
+   the ~18 chars we render). Every text element requests weight 600 so it maps to this single
+   face with no fallback synthesis. Bare-sibling url first (the scheme that actually works,
+   per card_border.png), coui:// absolute as a fallback. */
+@font-face {
+    font-family: "MoEBattle";
+    font-weight: 600;
+    font-style: normal;
+    src: url(MoEBattle.ttf) format("truetype"),
+         url("coui://gui/gameface/mods/14th_ua/MoECalculator/MoEBattle.ttf") format("truetype");
+}
+
+/* This is a full-screen OpenWG-registered Gameface WINDOW hosted over the battle HUD
+   (see bridge/battle_view.py). The window surface fills the screen; make its document
+   fully transparent + non-interactive so only the small readout paints and no click is
+   ever swallowed from the battle beneath. */
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* Vertical stack of icon+value rows. Anchored by vw/vh (aligns to WG's efficiency panel:
+   left ~= the vehicle-class icon column, top ~= the panel's top edge). Spacing is done with
+   MARGINS -- flex `gap` is unsupported in this Coherent build. */
+#moe-battle-root {
+    position: fixed;
+    left: 13.8vw;
+    top: 78.8vh;
+    z-index: 9000;
+    pointer-events: none;               /* never steal battle input -- info-only overlay */
+    font-family: "MoEBattle", "Arial Narrow", sans-serif;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* One line = [icon] [value] ... . The soft dark shape behind the row is painted on a masked
+   ::before layer so the left edge fades the BACKDROP only (not the numerals). */
+.mb-row {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    white-space: nowrap;
+    padding: 8rem 32rem;
+    margin-bottom: -11rem;              /* negative pitch overlaps the airy row padding */
+}
+
+/* WG's efficiency-panel halftone = a fine CHECKER dither. Gameface does NOT tile a
+   gradient via background-size (it renders one gradient = a smooth blob), so we tile a
+   small RASTER checker.png sibling instead (rasters DO tile -- proven by the garage
+   progressbar). The tile is natively FINE (4px tile = 2x2 cells at 2px) so background-size:auto
+   paints ~2px cells directly -- WG's dither, crisp, no sub-pixel rem-scaling. opacity sets
+   strength; image-rendering keeps cells crisp; the radial MASK fades it to a blob. Regenerate
+   via tools/dev/gen_checker.py. checker.png loads as a bare sibling (font/card_border scheme). */
+.mb-row::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background: url(checker.png) repeat;
+    background-size: auto;              /* native 2px cells (fine dither); subtle at opacity 0.19. rem-scaling shrank it sub-pixel -- native renders crisp in-game. */
+    background-position: 0px 0px;
+    image-rendering: pixelated;
+    opacity: 0.19;
+    /* unprefixed mask only -- WG's own Gameface CSS uses `mask` (679x) and never `-webkit-mask`;
+       the engine honors the standard property, so the prefix is dead weight. */
+    mask: radial-gradient(223% 120% at 10% 50%, #000 0%, transparent 53%);
+}
+
+/* Dark radial UNDERLAY -- the pre-dither backdrop shape, layered back BEHIND the checker.
+   z-index:-1 drops it under both the checker ::before and the numerals; it stays scoped to
+   this row because #moe-battle-root (position:fixed + z-index:9000) is its stacking context.
+   Its own size/centre/alpha (independent of the dither); left edge soft-clipped by the mask.
+   Tuned in the overlay tuner ("Gradient underlay" + "Left clip"). */
+.mb-row::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: -1;
+    background: radial-gradient(50% 50% at 50% 48%, rgba(0, 0, 0, 0.28) 0%, rgba(0, 0, 0, 0) 58%);
+    mask: linear-gradient(90deg, transparent 13%, #000 22%);
+}
+
+/* Content rides above the ::before backdrop. */
+.mb-row > span {
+    position: relative;
+}
+
+/* Icon glyph. <img> is clipped in Gameface -> background-image div. The quest_type/128
+   glyphs fill only ~23% of the PNG (transparent padding), so zoom to 260% to crop it. */
+.mb-ico {
+    display: block;
+    flex: none;
+    width: 17rem;
+    height: 17rem;
+    margin-right: 4rem;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 260%;
+    filter: drop-shadow(0rem 0rem 0.5rem #ffffff);
+    transform: translate(0rem, 1rem);   /* nudge onto the numeral baseline */
+}
+
+/* Inter-element gap (icon->value handled by the icon's own margin above). */
+.mb-sep,
+.mb-value.mb-avg,
+.mb-delta {
+    margin-left: 4.5rem;
+}
+
+/* The number: bright white, layered soft shadow (no stroke) so it reads over both bright
+   and dark map areas -- matches the panel's white numerals + their soft drop shadow. */
+.mb-value {
+    font-size: 14rem;
+    font-weight: 600;
+    color: #ffffff;
+    letter-spacing: -0.05em;
+    text-shadow: 0rem 0rem 1rem rgba(0, 0, 0, 0.5);
+}
+
+/* Dim slash between live damage and projected average. */
+.mb-sep {
+    font-size: 14rem;
+    font-weight: 600;
+    color: rgba(237, 230, 217, 0.45);
+    text-shadow: 0rem 0rem 1rem rgba(0, 0, 0, 0.5);
+}
+
+/* Signed delta (in parens) rides small next to the projected percent; white by default. */
+.mb-delta {
+    font-size: 14rem;
+    font-weight: 600;
+    color: #ffffff;
+    text-shadow: 0rem 0rem 1rem rgba(0, 0, 0, 0.5);
+}
+
+/* Tri-state sign colours (compound selectors so they beat .mb-value's white):
+   applies to the live-damage value (vs projected avg) AND the delta. */
+.mb-value.mb-up,
+.mb-delta.mb-up {
+    color: #8fd18f;
+}
+
+.mb-value.mb-down,
+.mb-delta.mb-down {
+    color: #e08585;
+}

@@ -17,13 +17,70 @@
        getComputedStyle in the hangar console); the values here are the starting point
        for a single-row carousel at the 1080 design baseline. */
     right: 2.4vw;
-    bottom: 20vh;                 /* single-row carousel clearance (calibrate) */
-    width: 360rem;                /* match the top-right Battlepass/missions widget (calibrate) */
+    bottom: 25.5vh;               /* single-row (rows=1) clearance, dialed in live at 2160p:
+                                     25vh read a touch low, 26vh a touch high -> 25.5vh. Reference
+                                     gaps above the single-row carousel top (~screen-y 1740):
+                                     22vh ~30px (tight), 25vh ~95px, 27vh ~140px, 30vh ~210px
+                                     (floated). (Earlier single values never rendered: the setting
+                                     was 'double', so rows=2 -> .moe-rows2 (28vh) overrode this.) */
+    width: 315rem;                /* content width; matched to the missions-panel box width
+                                     (was 360 -- box read ~13% wider than the reference) */
     z-index: 9000;
-    font-family: "PFDINMax", sans-serif;
+    /* EXACTLY the missions widget's face: the client's user_missions global.css sets
+       `font-family: PFDINMax; letter-spacing: 0.02em` on its body -- PFDINMax is the
+       condensed numeric face registered globally from gui/gameface/fonts/pfdinmax/, so
+       it resolves in the hangar document too. Warhelios kept as a fallback. */
+    font-family: PFDINMax, "PF DIN Max Compressed", "Warhelios", sans-serif;
+    letter-spacing: 0.02em;
     color: #ede6d9;
-    pointer-events: none;         /* never steal the hangar's drag-to-rotate */
+    /* Capture pointer on the box FOOTPRINT ONLY so it can react to :hover (item 2 --
+       mirrors the garage bottom-bar boxes). The box floats over dead hangar space above
+       the carousel; every overlay child that extends past the box (.moe-ticks, .moe-split*,
+       .moe-end*, .moe-cur-marker) keeps pointer-events:none so only the panel captures
+       hover -- drag-to-rotate/clicks that start off the box are untouched. */
+    pointer-events: auto;
+    /* WoT "card" panel, matched to the client: a faint dark fill + the game's own
+       9-slice frame texture (drawn in ::before below), NOT a flat CSS border. Fill
+       tone taken from the client's card backgrounds (rgba(10,10,10,~.25)). */
+    /* Symmetric 18rem side padding so the bar spans the FULL panel width. The 100% goalpost
+       number is right-aligned to the bar's end (extends LEFT), so it no longer needs the old
+       reserved right gutter -- only a small nudge poke past the end (its +4rem shift), which
+       the 18rem padding easily clears. */
+    padding: 11rem 18rem 9rem 18rem;
+    background: rgba(10, 10, 10, 0.28);
+    /* Hover crossfades the dark fill out (see #moe-root:hover below). */
+    transition: background 0.18s ease;
+    border-radius: 2rem;
+    /* No drop shadow: it read as a muddy dark halo around the box, unlike the
+       flush-edged consumables boxes. The card_border frame carries the edge. */
 }
+
+/* Authentic panel frame: the client's ui_kit card_border (64x64, 16px slice) drawn
+   as a border-image at ~half opacity, exactly like the game's .Card_border::before.
+   The texture is bundled beside this CSS (card_border.png, lifted from the client's
+   gui-part pkg) and referenced relatively -- img:// and data: URIs both fail to
+   paint inside border-image; a sibling file loaded as a normal image works. */
+#moe-root::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Shorthand form + relative file url: the syntax/scheme Coherent actually
+       honors for border-image (longhand + img:// + data-URI all silently drop). */
+    border: 5rem solid transparent;
+    border-image: url(card_border.png) 20 / 5rem repeat;
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* Whole-box hover, adapted from the garage bottom-bar boxes but inverted: instead of
+   WG's 15% white brighten, hovering crossfades the dark card fill out to fully
+   transparent so the panel reads as clear over the hangar. The fade rides the
+   `transition: background` on #moe-root above; the frame (::before) stays untouched. */
+#moe-root:hover { background: rgba(10, 10, 10, 0); }
 
 /* Responsive lift: raise the bar to clear a taller carousel. A double row is taller
    than a single row; the small (shorter) double-row tiles need less lift than the tall
@@ -32,97 +89,231 @@
 #moe-root.moe-rows2 { bottom: 28vh; }
 #moe-root.moe-rows2.moe-small { bottom: 24vh; }
 
-/* Soft dark glow behind the bar so it reads as one floating panel over the busy hangar,
-   with NO hard backing plate. A painted radial-gradient (gradients always render in
-   Gameface; a box-shadow on a transparent box does not), extended past the widget and
-   kept behind all content + drag-through. */
-#moe-root::before {
-    content: "";
-    position: absolute;
-    top: -34rem;
-    left: -40rem;
-    right: -40rem;
-    bottom: -30rem;
-    z-index: -1;
-    pointer-events: none;
-    background: radial-gradient(ellipse at center,
-        rgba(0, 0, 0, 0.42) 0%,
-        rgba(0, 0, 0, 0.22) 46%,
-        rgba(0, 0, 0, 0) 80%);
-}
-
-/* --- header row: current readout (left) + title (right) -------------------- */
+/* --- current readout, sitting right on top of the bar ---------------------- */
+/* Anchored just above the track's left end (like the Battle Pass "Stage 1"
+   caption) rather than in a header row -- otherwise the icon band above the bar
+   pushes it far away. Absolute vs. the root PADDING box, so offsets include the
+   root padding: bottom = root pad-bottom (9) + body pad-bottom (22) + track (3)
+   + 3rem gap = 37rem; left = root pad-left (18) to align with the track's left
+   edge. The leftmost milestone is at 65%, so the space above the left is clear. */
 #moe-root .moe-head {
+    position: absolute;
+    left: 18rem;
+    bottom: 37rem;
     display: flex;
     align-items: baseline;
-    justify-content: space-between;
-    margin-bottom: 6rem;
+    justify-content: flex-start;
+    z-index: 1;                   /* above the hover overlay (::after, z-index 0) */
 }
 
-/* Top-left readout: current average combined damage + current mark percentage. */
+/* Current average combined damage + current mark percentage. Shadow matched to WG's
+   top-right garage widgets (Battle Pass / missions cards), which use NO text-stroke --
+   every outline there is layered text-shadow. WG's plain card numbers use a single hard
+   dark drop `0 1rem 0 rgba(13,14,16,0.4)`; we keep that and ADD one restrained blur
+   `0 0 3rem rgba(0,0,0,0.55)` as a deliberate float-context deviation (WG's numbers sit
+   on an opaque dark box; ours float over the live hangar and need a little more contrast
+   than WG's blur-less drop -- but far lighter than the old 4rem/0.9 halo). This styles the
+   damage number only; the current-% readout (.moe-cur-pct) is a separate below-bar element. */
 #moe-root .moe-cur {
     font-size: 16rem;
-    font-weight: 700;
-    text-shadow: 0 1rem 4rem rgba(0, 0, 0, 0.9), 0 0 2rem rgba(0, 0, 0, 0.6);
+    font-weight: 400;             /* thin numeric face, matching the mark requirement labels */
+    text-shadow: 0 1rem 0 rgba(13, 14, 16, 0.4), 0 0 3rem rgba(0, 0, 0, 0.55);
 }
-#moe-root .moe-cur-dmg { color: #ffd977; }        /* gold, the MoE accent */
-#moe-root .moe-cur-sep { color: #b2afab; margin: 0 4rem; }
-#moe-root .moe-cur-pct { color: #ede6d9; }
+#moe-root .moe-cur-dmg { color: #ede6d9; }        /* the current value reads white */
+/* Damage glyph to the RIGHT of the current-damage number: the personal-missions
+   "battle condition: damage" glyph (user pick), painted as a background-image div (Gameface
+   clips <img>). The source is SQUARE (64x64), so the box is square to avoid distortion; sized
+   a touch above the 16rem readout and nudged onto the text baseline. img:// resolves game art
+   here, same as the mark glyphs. */
+#moe-root .moe-cur-icon {
+    display: inline-block;
+    width: 22rem;
+    height: 22rem;
+    margin-left: 0rem;                /* small gap to the RIGHT of the number (the zoomed
+                                         glyph also carries transparent padding on its left,
+                                         so the visual gap is a touch wider than this) */
+    vertical-align: -5rem;            /* drop onto the number's baseline */
+    /* 128px source of the same glyph, zoomed past its transparent padding so the visible
+       glyph fills the box (the 64x64 source only filled ~23% at background-size:contain, so
+       growing the box left the glyph tiny). We use the quest_type/128 variant, NOT the
+       battleCondition/128 one: the latter is crisper-looking only because it bakes in a soft
+       radial glow, which the 260% zoom amplifies into a murky haze behind the glyph. The
+       quest_type source is the same 28x28 glyph on FULLY transparent -- clean at any zoom.
+       background-position:center crops the transparent padding away symmetrically. */
+    background-image: url(img://gui/maps/icons/personal_missions_30/quest_type/128x128/icon_battle_condition_damage.png);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 260%;
+}
+/* Current-percent readout, used as the LAST TICK's TOP LABEL: it sits in the icon band
+   above the bar's 100% end (the goalpost), replacing the old static "100%" caption. The
+   damage number stays in the top-left .moe-head. Absolute vs. the track, right-aligned to
+   the 100% tick (translateX(-100%)) with the same 2rem nudge as the 100% damage number
+   below it, so the top label + damage number stack against the bar's right edge. Plain
+   parchment white (like the whole widget); the shadow is the same dark legibility drop the
+   mark numbers use (no coloured glow). */
+#moe-root .moe-cur-pct {
+    position: absolute;
+    bottom: 6rem;                 /* icon band, just above the track (matches .moe-tick-icon) */
+    left: 100%;                   /* the bar's 100% end (last tick) */
+    transform: translateX(-100%); /* RIGHT-aligned to the tick, like the 100% damage number */
+    margin-left: 2rem;            /* same 2rem nudge as the 100% damage number below */
+    font-size: 15.5rem;           /* 0.5rem under the readout's 16rem */
+    font-weight: 400;
+    color: #ede6d9;
+    white-space: nowrap;
+    text-shadow: 0 1rem 0 rgba(13, 14, 16, 0.4), 0 0 3rem rgba(0, 0, 0, 0.55);
+    z-index: 3;
+    pointer-events: none;
+}
 
-#moe-root .moe-title {
-    font-size: 11rem;
-    font-weight: 700;
-    letter-spacing: 1rem;
-    text-transform: uppercase;
-    color: #b2afab;
-    text-shadow: 0 1rem 4rem rgba(0, 0, 0, 0.9);
-}
+/* Fill + current-percent readout are plain parchment white (#ede6d9) at every percentile
+   -- the earlier per-zone colour bands (gold/teal/purple) were dropped; the whole widget
+   now reads in the one WG parchment tone. The dot-textured fill masks this colour (below);
+   .moe-cur-pct already defaults to #ede6d9 in its base rule. */
+#moe-root .moe-fill { background-color: #ede6d9; }
 
 /* --- bar body: room above for icons, below for requirement labels ---------- */
 #moe-root .moe-body {
     position: relative;
-    padding-top: 34rem;           /* room for the nation mark art sitting on top */
+    padding-top: 26rem;           /* room for the (now smaller) nation mark art */
     padding-bottom: 22rem;        /* room for the requirement labels below */
+    z-index: 1;                   /* above the hover overlay (::after, z-index 0) */
 }
 
+/* Dotted track = the Battle Pass progress bar's EXACT dim texture. WG's own
+   `ProgressBar` (mono/battle_pass/lib/lib.css, small variant) paints the unreached
+   remainder with the client art `bg_pattern_small.png` (a 99x2 strip: 2px dash + 1px
+   gap = 3px period, colour rgb(236,230,218) @ alpha 41), tiled repeat-x at
+   `background-size: 99rem 2rem`. We reference the very same texture via img:// (the
+   scheme background-image honours -- same as the mark glyphs) so the bar matches WG
+   pixel-for-pixel. No frame/channel -- it floats over the hangar like the reference. */
 #moe-root .moe-track {
     position: relative;
-    height: 12rem;
-    background: rgba(0, 0, 0, 0.75);        /* black channel, same tone as the frame */
-    border: 2rem solid rgba(0, 0, 0, 0.75);
-    box-shadow:
-        inset 0 0 1rem rgba(255, 255, 190, 0.3),
-        0 3rem 8rem rgba(0, 0, 0, 0.75);
+    height: 2rem;                 /* just the dot-strip height -- a taller channel left a
+                                     thick dark band above/below the dots (read as a fat
+                                     border); the dark backing belongs only BEHIND the dots */
+    /* Semi-dark backing gives the dots contrast (they were invisible over a bright hangar)
+       plus a single thin outline about as thick as the grid itself. */
+    background-color: rgba(13, 14, 16, 0.45);
+    background-image: url(img://gui/maps/icons/ui/progressbar/bg_pattern_small.png);
+    background-repeat: repeat-x;
+    background-size: 99rem 2rem;
+    background-position: left center;
+    box-shadow: 0 0 0 1rem rgba(13, 14, 16, 0.5);
 }
 
-/* Warm gold fill for the reached percentile (flat, like the client's EditableProgress
-   bar). Eases when the value changes / vehicle switches; Gameface that drops transition
-   just cuts instantly. */
+/* Reached portion: WG's bright fill texture `filled_pattern_small.png` (same 99x2 /
+   3px-period grid, colour rgb(182,174,165) at ~90% alpha -- reads brighter purely by
+   being more opaque than the track). Same texture size + left origin as the track, so
+   the dots stay in phase as the fill grows. Eases on value/vehicle change; Gameface that
+   drops the transition just cuts instantly. */
 #moe-root .moe-fill {
     position: absolute;
     top: 0;
     bottom: 0;
     left: 0;
-    background: #e0b24a;
-    box-shadow: inset 0 0 6rem rgba(255, 224, 150, 0.5);
+    /* Parchment white (#ede6d9, set above) MASKED by WG's filled_pattern dot texture, so the
+       reached portion reads as brighter white dots on the same grid as the track's dim dots
+       -- matching the daily/weekly missions bar (a dotted fill, not a solid line). If a url
+       mask ever fails to load, the colour falls back to a solid band. Same 99x2 size + left
+       origin as the track -> dots stay in phase as the fill grows. */
+    -webkit-mask-image: url(img://gui/maps/icons/ui/progressbar/filled_pattern_small.png);
+    mask-image: url(img://gui/maps/icons/ui/progressbar/filled_pattern_small.png);
+    -webkit-mask-repeat: repeat-x;
+    mask-repeat: repeat-x;
+    -webkit-mask-size: 99rem 2rem;
+    mask-size: 99rem 2rem;
+    -webkit-mask-position: left center;
+    mask-position: left center;
     transition: width 0.3s ease;
     z-index: 1;
+}
+
+/* The 50% region boundary (see the 5-region equal-fifths axis in the JS): the bar is
+   divided into 5 even fifths at 50/65/85/95, and this faint upright divider marks the
+   first boundary. 50 percentile maps to barX(50) = the first fifth = 20% of the bar. */
+#moe-root .moe-split {
+    position: absolute;
+    top: -2rem;
+    bottom: -2rem;
+    left: 20%;                    /* barX(50) -- first region boundary */
+    width: 1rem;
+    margin-left: -0.5rem;
+    background: rgba(236, 230, 218, 0.45);   /* slightly brighter than the track dots */
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* Faint "50%" caption under the split divider, on the same row as the mark
+   requirement numbers. Marks the 50% region boundary. */
+#moe-root .moe-split-label {
+    position: absolute;
+    top: 6rem;
+    left: 20%;                    /* split line (barX(50)) */
+    transform: translateX(-50%);  /* centred on the split line */
+    font-size: 12rem;             /* same size as the mark requirement numbers */
+    color: rgba(216, 207, 191, 0.45);
+    white-space: nowrap;
+    text-shadow: 0 1rem 0 rgba(13, 14, 16, 0.4), 0 0 3rem rgba(0, 0, 0, 0.55);
+    z-index: 3;
+    pointer-events: none;
+}
+
+/* "Passed" state for the 50% split (JS adds .moe-split-passed once the current percentile
+   is at/past 50): brighten the divider + caption to the same tones the reached milestone
+   ticks use, so the halfway line reads as passed in the same visual language. */
+#moe-root.moe-split-passed .moe-split { background: rgba(236, 230, 218, 0.8); }
+#moe-root.moe-split-passed .moe-split-label { color: #ede6d9; }
+
+/* Axis end-cap at 100% (top of the percentile axis, beyond the 65/85/95 milestones).
+   Not a data tick -- there is no 4th mark -- just a static goalpost mirroring the .moe-split
+   divider + caption, positioned at the bar's right edge. The label is pulled left so it
+   doesn't overflow the panel. */
+#moe-root .moe-end {
+    position: absolute;
+    top: -2rem;
+    bottom: -2rem;
+    left: 100%;
+    width: 1rem;
+    margin-left: -0.5rem;
+    background: rgba(236, 230, 218, 0.45);
+    z-index: 2;
+    pointer-events: none;
+}
+/* 100% goalpost damage number: on the same below-bar row as the mark numbers (top:6rem).
+   The lone exception to the centred-on-tick rule -- RIGHT-aligned to the 100% tick (so it
+   extends LEFT instead of overflowing the panel at the bar's very end) with a +4rem rightward
+   nudge. Faint, like an unreached mark requirement. */
+#moe-root .moe-end-label {
+    position: absolute;
+    top: 6rem;
+    left: 100%;                     /* bar's right edge (100% tick) */
+    transform: translateX(-100%);   /* RIGHT-aligned to the tick */
+    margin-left: 2rem;             /* nudged 2rem right */
+    font-size: 12rem;
+    color: rgba(216, 207, 191, 0.45);
+    white-space: nowrap;
+    text-shadow: 0 1rem 0 rgba(13, 14, 16, 0.4), 0 0 3rem rgba(0, 0, 0, 0.55);
+    z-index: 3;
+    pointer-events: none;
 }
 
 /* Current-position leading-edge marker (mimics the Battle Pass in-chapter edge): a
    bright sliver with a soft white bloom. box-shadow only renders on a FILLED box, hence
    the solid background. JS sets `left`. */
+/* Leading-edge marker: hidden to match the reference bar, which has no marker --
+   the dotted fill just transitions bright->dim at the current value. JS still
+   positions it, so re-enabling is a one-line change. */
 #moe-root .moe-cur-marker {
+    display: none;
     position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 2.5rem;
-    margin-left: -1.25rem;
-    background: rgba(255, 255, 255, 0.7);
-    box-shadow:
-        0 0 12rem rgba(255, 255, 255, 0.9),
-        0 -6rem 10rem rgba(255, 255, 255, 0.6),
-        0 6rem 10rem rgba(255, 255, 255, 0.6);
+    top: -1rem;
+    bottom: -1rem;
+    width: 2rem;
+    margin-left: -1rem;
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 0 5rem rgba(255, 245, 210, 0.7);
     transition: left 0.3s ease;
     z-index: 2;
     pointer-events: none;
@@ -151,11 +342,11 @@
    with a gold bloom when reached. drop-shadow (hugs the art alpha) not box-shadow. */
 #moe-root .moe-tick-icon {
     position: absolute;
-    bottom: 8rem;                 /* sits just above the track top */
+    bottom: 6rem;                 /* sits just above the track top */
     left: 50%;
     transform: translateX(-50%);
-    width: 40rem;
-    height: 34rem;
+    width: 24rem;
+    height: 20rem;
     background-repeat: no-repeat;
     background-position: center bottom;
     background-size: contain;
@@ -168,34 +359,176 @@
             drop-shadow(0 0 6rem rgba(255, 205, 90, 0.6));
 }
 
-/* A thin notch on the track marking the milestone position. */
+/* A thin upright tick line on the track marking each milestone position. Styled to
+   match the .moe-split divider (same width/height/tone) so the 65/85/95 marks and the
+   50% split read as one family of guides. Brighter once the mark is reached. */
 #moe-root .moe-tick-notch {
     position: absolute;
-    top: -1rem;
+    top: -2rem;
+    bottom: -2rem;
     left: 50%;
     transform: translateX(-50%);
-    width: 2rem;
-    height: 14rem;
-    background: rgba(255, 255, 255, 0.35);
+    width: 1rem;
+    background: rgba(236, 230, 218, 0.45);
     z-index: 2;
 }
 #moe-root .moe-tick-reached .moe-tick-notch {
-    background: #ffd977;
-    box-shadow: 0 0 4rem rgba(255, 205, 90, 0.7);
+    background: rgba(236, 230, 218, 0.8);
 }
 
 /* Damage requirement BELOW each mark. Blank when unknown (external table not loaded). */
 #moe-root .moe-tick-req {
     position: absolute;
-    top: 16rem;                   /* below the track */
-    left: 50%;
-    transform: translateX(-50%);
+    top: 6rem;                    /* just below the track, matching the icon's gap above */
+    left: 50%;                    /* tick centre */
+    transform: translateX(-50%);  /* CENTRED on the tick */
     font-size: 12rem;
-    font-weight: 700;
-    color: #d8cfbf;
+    font-weight: 400;             /* thin numeric face, matching the 50% caption */
+    color: rgba(216, 207, 191, 0.45);   /* unreached marks read faint */
     white-space: nowrap;
-    text-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.9);
+    text-shadow: 0 1rem 0 rgba(13, 14, 16, 0.4), 0 0 3rem rgba(0, 0, 0, 0.55);
 }
 #moe-root .moe-tick-reached .moe-tick-req {
-    color: #ffd977;
+    color: #ede6d9;               /* reached marks read white */
+}
+
+/* --- hover tooltip: full localized stats breakdown ------------------------- */
+/* A body-level fixed panel (JS positions + edge-clamps it) shown while the widget is
+   hovered. Skinned to EXACTLY match the client's native garage tooltips: it reuses WG's
+   own tooltip chrome by VALUE. WG's generic tooltip container (.TooltipDecorator_decorator
+   in the client's Gameface CSS) is a 9-slice `border-image` of the components-atlas
+   WG's ammunition/module ("blocks") tooltip skin, ported verbatim from the client's own
+   Gameface CSS (mono/hangar/tooltips/tooltips.css -> .Index_decorator): the shared tooltip
+   window texture `R.images.gui.maps.icons.tooltip.background_with_border` drawn at
+   `border-image: ... 4 fill / 4rem round` (a THIN 4px 9-slice: solid rgb(25,25,25) fill,
+   1px light rim rgb(53,51,49), softly-rounded corners baked in), under a single soft
+   `box-shadow: 0 0 32px rgba(15,15,15,.8)`. We bundle that exact texture as a sibling PNG
+   (tooltip_bg.png, from gui/maps/icons/tooltip/background_with_border.png) because
+   border-image ignores img://+data: URIs but paints a relatively-loaded sibling file (same
+   trick as the widget's card_border.png). background-color duplicates the fill so it survives
+   if Coherent drops `fill`, and so box-shadow (needs a bg fill) renders. Hidden by default;
+   JS toggles .moe-tt-open. pointer-events:none so it never steals hangar input. Width is set
+   in JS to the widget's exact px width. All colours hardcoded (Gameface drops a whole
+   declaration on an unresolved var()). */
+#moe-tooltip {
+    position: fixed;
+    display: none;
+    left: 0;
+    top: 0;
+    z-index: 10000;               /* above the widget (9000) and its frame/hover overlays */
+    box-sizing: border-box;       /* so the JS-set width includes the frame -> matches widget */
+    font-family: PFDINMax, "PF DIN Max Compressed", "Warhelios", sans-serif;
+    letter-spacing: 0.02em;
+    color: #ede6d9;
+    border: 4rem solid transparent;
+    border-image: url(tooltip_bg.png) 4 fill / 4rem round;
+    background-color: rgb(25, 25, 25);
+    box-shadow: 0 0 32px rgba(15, 15, 15, 0.8);   /* WG tooltip-window drop */
+    padding: 14rem 20rem 18rem;   /* WG blocks-tooltip content inset (.Index_ba2db44b) */
+    pointer-events: none;
+}
+#moe-tooltip.moe-tt-open { display: block; }
+
+/* Header -- the localized "Marks of Excellence" title. Sized to WG's daily-mission /
+   blocks-tooltip title tier (.Index_title): 20rem, weight 600, --color-general-primary
+   #ede6d9, opacity 0.9. */
+#moe-tooltip .moe-tt-title {
+    font-size: 20rem;
+    font-weight: 600;
+    color: #ede6d9;
+    opacity: 0.9;
+    margin-bottom: 12rem;
+    white-space: nowrap;
+}
+
+/* The four MoE requirements as a 2x2 grid: the three marks (65/85/95%) + the 100%
+   goalpost. Two rows of two cells; each cell = [mark glyph][percent / required damage].
+   Reached cells brighten + carry a check; unreached read faint. */
+#moe-tooltip .moe-tt-grid-row {
+    display: flex;
+    align-items: stretch;
+}
+#moe-tooltip .moe-tt-grid-row + .moe-tt-grid-row { margin-top: 4rem; }
+#moe-tooltip .moe-tt-cell {
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    width: 50%;
+    padding: 4rem 10rem 4rem 0;
+    white-space: nowrap;
+}
+/* Mark glyph (mark_1/2/3). background-image div, never <img> (Gameface clips <img>). */
+#moe-tooltip .moe-tt-cell-ico {
+    display: block;
+    flex: 0 0 auto;
+    width: 24rem;
+    height: 24rem;
+    margin-right: 8rem;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+#moe-tooltip .moe-tt-cell-txt {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    line-height: 1.2;
+}
+#moe-tooltip .moe-tt-cell-pct {
+    font-size: 14rem;
+    color: rgba(216, 207, 191, 0.75);
+}
+#moe-tooltip .moe-tt-cell-dmg {
+    font-size: 13rem;
+    color: rgba(216, 207, 191, 0.5);      /* requirement reads faint until reached */
+}
+#moe-tooltip .moe-tt-cell-chk {
+    flex: 0 0 auto;
+    margin-left: 6rem;
+    font-size: 13rem;
+    color: #8fce7a;                        /* reached check -- a calm WG-ish green */
+}
+#moe-tooltip .moe-tt-cell-reached .moe-tt-cell-pct { color: #ede6d9; }
+#moe-tooltip .moe-tt-cell-reached .moe-tt-cell-dmg { color: rgba(216, 207, 191, 0.85); }
+
+/* Footer: current combined-damage (left corner, with the widget's damage glyph) and
+   current percentile (right corner) pushed to opposite edges. */
+#moe-tooltip .moe-tt-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    white-space: nowrap;
+}
+#moe-tooltip .moe-tt-foot-dmg {
+    display: flex;
+    align-items: center;
+}
+/* The damage glyph's 128px source fills only ~23% of its frame at contain, so zoom it
+   past the transparent padding -- exactly like the top-left readout icon (.moe-cur-icon). */
+#moe-tooltip .moe-tt-foot-ico {
+    display: block;
+    flex: 0 0 auto;
+    width: 20rem;
+    height: 20rem;
+    margin-right: 7rem;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 260%;
+}
+#moe-tooltip .moe-tt-foot-dmg-val {
+    font-size: 15rem;
+    color: #ede6d9;
+}
+#moe-tooltip .moe-tt-foot-pct {
+    font-size: 15rem;
+    font-weight: 600;
+    color: #ede6d9;
+}
+
+/* Section separators -- WG's own tooltip divider image (gui/maps/icons/tooltip/divider.png,
+   a faint centred dotted rule), matched to .Index_separator (height 9rem, contain). */
+#moe-tooltip .moe-tt-sep {
+    height: 9rem;
+    margin: 4rem 0 8rem;
+    background: url(tooltip_divider.png) center/contain no-repeat;
 }

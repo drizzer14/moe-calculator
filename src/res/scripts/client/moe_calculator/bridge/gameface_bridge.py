@@ -11,6 +11,8 @@ builds the model via the domain, and MARSHALS it into Wulf ViewModels. See the
 wotmod-architecture harness skill for the listener re-arm rationale and the Wulf event
 `setattr`-back gotcha.
 """
+import json
+
 import BigWorld
 from CurrentVehicle import g_currentVehicle
 from helpers import dependency
@@ -20,6 +22,7 @@ from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_NOTE
 from moe_calculator.adapter import engine_adapter
 from moe_calculator.adapter import moe_data
 from moe_calculator.adapter import format as fmt
+from moe_calculator.adapter import i18n
 from moe_calculator.domain.builder import build_model, bar_visible
 from moe_calculator.bridge.view_models import MoEVM, MarkTickVM
 import openwg_gameface
@@ -27,6 +30,22 @@ import openwg_gameface
 WIDGET_NAME = "MoECalculator"
 DATA_PROP = "moeData"
 COUI = "coui://gui/gameface/mods/14th_ua/MoECalculator"
+
+# The tooltip labels, resolved to the client language once and JSON-encoded for the VM's
+# `labels` string prop. Cached module-side: the language doesn't change mid-session, so
+# every push re-uses the same bundle instead of re-encoding it.
+_labels_json_cache = None
+
+
+def _labels_json():
+    global _labels_json_cache
+    if _labels_json_cache is None:
+        try:
+            _labels_json_cache = json.dumps(i18n.labels())
+        except Exception:
+            LOG_CURRENT_EXCEPTION()
+            _labels_json_cache = "{}"
+    return _labels_json_cache
 
 # (host_vm, rvm) for the currently-mounted widget. Importable so the entry point and
 # the dev REPL can drive refreshes without poking module-private state.
@@ -314,6 +333,8 @@ def push(rvm, host_vm=None):
             tx.setHasData(model.has_data)
             tx.setCarouselRows(rows)
             tx.setCarouselSmall(small)
+            tx.setEndDamageRequired(model.end_damage_required)
+            tx.setLabels(_labels_json())
             arr = tx.getTicks()
             arr.clear()
             for tk in model.ticks:

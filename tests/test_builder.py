@@ -60,6 +60,14 @@ def test_partial_thresholds():
     assert m.has_data is True
 
 
+def test_end_damage_required_from_100_key():
+    # The 100th-percentile goalpost comes from thresholds[100]; absent -> 0.
+    m = build_model(_snap(thresholds={1: 1291, 2: 1858, 3: 2287, 100: 2641}))
+    assert m.end_damage_required == 2641
+    assert build_model(_snap(thresholds={1: 1291})).end_damage_required == 0
+    assert build_model(_snap(thresholds={})).end_damage_required == 0
+
+
 def test_never_played_zeros():
     m = build_model(_snap(marks=0, cur_percentile=0.0, cur_avg_damage=0, thresholds={}))
     assert m.fill == 0.0

@@ -51,7 +51,32 @@ def _install():
     LOG_NOTE("[%s] v%s installed (sub-view inject + data)" % (MOD_NAME, MOD_VERSION))
 
 
+def _install_battle():
+    # In-battle overlay: a standalone OpenWG-registered Gameface WINDOW opened OVER the
+    # battle HUD (see moe_calculator.bridge.battle_view). The battle HUD has NO shared
+    # full-screen Gameface document to inject a position:fixed overlay into (each WG battle
+    # Gameface view is composited by Flash at its own placeId), so the garage-style
+    # gf_mod_inject sub-view trick cannot work here -- we host our own window instead
+    # (the exact pattern WG's gui.impl.battle.prebattle.PrebattleHintsWindow uses).
+    #
+    # Lifecycle is driven off the GLOBAL PlayerEvents arena hooks (which persist across
+    # battles, unlike the per-battle controllers): onAvatarReady opens the window +
+    # (re)arms the efficiency listener, onAvatarBecomeNonPlayer destroys it. Arming once
+    # here is enough; install_all_listeners is idempotent (membership-checked).
+    import openwg_gameface  # noqa: F401  (hard dependency; raises if absent)
+    from moe_calculator.bridge import battle_bridge as bbridge
+
+    bbridge.install_all_listeners()
+    LOG_NOTE("[%s] battle overlay armed (registered Gameface window on arena lifecycle)"
+             % MOD_NAME)
+
+
 try:
     _install()
+except Exception:
+    LOG_CURRENT_EXCEPTION()
+
+try:
+    _install_battle()
 except Exception:
     LOG_CURRENT_EXCEPTION()

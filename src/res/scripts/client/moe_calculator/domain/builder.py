@@ -35,6 +35,9 @@ def build_model(snapshot):
             reached=(snapshot.marks or 0) >= count,
             icon=""))
 
+    # 100th-percentile combined damage (the bar's right-edge goalpost); 0 when unknown.
+    end_required = int(thresholds.get(100, 0) or 0)
+
     return t.MoEModel(
         nation=snapshot.nation or "",
         marks=snapshot.marks or 0,
@@ -43,7 +46,8 @@ def build_model(snapshot):
         fill=percentile,
         ticks=ticks,
         vehicle_int_cd=snapshot.vehicle_int_cd or 0,
-        has_data=has_data)
+        has_data=has_data,
+        end_damage_required=end_required)
 
 
 def bar_visible(overlay_closed, in_garage, has_vehicle):

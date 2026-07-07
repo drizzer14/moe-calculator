@@ -17,8 +17,9 @@ class MoESnapshot(object):
     - `cur_percentile` : current damage rating as a percentile 0.0..100.0
                          (dossier damageRating; how far toward the next mark).
     - `cur_avg_damage` : current moving-average combined damage (dossier movingAvgDamage).
-    - `thresholds`     : {1: dmg, 2: dmg, 3: dmg} combined-damage required for each mark,
-                         fetched from the external table; {} when unknown/not loaded yet.
+    - `thresholds`     : {1: dmg, 2: dmg, 3: dmg, 100: dmg} combined-damage required for
+                         each mark plus the 100th-percentile goalpost (key 100), fetched
+                         from the external table; {} when unknown/not loaded yet.
     - `nation`         : nation id string for the mark art ('germany', 'ussr', ...); ''.
     - `has_vehicle`    : whether a vehicle is actually selected (False -> bar hidden).
     """
@@ -57,7 +58,7 @@ class MoEModel(object):
     current percentile (how close to the next mark). Ticks are always the three
     milestones in ascending order."""
     def __init__(self, nation, marks, cur_percentile, cur_avg_damage, fill, ticks,
-                 vehicle_int_cd=0, has_data=False):
+                 vehicle_int_cd=0, has_data=False, end_damage_required=0):
         self.nation = nation
         self.marks = marks                       # 0..3
         self.cur_percentile = cur_percentile     # 0.0..100.0
@@ -65,6 +66,9 @@ class MoEModel(object):
         self.fill = fill                         # 0..100 (clamped percentile)
         self.ticks = ticks                       # [MarkTick] * 3, ascending
         self.vehicle_int_cd = vehicle_int_cd
+        # Combined damage for the 100th percentile (the bar's right-edge goalpost, beyond
+        # the 3 marks). 0 when unknown / external table not loaded.
+        self.end_damage_required = end_damage_required
         # True when at least one tick carries a real damage requirement (the external
         # table was loaded for this vehicle). Lets the view/tests know data is present.
         self.has_data = has_data

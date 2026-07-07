@@ -43,7 +43,7 @@ class MarkTickVM(ViewModel):
 
 
 class MoEVM(ViewModel):
-    def __init__(self, properties=10, commands=0):
+    def __init__(self, properties=12, commands=0):
         super(MoEVM, self).__init__(properties=properties, commands=commands)
 
     def _initialize(self):
@@ -58,6 +58,8 @@ class MoEVM(ViewModel):
         self._addNumberProperty("carouselRows", 1)     # 7  1 single / 2 double (positioning)
         self._addBoolProperty("carouselSmall", False)  # 8  double-row: small vs tall adaptive
         self._addArrayProperty("ticks", Array())       # 9  [MarkTickVM] * 3, ascending
+        self._addNumberProperty("endDamageRequired", 0)  # 10  100th-pct dmg goalpost (0 = unknown)
+        self._addStringProperty("labels", "")          # 11  JSON {key: localized text} for the tooltip
 
     def setVisible(self, v):
         self._setBool(0, v)
@@ -86,9 +88,51 @@ class MoEVM(ViewModel):
     def setCarouselSmall(self, v):
         self._setBool(8, v)
 
+    def setEndDamageRequired(self, v):
+        self._setNumber(10, v)
+
+    def setLabels(self, v):
+        self._setString(11, v)
+
     def getTicks(self):
         return self._getArray(9)
 
     @staticmethod
     def getTicksType():
         return MarkTickVM
+
+
+class BattleMoEVM(ViewModel):
+    """Root model for the in-battle overlay. It IS the registered MoEBattleView's own root
+    ViewModel (the JS reads it with a root ModelObserver(), NOT via a nested submodel).
+    Flat (no ticks array) -- the four readouts + gating flags. Read-only (no reverse-channel
+    commands). Indices are hand-maintained to match the _addXProperty order; JS reads by NAME."""
+    def __init__(self, properties=7, commands=0):
+        super(BattleMoEVM, self).__init__(properties=properties, commands=commands)
+
+    def _initialize(self):
+        super(BattleMoEVM, self)._initialize()
+        self._addBoolProperty("visible", False)          # 0  false hides the overlay
+        self._addNumberProperty("combinedDamage", 0)     # 1  live CD this battle
+        self._addNumberProperty("projAvgDamage", 0)      # 2  EWMA-projected avg incl. this CD
+        self._addNumberProperty("curPercent", 0)         # 3  MoE percentile of the projection
+        self._addNumberProperty("pctDelta", 0)           # 4  signed delta vs pre-battle standing
+        self._addBoolProperty("hasData", False)          # 5  threshold table usable (percent real)
+
+    def setVisible(self, v):
+        self._setBool(0, v)
+
+    def setCombinedDamage(self, v):
+        self._setNumber(1, v)
+
+    def setProjAvgDamage(self, v):
+        self._setNumber(2, v)
+
+    def setCurPercent(self, v):
+        self._setNumber(3, v)
+
+    def setPctDelta(self, v):
+        self._setNumber(4, v)
+
+    def setHasData(self, v):
+        self._setBool(5, v)

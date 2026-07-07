@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>MoEBattleView</title>
+        <link rel="stylesheet" crossorigin href="MoEBattle.css" defer />
+    </head>
+    <body>
+        <!-- Registered OpenWG Gameface view opened as a full-screen, input-transparent
+             top-layer window over the battle HUD (see bridge/battle_view.py). The overlay
+             root (#moe-battle-root) is created + populated by MoEBattle.js, which reads
+             this view's own root ViewModel (BattleMoEVM) via ModelObserver(). The body is
+             intentionally empty so the JS builds the full readout markup itself. -->
+        <script type="module" crossorigin src="MoEBattle.js" defer></script>
+    </body>
+</html>

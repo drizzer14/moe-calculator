@@ -1,0 +1,12 @@
+[
+    {
+        "type": "Layout",
+        "path": "coui://gui/gameface/mods/14th_ua/MoECalculator/MoEBattleView.html",
+        "parameters": {
+            "extension": "",
+            "entrance": "MoEBattleView",
+            "impl": "gameface"
+        },
+        "itemID": "MoEBattleView"
+    }
+]

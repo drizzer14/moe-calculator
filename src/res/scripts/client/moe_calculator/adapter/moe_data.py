@@ -31,12 +31,13 @@ _AGENT = ("Mozilla/5.0 (compatible; 14th_ua-MoE-Calculator/0.1.0; "
 _POLL_INTERVAL = 0.25                           # seconds between worker-done checks
 
 # Each embedded record: the three mark thresholds + 100% + the tank id, in that order.
-# Tolerant of the "100" value but pinned to the field names/order tomato.gg emits; a
-# markup change makes this yield nothing -> graceful degrade (no labels), not a crash.
-_RECORD_RX = re.compile(r'"65":(\d+),"85":(\d+),"95":(\d+),"100":\d+,"id":(\d+)')
+# We capture the "100" value too (the combined damage for the 100th percentile -- the
+# bar's right-edge goalpost), pinned to the field names/order tomato.gg emits; a markup
+# change makes this yield nothing -> graceful degrade (no labels), not a crash.
+_RECORD_RX = re.compile(r'"65":(\d+),"85":(\d+),"95":(\d+),"100":(\d+),"id":(\d+)')
 
 # --- module state (main-thread only) -----------------------------------------
-_table = {}            # int_cd -> {1: dmg, 2: dmg, 3: dmg}
+_table = {}            # int_cd -> {1: dmg, 2: dmg, 3: dmg, 100: dmg}
 _loaded = False        # a fetch has completed (successfully or not)
 _loading = False       # a fetch is in flight
 _thread = None
@@ -45,23 +46,24 @@ _ready_listeners = []   # called (no args) on the main thread when a fetch compl
 
 
 def parse_table(text):
-    """Extract {tank_id: {1: dmg, 2: dmg, 3: dmg}} from the tomato.gg MoE page HTML.
-    Pure -- safe to call on the worker thread and in unit tests."""
+    """Extract {tank_id: {1: dmg, 2: dmg, 3: dmg, 100: dmg}} from the tomato.gg MoE page
+    HTML. Key 100 is the 100th-percentile combined damage (the bar's right-edge goalpost);
+    keys 1/2/3 are the mark thresholds. Pure -- safe on the worker thread / in unit tests."""
     table = {}
     if not text:
         return table
     for m in _RECORD_RX.finditer(text):
-        d1, d2, d3, tid = m.group(1), m.group(2), m.group(3), m.group(4)
+        d1, d2, d3, d4, tid = (m.group(1), m.group(2), m.group(3), m.group(4), m.group(5))
         try:
-            table[int(tid)] = {1: int(d1), 2: int(d2), 3: int(d3)}
+            table[int(tid)] = {1: int(d1), 2: int(d2), 3: int(d3), 100: int(d4)}
         except (TypeError, ValueError):
             continue
     return table
 
 
 def get_thresholds(int_cd):
-    """Return {1: dmg, 2: dmg, 3: dmg} for a vehicle, or {} if unknown / not loaded yet.
-    Lazily kicks off the one-time fetch on first call."""
+    """Return {1: dmg, 2: dmg, 3: dmg, 100: dmg} for a vehicle, or {} if unknown / not
+    loaded yet. Lazily kicks off the one-time fetch on first call."""
     if not _loaded and not _loading:
         start()
     try:

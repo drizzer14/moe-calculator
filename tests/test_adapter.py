@@ -25,6 +25,15 @@ def test_percent():
     assert fmt.percent(None) == "0%"
 
 
+def test_signed_percent():
+    assert fmt.signed_percent(0.4) == "+0.4%"
+    assert fmt.signed_percent(-1.2) == "-1.2%"
+    assert fmt.signed_percent(0) == "0%"
+    assert fmt.signed_percent(None) == "0%"
+    assert fmt.signed_percent(2.0, decimals=0) == "+2%"
+    assert fmt.signed_percent(-2.0, decimals=0) == "-2%"
+
+
 def test_mark_icon_url():
     assert fmt.mark_icon_url("germany", 1) == \
         "img://gui/maps/icons/marksOnGun/95x85/germany_1_mark.png"
@@ -47,9 +56,9 @@ _SAMPLE = (
 
 def test_parse_table_extracts_records():
     table = moe_data.parse_table(_SAMPLE)
-    assert table[1] == {1: 709, 2: 1065, 3: 1363}
-    assert table[1073] == {1: 1291, 2: 1858, 3: 2287}
-    assert table[6017] == {1: 2518, 2: 3508, 3: 4290}
+    assert table[1] == {1: 709, 2: 1065, 3: 1363, 100: 1580}
+    assert table[1073] == {1: 1291, 2: 1858, 3: 2287, 100: 2641}
+    assert table[6017] == {1: 2518, 2: 3508, 3: 4290, 100: 4935}
     assert len(table) == 3
 
 

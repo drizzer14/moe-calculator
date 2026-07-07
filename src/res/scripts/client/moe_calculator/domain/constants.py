@@ -19,3 +19,10 @@ MARK_COUNTS = (1, 2, 3)
 # The full percentile axis the bar spans.
 AXIS_MIN = 0
 AXIS_MAX = 100
+
+# In-battle projected-rating (EWMA) coefficient. WG's Marks rating is a moving average
+# over "~50-100 battles"; we model it as an EWMA newAvg = prevAvg + k*(CD - prevAvg) with
+# k = 2/(N+1), N=100 (k ~= 0.0198). N/k are community-reverse-engineered, NOT WG-confirmed
+# -- treat as an assumption to validate against real replays (see TASKS/in-battle-moe-panel.md).
+EWMA_N = 100
+EWMA_K = 2.0 / (EWMA_N + 1)

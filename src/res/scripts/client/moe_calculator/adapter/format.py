@@ -41,6 +41,22 @@ def percent(p, decimals=1):
     return ("%.*f%%" % (decimals, p))
 
 
+def signed_percent(p, decimals=1):
+    """Signed percentile delta -> '+0.4%' / '-1.2%'; exactly 0 -> '0%'. Used for the
+    in-battle 'how much this battle moves your standing' readout."""
+    try:
+        p = float(p or 0.0)
+    except (TypeError, ValueError):
+        return "0%"
+    if p == 0:
+        return "0%"
+    sign = "+" if p > 0 else "-"
+    mag = abs(p)
+    if decimals <= 0:
+        return "%s%d%%" % (sign, int(round(mag)))
+    return "%s%.*f%%" % (sign, decimals, mag)
+
+
 def mark_icon_url(nation, mark_count, size=MARK_ICON_SIZE):
     """Nation MoE art URL for a given mark count (1/2/3), mirroring the client's
     MarkOnGunAchievement.__getIconPath template:
