@@ -24,7 +24,13 @@ import shutil
 import sys
 
 REL = os.path.join("gui", "gameface", "mods", "14th_ua", "MoECalculator")
-ASSETS = ("MoECalculator.js", "MoECalculator.css")
+ASSETS = ("MoECalculator.js", "MoECalculator.css", "card_border.png",
+          "tooltip_bg.png", "tooltip_divider.png", "MoEBattle.js",
+          "MoEBattle.css", "MoEBattleView.html", "checker.png",
+          # Battle-overlay font: ONE cut (MoEBattle 600), a bare sibling of the CSS
+          # (Coherent @font-face only resolves bare-sibling src urls, not subdir-relative).
+          # This window has NO in-session hot-reload (resources pin at launch) -- needs relaunch.
+          "MoEBattle.ttf")
 
 
 def main(argv):
