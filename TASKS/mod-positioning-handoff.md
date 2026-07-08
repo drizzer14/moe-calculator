@@ -103,7 +103,89 @@ hot-reload overlay-shadow (Phase 1 note) — a clean rebuild before release stil
 ## Phase 2 — damage-log-aware default (own session, after Phase 1)
 Binary: read the four `DAMAGE_LOG` flags (`TOTAL_DAMAGE='damageLogTotalDamage'`, `BLOCKED_DAMAGE`, `ASSIST_DAMAGE`, `ASSIST_STUN`; confirmed in `settings_constants.py:268-272`) via `core.getSetting(...)` in `battle_adapter` (fail-soft). Pure predicate in `domain/`: all-unticked → raised anchor, else default. Re-apply via `onSettingsChanged` (any of the four in diff). Calibrate the raised anchor in-game (all-four-unticked layout) at 1×/2×. Builds on Phase 1's scale-aware placement.
 
-## Phase 3 — Ctrl+drag + persist (own session, after Phase 2)
+## Phase 3 — HANDOFF TO A CLEAN SESSION (working tree REVERTED to HEAD; WIP saved as a patch)
+
+Per the user (2026-07-08): **the positioning/persistence work was discarded back to HEAD**
+(overlay behaves exactly as at commit `0df7cff` again). The clean session should **focus
+ONLY on making the Ctrl+drag work** — start from the *learnings* below, not the reverted code.
+
+### What we PROVED this session (all live, do NOT re-litigate)
+- **JS-side drag is a DEAD END** (two independent reasons): plain JS `console.log` is NOT
+  routed to `python.log` (only JS *errors* + engine `[Gameface]` msgs are), and the
+  input-transparent overlay WINDOW (`show(focus=False)`, `pointer-events:none`) gives its DOM
+  no usable pointer path — the guaranteed-visible Python handler never fired on a drag. So
+  **drive the drag ENTIRELY from Python.**
+- **All Python-driven drag primitives VERIFIED via the REPL (:2224):**
+  - `BigWorld.isKeyDown(Keys.KEY_LCONTROL / KEY_RCONTROL / KEY_LEFTMOUSE)` — reads Ctrl + LMB,
+    including held together (sampled `ctrl+lmb_any=True` over 5 s while the user held them).
+  - `GUI.mcursor().position` — cursor in **CLIP space**: x∈[-1,1] L→R, y∈[-1,1] **BOTTOM→top**
+    (flip y for screen). Updates live; cursor is visible only while Ctrl is held (WG behaviour).
+  - `GUI.screenResolution()`=(3840,2160) ÷ `interfaceScale.get()`=2.0 → logical 1920×1080;
+    `logical − 256 surface == far-sentinel extent 1664×824` EXACTLY (compute logical size
+    directly; do NOT far-sentinel mid-drag — it would fling the window).
+  - `window.move()/position/size` work; surface fixed **256×256** (`size` read-only).
+  - **GOTCHA:** `BigWorld.callback` scheduled from the **REPL socket thread** ("Python7") does
+    NOT run on the main loop (heartbeat never fired) — but from the MOD (main thread) it does…
+    **but only for ~2 s, then the chain silently dies — see SESSION 2 below.**
+    REPL multi-line needs `execfile(r'…')` (`--file` sends per-line → SyntaxError on loops).
+- **The overlay RENDERS FINE** — confirmed by REPL-moving the live window to screen centre
+  (`w.move(760,400,…)`): the readout appeared. So rendering/model/front-end are all good.
+
+### SESSION 2 (2026-07-08) — ROOT CAUSE FOUND: the poll STALLS after ~2 s (NOT a mapping/Ctrl bug)
+
+The handoff's "the poll loop DOES run in the mod" was a **false inference** — it was based only
+on the `drag poll armed` log (which just proves `arm()` ran), never on an actual tick count.
+This session instrumented an **unconditional** alive-heartbeat at the TOP of `_poll_once`
+(before the Ctrl-gated early-return) + edge logging, deployed, and captured live:
+
+- The poll **does** start ticking (logged `alive tick=33,34,37,66`, `win=True`) — so
+  `BigWorld.callback`, the gen guard, and `_active_window()` are all fine at first.
+- Then **every subsystem's** logging stops at the SAME instant (`18:00:03.592`, tick 66) —
+  that's a **python.log buffer-flush boundary, not a crash**; mid-battle the file tail is
+  STALE (don't trust it — use the REPL, below).
+- **Decisive REPL probe (no flush dependency):** read `battle_drag._state['dbg_tick']` twice
+  1 s apart → **`delta_over_1s = 0`** while `armed=True, gen=1`, `dbg_tick` frozen at **74**.
+  If the 33 Hz loop were alive `dbg_tick` would be in the tens of thousands. So the
+  self-rescheduling `BigWorld.callback` chain **fires ~74 times (~2 s) then silently stops** —
+  **no exception** (the reschedule is guarded + would `LOG_CURRENT_EXCEPTION`), **no disarm/
+  teardown** (no `overlay window destroyed`), gen unchanged. The timer chain just stops.
+
+**Consequences for next session:**
+- ctrl detection and the `_over`/mapping math are **UNTESTED, not disproven** — the poll died
+  before the user's real Ctrl-hold+drag, so the `lctrl=False` lines are just the pre-gesture
+  window, NOT evidence Ctrl is unreadable. Re-evaluate them only once the poll survives.
+- **The bug to fix FIRST is the stalling poll**, not the gesture.
+
+**Reusable diagnostic technique (do this instead of tailing python.log mid-battle):** have the
+poll write what it sees into module state (`_state['dbg_tick']` etc.), then read it live over
+the REPL — bypasses the log-flush buffering entirely and measures the tick rate directly.
+
+### Clean-session plan (drag only) — REVISED for the stall
+
+1. Restore the WIP: `git apply TASKS/phase3-drag-wip.patch` (now INCLUDES the alive-heartbeat
+   instrumentation + `_state` dbg fields — brings back `battle_drag.py`, `mod_settings.py`, the
+   `battle_bridge`/`battle_view`/`view_models`/`wulf_args` wiring, tests).
+2. **Fix the stalling `BigWorld.callback` chain FIRST.** Hypotheses to test (cheap, via the REPL
+   `dbg_tick`-delta probe — no relaunch needed to confirm a fix once deployed):
+   - The scheduled `lambda: _tick(gen)` closure may be **GC'd** after arm returns (the engine
+     may hold only a weak ref) → hold a strong module-level ref to the callback, or schedule a
+     **bound method / module-level function with args** instead of a fresh lambda each tick.
+   - The engine may cancel app-scheduled `BigWorld.callback`s across a battle-load phase (the
+     `[Gameface] … Size calculation timeout` + a `place` both landed at ~tick 66) → re-arm from
+     a **durable periodic signal** or an **input-event hook** instead of self-rescheduling.
+   - **Preferred redesign:** drop the poll entirely and drive the drag from WoT's **input event
+     system** (event-driven, no self-reschedule, no 33 Hz burn) — investigate `InputHandler`
+     (`avatar_input_lobby` / `gui.app_loader`) key+mouse handlers, or an `onMouseMove`/key
+     handler on the battle app. Grep the decompile (Dev quickref) for the mount point.
+3. Once the loop survives a whole battle (verify: `dbg_tick` climbs into the thousands via REPL),
+   THEN validate the gesture (ctrl → `over` → `move`), fix any mapping, then wire persistence
+   (`mod_settings.py` per-mille fractions are ready) + reset, then `commit-after-lgtm`.
+
+`battle_drag.py` design: gesture logic (fresh Ctrl+LMB whose cursor is inside the window rect →
+`window.move` to cursor − grab-offset → release persists the fraction) is fine; **only the
+scheduling mechanism is broken.** Full code + instrumentation in the patch.
+
+## Phase 3 — Ctrl+drag + persist (own session, after Phase 2) — ORIGINAL PLAN (pre-pivot; JS parts are now known-dead)
 Gated on drag probes **P1** (can the `focus=False`, `pointer-events:none` window receive ANY pointer event on a temp `pointer-events:auto` hot layer?), **P2** (`setPointerCapture` across the ~256px surface; screen-fraction vs delta wire contract), **P3** (Python-observable Ctrl), **P5** (MSA symbols). **Build probe-independent plumbing first** (`clamp_frac`/`cmd_xy_frac` + tests, port `mod_settings.py` → fractions, `BattleMoEVM` `setPosition`/`resetPosition` commands + `properties=7`→6 fix, `place_fraction` refactor + seed, `onResetMod` reset) so persistence + reset ship even if free-drag proves infeasible (fallback: MSA X/Y-fraction steppers / arrow-nudge). **Move the WINDOW via Python `move()`, never the DOM element.** Full mechanics in the plan file + the deeper design captured this session.
 
 ---
