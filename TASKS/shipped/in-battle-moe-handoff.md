@@ -1,5 +1,7 @@
 # In-battle MoE — session handoff (live-verify findings)
 
+_Status: shipped_
+
 _Written 2026-07-06 after a live replay + REPL verification session. Read this first; it
 supersedes the "NEXT" notes in `TASKS/in-battle-moe-panel.md`. All work is **UNCOMMITTED**._
 

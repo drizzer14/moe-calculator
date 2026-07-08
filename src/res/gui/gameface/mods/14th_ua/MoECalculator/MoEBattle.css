@@ -32,14 +32,20 @@
          url("coui://gui/gameface/mods/14th_ua/MoECalculator/MoEBattle.ttf") format("truetype");
 }
 
-/* This is a full-screen OpenWG-registered Gameface WINDOW hosted over the battle HUD
-   (see bridge/battle_view.py). The window surface fills the screen; make its document
-   fully transparent + non-interactive so only the small readout paints and no click is
-   ever swallowed from the battle beneath. */
+/* This is a CONTENT-SIZED OpenWG-registered Gameface WINDOW over the battle HUD (see
+   bridge/battle_view.py -- WINDOW_FULLSCREEN was dropped to stop the Ctrl+click/hover
+   steal). The window surface fits THIS box, so only this corner covers the screen and the
+   minimap/HUD stay click-through under a raised cursor. Give the document a FIXED box (NOT
+   width/height:100% -- that resolves against the surface, which now follows the content =
+   circular). Sized in rem, the SAME unit as the readout, so the box tracks the text at any
+   interface scale; generous enough for two rows of "10,000 / 10,000". The Python side
+   positions this box (move()); leftover transparent space still hit-tests, so keep the box
+   snug. If the readout ever clips or the box reads too large in-game, tune these two values
+   (live-calibration item -- there is no hot-reload for this window). */
 html,
 body {
-    width: 100%;
-    height: 100%;
+    width: 340rem;
+    height: 130rem;   /* tall enough for the in-box top offset below + 2 rows (no clip) */
     margin: 0;
     padding: 0;
     background: transparent;
@@ -47,13 +53,19 @@ body {
     pointer-events: none;
 }
 
-/* Vertical stack of icon+value rows. Anchored by vw/vh (aligns to WG's efficiency panel:
-   left ~= the vehicle-class icon column, top ~= the panel's top edge). Spacing is done with
-   MARGINS -- flex `gap` is unsupported in this Coherent build. */
+/* Vertical stack of icon+value rows, pinned to the top-left of the content box. The WINDOW
+   itself is now positioned over WG's efficiency panel (bridge/battle_view.py move()), so the
+   readout no longer self-anchors with vw/vh (which would resolve against the small surface).
+   Spacing is done with MARGINS -- flex `gap` is unsupported in this Coherent build. */
 #moe-battle-root {
-    position: fixed;
-    left: 13.8vw;
-    top: 78.8vh;
+    position: absolute;
+    left: 0;
+    /* The window (bridge/battle_view.py) pins the 256-logical box FLUSH to the bottom, so its
+       top clamps at ~76.3vh (y=824). To land the readout top at the tuned 78.8vh, nudge it
+       down within the box by (78.8-76.3)vh = 2.5vh = 27 logical px; at 1rem == 1 logical px
+       (calibrated 2.0 px/rem @3840) that is 27rem. This is exactly the overlay tuner's emitted
+       `#moe-battle-root { top: … }` value -- keep them in lockstep. */
+    top: 27rem;
     z-index: 9000;
     pointer-events: none;               /* never steal battle input -- info-only overlay */
     font-family: "MoEBattle", "Arial Narrow", sans-serif;
@@ -95,7 +107,7 @@ body {
     opacity: 0.19;
     /* unprefixed mask only -- WG's own Gameface CSS uses `mask` (679x) and never `-webkit-mask`;
        the engine honors the standard property, so the prefix is dead weight. */
-    mask: radial-gradient(223% 120% at 10% 50%, #000 0%, transparent 53%);
+    mask: radial-gradient(223% 120% at 29% 50%, #000 0%, transparent 22%);
 }
 
 /* Dark radial UNDERLAY -- the pre-dither backdrop shape, layered back BEHIND the checker.
@@ -148,7 +160,7 @@ body {
     font-size: 14rem;
     font-weight: 600;
     color: #ffffff;
-    letter-spacing: -0.05em;
+    letter-spacing: 0;
     text-shadow: 0rem 0rem 1rem rgba(0, 0, 0, 0.5);
 }
 
@@ -168,14 +180,15 @@ body {
     text-shadow: 0rem 0rem 1rem rgba(0, 0, 0, 0.5);
 }
 
-/* Tri-state sign colours (compound selectors so they beat .mb-value's white):
-   applies to the live-damage value (vs projected avg) AND the delta. */
+/* Sign colours (compound selector beats the white defaults). Applies to the live-damage value
+   (row 1, vs projected avg) AND the signed delta NUMBER (row 2, .mb-delta-num) -- but NOT the
+   delta's surrounding parens, which are static markup on .mb-delta and stay white. */
 .mb-value.mb-up,
-.mb-delta.mb-up {
-    color: #8fd18f;
+.mb-delta-num.mb-up {
+    color: #61bf22;   /* WG ally 3D-flag team green (gui_colors.xml) */
 }
 
 .mb-value.mb-down,
-.mb-delta.mb-down {
-    color: #e08585;
+.mb-delta-num.mb-down {
+    color: #c81400;   /* WG enemy 3D-flag team red (gui_colors.xml) */
 }

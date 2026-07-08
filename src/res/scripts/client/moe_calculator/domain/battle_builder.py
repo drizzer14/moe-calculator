@@ -113,7 +113,10 @@ def build_battle_model(snapshot):
         has_data=has_data)
 
 
-def battle_bar_visible(in_battle, has_vehicle):
+def battle_bar_visible(in_battle, has_vehicle, is_spectating=False):
     """Whether the in-battle overlay should render. Pure/engine-free so it unit-tests on
-    plain inputs: a player vehicle must be readable and combat must be active."""
-    return bool(has_vehicle) and bool(in_battle)
+    plain inputs: a player vehicle must be readable and combat must be active, and we must
+    NOT be spectating another player. While spectating (postmortem free-look), the tank
+    identity/thresholds follow the observed vehicle but the damage stats stay ours, so the
+    percent/delta is meaningless -- hide it. Defaults keep prior callers unchanged."""
+    return bool(has_vehicle) and bool(in_battle) and not bool(is_spectating)

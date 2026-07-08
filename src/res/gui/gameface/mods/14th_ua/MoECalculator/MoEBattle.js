@@ -51,13 +51,14 @@ function pctText(p) {
     return (Math.floor(p * 100) / 100).toFixed(2) + "%";
 }
 
-// Signed delta wrapped in parens -> "(+0.41%)" / "(-1.20%)"; exactly 0 -> "(0%)".
-// Two decimals, TRUNCATED (matches pctText) so the delta never overstates a mark gain.
+// Signed delta NUMBER -> "+0.41%" / "-1.20%"; exactly 0 -> "0%". Two decimals, TRUNCATED
+// (matches pctText) so the delta never overstates a mark gain. The surrounding parens are
+// STATIC markup (see ensureRoot) and stay white -- only this number carries the sign colour.
 function signedPct(p) {
     p = Number(p) || 0;
-    if (p === 0) return "(0%)";
+    if (p === 0) return "0%";
     const sign = p > 0 ? "+" : "-";
-    return "(" + sign + (Math.floor(Math.abs(p) * 100) / 100).toFixed(2) + "%)";
+    return sign + (Math.floor(Math.abs(p) * 100) / 100).toFixed(2) + "%";
 }
 
 // Tri-state colour by sign: >0 green (mb-up), <0 red (mb-down), 0 white (neither class).
@@ -84,7 +85,7 @@ function ensureRoot() {
         '<div class="mb-row">' +
         '  <span class="mb-ico" style="background-image:url(' + ICON_PCT + ')"></span>' +
         '  <span class="mb-value mb-pct"></span>' +
-        '  <span class="mb-delta"></span>' +
+        '  <span class="mb-delta">(<span class="mb-delta-num"></span>)</span>' +
         '</div>';
     document.body.appendChild(root);
     return root;
@@ -115,10 +116,11 @@ function render(model) {
 
     root.querySelector(".mb-pct").textContent = pctText(data.curPercent || 0);
     const delta = Number(data.pctDelta) || 0;
-    const deltaEl = root.querySelector(".mb-delta");
-    deltaEl.textContent = signedPct(delta);
+    // Colour only the number; the parens on .mb-delta stay white.
+    const deltaNum = root.querySelector(".mb-delta-num");
+    deltaNum.textContent = signedPct(delta);
     // Delta vs pre-battle standing: green improves, red drags, white unchanged.
-    colourBySign(deltaEl, delta);
+    colourBySign(deltaNum, delta);
 }
 
 engine.whenReady.then(() => {

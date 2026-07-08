@@ -1,3 +1,5 @@
+_Status: shipped_
+
 > **STATUS 2026-07-07 (late): mostly SUPERSEDED.** The styling below is largely DONE and applied.
 > Since this was written: font is the REAL MoEBattle extracted from `fontlib.swf` (bundled as one
 > `MoEBattle.ttf` @font-face `MoEBattle` 600, **confirmed loading**); px/rem recalibrated to

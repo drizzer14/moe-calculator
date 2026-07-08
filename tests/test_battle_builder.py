@@ -125,3 +125,13 @@ def test_battle_bar_visible_gates():
     assert battle_bar_visible(True, True) is True
     assert battle_bar_visible(False, True) is False    # not in combat yet
     assert battle_bar_visible(True, False) is False     # no player vehicle
+
+
+def test_battle_bar_visible_hidden_while_spectating():
+    # After death, spectating a teammate: identity/thresholds follow the observed vehicle
+    # while the damage stats stay ours -> a nonsense readout. Hide it.
+    assert battle_bar_visible(True, True, is_spectating=True) is False
+    # Alive (controlling own vehicle) -> visible.
+    assert battle_bar_visible(True, True, is_spectating=False) is True
+    # Default arg preserves prior behavior (never wrongly hides when the flag is absent).
+    assert battle_bar_visible(True, True) is True

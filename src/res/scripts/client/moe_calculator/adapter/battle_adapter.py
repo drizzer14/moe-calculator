@@ -82,6 +82,29 @@ def _player_vehicle_descr():
         return None
 
 
+def _is_spectating():
+    """True when a DIFFERENT vehicle than the player's OWN is being observed -- i.e. the
+    local player has died and is spectating a teammate (postmortem free-look).
+
+    This is the exact test WG itself uses (hit_direction_ctrl/ctrl.py):
+      arenaDP.getPlayerVehicleID() != vehicleState.getControllingVehicleID()
+    NOT Avatar.isObserver() -- that's true only for the dedicated observer/spectator ROLE
+    (training rooms), not normal postmortem spectating.
+
+    Fail-soft to False (overlay stays visible) when either id is unreadable, and the
+    bool()/bool() guard makes a transient 0 mid-switch fail-safe rather than wrongly hiding."""
+    try:
+        from gui.battle_control import avatar_getter
+        own = _safe_int(lambda: avatar_getter.getPlayerVehicleID(), 0)
+        sp = _session_provider()
+        vsc = sp.shared.vehicleState if (sp and sp.shared) else None
+        observed = _safe_int(lambda: vsc.getControllingVehicleID(), 0) if vsc else 0
+        return bool(own) and bool(observed) and own != observed
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+        return False
+
+
 def _player_vehicle_int_cd(descr):
     if descr is None:
         return 0
@@ -101,14 +124,19 @@ def _player_nation(descr):
 
 
 def _in_battle():
-    """True during the active combat period. Fail-open (True) when unreadable: if we could
-    read a vehicle + efficiency, showing the overlay is the safe default."""
+    """True whenever the overlay should be up: from arena spin-up through active combat --
+    WAITING / PREBATTLE (the prestart countdown) / BATTLE -- so the readout shows at the START
+    of the battle, not only once the prestart timer hits 0. Excludes IDLE and AFTERBATTLE.
+    ARENA_PERIOD is an ordered enum (IDLE=0, WAITING=1, PREBATTLE=2, BATTLE=3, AFTERBATTLE=4).
+    Fail-open (True) when unreadable: if we could read a vehicle + efficiency, showing the
+    overlay is the safe default."""
     try:
         from constants import ARENA_PERIOD
         arena = BigWorld.player().arena
         if arena is None:
             return True
-        return arena.period == ARENA_PERIOD.BATTLE
+        return arena.period in (ARENA_PERIOD.WAITING, ARENA_PERIOD.PREBATTLE,
+                                ARENA_PERIOD.BATTLE)
     except Exception:
         LOG_CURRENT_EXCEPTION()
         return True
@@ -150,7 +178,8 @@ def build_battle_snapshot():
             pre_percentile=pre_percentile,
             thresholds=thresholds,
             has_vehicle=True,
-            in_battle=_in_battle())
+            in_battle=_in_battle(),
+            is_spectating=_is_spectating())
     except Exception:
         LOG_CURRENT_EXCEPTION()
         return bt.BattleSnapshot(has_vehicle=False, in_battle=False)

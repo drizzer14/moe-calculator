@@ -29,10 +29,13 @@ class BattleSnapshot(object):
     - `nation`       : nation id string (optional; for any art).
     - `has_vehicle`  : whether a player vehicle was readable (False -> overlay hidden).
     - `in_battle`    : whether combat is active (arena BATTLE period; gates the overlay).
+    - `is_spectating`: whether a DIFFERENT vehicle than the player's own is being observed
+                       (postmortem free-look). True -> overlay hidden: the identity follows
+                       the observed tank while the stats stay ours, so the readout is bogus.
     """
     def __init__(self, vehicle_int_cd=0, nation="", damage=0, assist=0, stun=0,
                  team_damage=0, pre_avg_damage=0, pre_percentile=0.0, thresholds=None,
-                 has_vehicle=True, in_battle=True):
+                 has_vehicle=True, in_battle=True, is_spectating=False):
         self.vehicle_int_cd = vehicle_int_cd
         self.nation = nation
         self.damage = damage
@@ -44,6 +47,7 @@ class BattleSnapshot(object):
         self.thresholds = thresholds or {}
         self.has_vehicle = has_vehicle
         self.in_battle = in_battle
+        self.is_spectating = is_spectating
 
 
 class BattleMoEModel(object):

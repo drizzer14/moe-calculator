@@ -2,7 +2,7 @@
 
 _Submitted: "add mod info into battle — into the Log panel from the screenshot; display current
 damage counted towards MoE, current percent, current MoE (damage), and percent delta. Also:
-best way to debug this without going into battle." · Status: open_
+best way to debug this without going into battle." · Status: shipped_
 
 > ⚠️ Big feature — the mod is **garage-only** today; battle is a new UI context. The battle
 > symbols + MoE formula below were researched against the StranikS-Scan decompiled client.

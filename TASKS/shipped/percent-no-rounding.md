@@ -1,7 +1,7 @@
 # Research: Prevent rounding in % values (in-battle + garage widget)
 
 _Submitted: "a clean session must prevent any rounding in % values & check whether such rounding
-persists in the garage widget as well." · Status: open_
+persists in the garage widget as well." · Status: shipped_
 
 ## Summary
 

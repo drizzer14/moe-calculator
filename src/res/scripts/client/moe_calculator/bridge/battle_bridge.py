@@ -61,6 +61,17 @@ def _on_efficiency_updated(*args, **kwargs):
         LOG_CURRENT_EXCEPTION()
 
 
+def _on_observed_vehicle_changed(*args, **kwargs):
+    # vehicleState.onVehicleControlling / onPostMortemSwitched: the observed vehicle changed
+    # (died into postmortem, or cycled to another spectated ally). Re-push so the overlay
+    # hides while spectating someone else and reveals again if control returns to us.
+    # Efficiency events may not fire while spectating, so this is the signal we need.
+    try:
+        refresh()
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+
+
 def _on_teardown(*args, **kwargs):
     # Avatar became non-player (battle exit) -> tear down the overlay window; the next
     # battle mount re-opens it. The event lists are rebuilt by the arena teardown regardless.
@@ -89,12 +100,24 @@ def _efficiency_holder():
     return battle_adapter._efficiency_ctrl()  # None until the controller exists -> skipped
 
 
+def _vehicle_state_holder():
+    # sessionProvider.shared.vehicleState -- the OBSERVED_VEHICLE_STATE controller. None until
+    # the arena spins it up -> _arm skips and retries next mount.
+    sp = battle_adapter._session_provider()
+    return sp.shared.vehicleState if (sp and sp.shared) else None
+
+
 # (label, holder-getter, event-attribute, handler)
 _LISTENERS = (
     ("avatar ready", _player_events_holder, "onAvatarReady", _on_mount_refresh),
     ("avatar teardown", _player_events_holder, "onAvatarBecomeNonPlayer", _on_teardown),
     ("arena period", _player_events_holder, "onArenaPeriodChange", _on_arena_period_changed),
     ("efficiency", _efficiency_holder, "onTotalEfficiencyUpdated", _on_efficiency_updated),
+    # Observed-vehicle changes drive the spectate hide/reveal (postmortem free-look).
+    ("observed vehicle", _vehicle_state_holder, "onVehicleControlling",
+     _on_observed_vehicle_changed),
+    ("postmortem", _vehicle_state_holder, "onPostMortemSwitched",
+     _on_observed_vehicle_changed),
 )
 
 
@@ -174,10 +197,10 @@ def push(rvm):
     try:
         snap = battle_adapter.build_battle_snapshot()
         model = build_battle_model(snap)
-        visible = battle_bar_visible(snap.in_battle, snap.has_vehicle)
-        LOG_NOTE("[moe-battle] push visible=%s cd=%d pct=%.1f delta=%.2f data=%s" % (
-            visible, model.combined_damage, model.cur_percent, model.pct_delta,
-            model.has_data))
+        visible = battle_bar_visible(snap.in_battle, snap.has_vehicle, snap.is_spectating)
+        LOG_NOTE("[moe-battle] push visible=%s spectating=%s cd=%d pct=%.1f delta=%.2f data=%s" % (
+            visible, snap.is_spectating, model.combined_damage, model.cur_percent,
+            model.pct_delta, model.has_data))
         with rvm.transaction() as tx:
             tx.setVisible(visible)
             tx.setCombinedDamage(model.combined_damage)

@@ -1,7 +1,7 @@
 # Research: In-battle MoE — replace the mount layer (registered Gameface window)
 
 _Submitted: "Continue in-battle moe calculator" → root-caused the non-rendering overlay; hand the
-mount-layer rework to a clean session · Status: **IMPLEMENTED (2026-07-06 session 3), built +
+mount-layer rework to a clean session · Status: shipped — **IMPLEMENTED (2026-07-06 session 3), built +
 deployed, AWAITING LIVE VERIFY** · still UNCOMMITTED_
 
 ## IMPLEMENTED — what shipped this session (all UNCOMMITTED)

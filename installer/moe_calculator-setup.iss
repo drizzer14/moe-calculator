@@ -451,7 +451,7 @@ begin
   if VerCompare(latest, baseline) <= 0 then
     Exit;  { already current }
 
-  if MsgBox('A newer version of 14th_ua's MoE Calculator is available.'#13#10#13#10 +
+  if MsgBox('A newer version of 14th_ua''s MoE Calculator is available.'#13#10#13#10 +
             'Latest available: ' + latest + #13#10 +
             'This installer: {#ModVersion}'#13#10#13#10 +
             'Download and run the latest installer now?',

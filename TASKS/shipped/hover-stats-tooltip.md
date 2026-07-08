@@ -1,7 +1,7 @@
 # Research: Hover tooltip — full stats breakdown (localized, with icons)
 
 _Submitted: "Tooltip on widget hover that breaks down all stats with localizeable text and
-icons" · Status: open_
+icons" · Status: shipped_
 
 ## Summary
 On garage-widget hover (the round-4 whole-widget hover already exists), show a tooltip that

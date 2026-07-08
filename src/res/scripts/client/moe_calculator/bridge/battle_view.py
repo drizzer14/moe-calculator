@@ -8,7 +8,9 @@ Gameface view (DeathCam / Postmortem / BattleNotifier / Tab) is composited by Fl
 its own placeId, so `openwg_gameface.gf_mod_inject` (which appends assets to a sub-view's
 host document) has nothing to attach to in battle. Instead we register our OWN Gameface
 view (mods/configs/res_map/MoEBattleView.json -> the MoEBattleView.html bundle) and open
-it as a full-screen, input-transparent top-layer window.
+it as a content-sized, input-transparent top-layer window (content-sized -- NOT full-screen
+-- so it never captures the mouse hit-test outside the small readout corner; see
+MoEBattleWindow for the Ctrl+click/hover-steal reasoning).
 
 This mirrors WG's own gui.impl.battle.prebattle.PrebattleHintsWindow (a battle-context
 Gameface window): WindowImpl + WindowFlags.WINDOW | WINDOW_FULLSCREEN + layer=OVERLAY.
@@ -34,7 +36,7 @@ imported under pytest. Python 2.7 runtime.
 """
 from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_NOTE
 
-from frameworks.wulf import ViewSettings, ViewFlags, WindowFlags, WindowLayer
+from frameworks.wulf import ViewSettings, ViewFlags, WindowFlags, WindowLayer, PositionAnchor
 from gui.impl.pub import ViewImpl, WindowImpl
 from openwg_gameface import ModDynAccessor
 
@@ -71,26 +73,68 @@ class MoEBattleView(ViewImpl):
             LOG_CURRENT_EXCEPTION()
 
 
+# Top-left anchor of the readout window as a FRACTION of the screen (viewport-relative,
+# so it's resolution-independent -- reproduces the old CSS `left:13.8vw; top:78.8vh` that
+# aligned to WG's efficiency panel). We anchor the window's TOP-LEFT (the readout sits at
+# the top-left of the content box, MoEBattle.css #moe-battle-root left:0/top:0), because the
+# Wulf surface is a fixed ~256x256 (windowSize is read-only -- confirmed live -- so it does
+# NOT shrink to the CSS box; a BOTTOM anchor clamps to the top when the offset is smaller
+# than the window height). Interface-scale awareness is the mod-positioning task's job
+# (TASKS/mod-positioning.md).
+_ANCHOR_VW = 0.138
+_ANCHOR_VH = 0.788
+
+# A large sentinel offset used to clamp the window to the far corner (LEFT/TOP anchor) so we
+# can read back the movable extent and recover the logical GUI-space size. Any value beyond
+# the space works; the engine clamps it to (space - windowSize).
+_FAR = 1 << 20
+
+
 class MoEBattleWindow(WindowImpl):
-    """Full-screen, input-transparent window hosting MoEBattleView over the HUD.
+    """Content-sized, input-transparent window hosting MoEBattleView over the HUD.
+
+    NOT full-screen (was, until the Ctrl+click/hover steal fix). A full-screen Coherent
+    WINDOW stacked over the Scaleform HUD captures the mouse hit-test across the WHOLE
+    screen whenever the cursor is raised (Ctrl) -- `pointer-events:none` only stops our own
+    DOM from being an event target, it does NOT make the window RECTANGLE transparent to the
+    engine's cross-surface hit-test. Dropping WINDOW_FULLSCREEN makes the surface size to the
+    content (the small readout box in MoEBattle.css), so only that bottom-left corner covers
+    the screen -- the minimap (bottom-right), target markers, and radial menu stay
+    click-through. WG precedent for a decoratorless, content-sized, movable WINDOW:
+    gui/impl/lobby/offers/offer_banner_window.py (WindowFlags.WINDOW + load() + center()).
 
     Layer = WINDOW (7), deliberately BELOW the in-battle menu. The Esc/ingame menu
     (VIEW_ALIAS.INGAME_MENU, ingameMenu.swf) is registered at WindowLayer.TOP_WINDOW (10)
-    with isModal=True. A full-screen window ABOVE a modal window becomes the keyboard
-    sink and starves the menu of input -- which is exactly the bug we hit at OVERLAY (11):
-    opening the menu in battle stole all input, including the keyboard. Sitting below the
-    menu's layer lets its modality correctly gate input away from our (input-less, always
-    pointer-events:none) overlay while we still render above the battle HUD views, which
-    live in the battle MainView (below the WINDOW layer)."""
+    with isModal=True. A window ABOVE a modal window becomes the keyboard sink and starves
+    the menu of input -- the bug we hit at OVERLAY (11). Sitting below the menu's layer lets
+    its modality correctly gate input away from our (input-less, pointer-events:none) overlay
+    while we still render above the battle HUD views (battle MainView, below WINDOW)."""
 
     def __init__(self, content):
         super(MoEBattleWindow, self).__init__(
-            WindowFlags.WINDOW | WindowFlags.WINDOW_FULLSCREEN,
-            content=content, layer=WindowLayer.WINDOW)
+            WindowFlags.WINDOW, content=content, layer=WindowLayer.WINDOW)
 
     def _onReady(self):
         # Show WITHOUT taking focus -- an info-only overlay must never grab battle input.
         self.show(focus=False)
+        # Position the window's TOP-LEFT over WG's efficiency panel. move() operates in a
+        # LOGICAL GUI space (1920x1080-class, NOT physical px) and the surface is a fixed
+        # size, so we can't just multiply physical screenSize(). Instead self-calibrate:
+        # clamp to the far corner to read the movable extent (= space - windowSize), recover
+        # the logical space, then place proportionally (reproduces the old vw/vh anchor) --
+        # resolution- and interface-scale-independent. move() needs the window attached to
+        # its area, which load() does before _onReady fires. Fail-soft: a positioning error
+        # must never blank the overlay.
+        try:
+            self.move(_FAR, _FAR, xAnchor=PositionAnchor.LEFT, yAnchor=PositionAnchor.TOP)
+            max_x, max_y = self.position
+            win_w, win_h = self.size
+            space_w, space_h = max_x + win_w, max_y + win_h
+            x = min(max(0, int(_ANCHOR_VW * space_w)), max_x)
+            y = min(max(0, int(_ANCHOR_VH * space_h)), max_y)
+            self.move(x, y, xAnchor=PositionAnchor.LEFT, yAnchor=PositionAnchor.TOP)
+        except Exception:
+            LOG_CURRENT_EXCEPTION()
 
 
 # Singleton (window, view) for the currently-open overlay (None when closed).
@@ -116,7 +160,8 @@ def open_window():
         # of whether load() completes synchronously or on a later tick.
         _active = (window, view)
         window.load()
-        LOG_NOTE("[moe-battle] overlay window opened (layoutID=%s, layer=OVERLAY)" % layout)
+        LOG_NOTE("[moe-battle] overlay window opened (layoutID=%s, layer=WINDOW, content-sized)"
+                 % layout)
         return view
     except Exception:
         LOG_CURRENT_EXCEPTION()
