@@ -44,52 +44,39 @@
     color: #ede6d9;
     /* Capture pointer on the box FOOTPRINT ONLY so it can react to :hover (item 2 --
        mirrors the garage bottom-bar boxes). The box floats over dead hangar space above
-       the carousel; every overlay child that extends past the box (.moe-ticks, .moe-split*,
+       the carousel; every overlay child that extends past the box (.moe-ticks,
        .moe-end*, .moe-cur-marker) keeps pointer-events:none so only the panel captures
        hover -- drag-to-rotate/clicks that start off the box are untouched. */
     pointer-events: auto;
-    /* WoT "card" panel, matched to the client: a faint dark fill + the game's own
-       9-slice frame texture (drawn in ::before below), NOT a flat CSS border. Fill
-       tone taken from the client's card backgrounds (rgba(10,10,10,~.25)). */
-    /* Symmetric 18rem side padding so the bar spans the FULL panel width. The 100% goalpost
-       number is right-aligned to the bar's end (extends LEFT), so it no longer needs the old
-       reserved right gutter -- only a small nudge poke past the end (its +4rem shift), which
-       the 18rem padding easily clears. */
+    /* WoT "card" panel: a faint dark fill + a thin warm-parchment hairline border and a
+       subtle inner shadow that darkens the fill from the edges inward (tuned in the MoE
+       box tuner). Replaces the old card_border.png 9-slice frame (::before, now removed).
+       Symmetric 18rem side padding so the bar spans the full panel width. */
     padding: 11rem 18rem 9rem 18rem;
-    background: rgba(10, 10, 10, 0.28);
-    /* Hover crossfades the dark fill out (see #moe-root:hover below). */
-    transition: background 0.18s ease;
-    border-radius: 2rem;
-    /* No drop shadow: it read as a muddy dark halo around the box, unlike the
-       flush-edged consumables boxes. The card_border frame carries the edge. */
+    background: rgba(10, 10, 10, 0.25);
+    border-radius: 0.5rem;
+    border: 1rem solid rgba(254, 235, 190, 0.1);
+    box-shadow: inset 0rem 0rem 1rem 0rem rgba(0, 0, 0, 0.33);
+    /* Hover brightens the fill to the border tone and fades the border-color out so the two
+       merge into one flat panel (see #moe-root:hover). */
+    transition: background 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 }
 
-/* Authentic panel frame: the client's ui_kit card_border (64x64, 16px slice) drawn
-   as a border-image at ~half opacity, exactly like the game's .Card_border::before.
-   The texture is bundled beside this CSS (card_border.png, lifted from the client's
-   gui-part pkg) and referenced relatively -- img:// and data: URIs both fail to
-   paint inside border-image; a sibling file loaded as a normal image works. */
-#moe-root::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    /* Shorthand form + relative file url: the syntax/scheme Coherent actually
-       honors for border-image (longhand + img:// + data-URI all silently drop). */
-    border: 5rem solid transparent;
-    border-image: url(card_border.png) 20 / 5rem repeat;
-    opacity: 0.5;
-    pointer-events: none;
-    z-index: 5;
-}
+/* The old card_border.png 9-slice frame (#moe-root::before) was replaced by the thin CSS
+   `border` + inner `box-shadow` on #moe-root above. card_border.png is no longer referenced
+   by the garage widget (still bundled beside this CSS; harmless). */
 
-/* Whole-box hover, adapted from the garage bottom-bar boxes but inverted: instead of
-   WG's 15% white brighten, hovering crossfades the dark card fill out to fully
-   transparent so the panel reads as clear over the hangar. The fade rides the
-   `transition: background` on #moe-root above; the frame (::before) stays untouched. */
-#moe-root:hover { background: rgba(10, 10, 10, 0); }
+/* Whole-box hover: brighten the fill to the border's warm-parchment tone AND fade the
+   border-color to transparent so the two become one flat panel with no visible rim. (At
+   rest the border stacks ON TOP of the fill, so the edge composites to ~2x the fill's
+   alpha -- that seam is why the border stayed visible when both were rgba(254,235,190,0.1);
+   dropping the border-color removes the stack.) The dark inner shadow fades out too so the
+   warm tone reads cleanly. All three crossfade via the transition on #moe-root above. */
+#moe-root:hover {
+    background: rgba(254, 235, 190, 0.1);
+    border-color: transparent;
+    box-shadow: inset 0rem 0rem 1rem 0rem rgba(0, 0, 0, 0);
+}
 
 /* Responsive lift: raise the bar to clear a taller carousel. A double row is taller
    than a single row; the small (shorter) double-row tiles need less lift than the tall
@@ -185,7 +172,11 @@
 /* --- bar body: room above for icons, below for requirement labels ---------- */
 #moe-root .moe-body {
     position: relative;
-    padding-top: 26rem;           /* room for the (now smaller) nation mark art */
+    padding-top: 23rem;           /* room for the (now smaller) nation mark art -- trimmed
+                                     3rem from 26 to shrink the box's overall height while
+                                     leaving #moe-root padding untouched (box is bottom-
+                                     anchored, so the top edge drops; mark art stays put,
+                                     it's bottom:6rem above the track) */
     padding-bottom: 22rem;        /* room for the requirement labels below */
     z-index: 1;                   /* above the hover overlay (::after, z-index 0) */
 }
@@ -239,45 +230,9 @@
     z-index: 1;
 }
 
-/* The 50% region boundary (see the 5-region equal-fifths axis in the JS): the bar is
-   divided into 5 even fifths at 50/65/85/95, and this faint upright divider marks the
-   first boundary. 50 percentile maps to barX(50) = the first fifth = 20% of the bar. */
-#moe-root .moe-split {
-    position: absolute;
-    top: -2rem;
-    bottom: -2rem;
-    left: 20%;                    /* barX(50) -- first region boundary */
-    width: 1rem;
-    margin-left: -0.5rem;
-    background: rgba(236, 230, 218, 0.45);   /* slightly brighter than the track dots */
-    z-index: 2;
-    pointer-events: none;
-}
-
-/* Faint "50%" caption under the split divider, on the same row as the mark
-   requirement numbers. Marks the 50% region boundary. */
-#moe-root .moe-split-label {
-    position: absolute;
-    top: 6rem;
-    left: 20%;                    /* split line (barX(50)) */
-    transform: translateX(-50%);  /* centred on the split line */
-    font-size: 12rem;             /* same size as the mark requirement numbers */
-    color: rgba(216, 207, 191, 0.45);
-    white-space: nowrap;
-    text-shadow: 0 1rem 0 rgba(13, 14, 16, 0.4), 0 0 3rem rgba(0, 0, 0, 0.55);
-    z-index: 3;
-    pointer-events: none;
-}
-
-/* "Passed" state for the 50% split (JS adds .moe-split-passed once the current percentile
-   is at/past 50): brighten the divider + caption to the same tones the reached milestone
-   ticks use, so the halfway line reads as passed in the same visual language. */
-#moe-root.moe-split-passed .moe-split { background: rgba(236, 230, 218, 0.8); }
-#moe-root.moe-split-passed .moe-split-label { color: #ede6d9; }
-
 /* Axis end-cap at 100% (top of the percentile axis, beyond the 65/85/95 milestones).
-   Not a data tick -- there is no 4th mark -- just a static goalpost mirroring the .moe-split
-   divider + caption, positioned at the bar's right edge. The label is pulled left so it
+   Not a data tick -- there is no 4th mark -- just a static goalpost (a faint upright
+   divider + caption) positioned at the bar's right edge. The label is pulled left so it
    doesn't overflow the panel. */
 #moe-root .moe-end {
     position: absolute;
@@ -296,7 +251,7 @@
    nudge. Faint, like an unreached mark requirement. */
 #moe-root .moe-end-label {
     position: absolute;
-    top: 6rem;
+    top: 7rem;                      /* 1rem clear of the track (matches .moe-tick-req) */
     left: 100%;                     /* bar's right edge (100% tick) */
     transform: translateX(-100%);   /* RIGHT-aligned to the tick */
     margin-left: 2rem;             /* nudged 2rem right */
@@ -351,7 +306,7 @@
    with a gold bloom when reached. drop-shadow (hugs the art alpha) not box-shadow. */
 #moe-root .moe-tick-icon {
     position: absolute;
-    bottom: 6rem;                 /* sits just above the track top */
+    bottom: 7rem;                 /* 1rem clear of the track top */
     left: 50%;
     transform: translateX(-50%);
     width: 24rem;
@@ -369,8 +324,8 @@
 }
 
 /* A thin upright tick line on the track marking each milestone position. Styled to
-   match the .moe-split divider (same width/height/tone) so the 65/85/95 marks and the
-   50% split read as one family of guides. Brighter once the mark is reached. */
+   match the .moe-end goalpost (same width/height/tone) so the 65/85/95 marks and the
+   100% goalpost read as one family of guides. Brighter once the mark is reached. */
 #moe-root .moe-tick-notch {
     position: absolute;
     top: -2rem;
@@ -388,7 +343,7 @@
 /* Damage requirement BELOW each mark. Blank when unknown (external table not loaded). */
 #moe-root .moe-tick-req {
     position: absolute;
-    top: 6rem;                    /* just below the track, matching the icon's gap above */
+    top: 7rem;                    /* 1rem clear of the track, matching the icon's gap above */
     left: 50%;                    /* tick centre */
     transform: translateX(-50%);  /* CENTRED on the tick */
     font-size: 12rem;
