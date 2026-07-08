@@ -2,28 +2,24 @@
    panel (damage dealt / blocked / assisted): a left-aligned vertical stack of
    [icon] [value] rows over a soft dark radial shape, NO text labels, NO frame.
 
-   FONT: the panel is Flash (Scaleform) text in MoEBattle ($FieldFont) / MoEBattle
-   ($TitleFont) -- confirmed Flash: gui/Scaleform/daapi/view/battle/shared/damage_panel.py.
-   Gameface can't reach the Flash-embedded font, so we bundle the SAME glyphs as TrueType --
-   extracted straight out of gui/flash/fontlib.swf via tools/dev/swf_font_to_ttf.py
-   (SWF DefineFont3 -> TTF).
+   FONT: the numerals use a bundled TrueType face (family "MoEBattle") whose glyphs match the
+   native efficiency panel.
      LOADING QUIRK (learned the hard way): Coherent's @font-face resolves its src url like the
    garage's card_border.png border-image -- a BARE SIBLING filename against the document dir
    works, but a SUBDIR-relative path (fonts/..) silently fails and the text falls back to
-   Arial Narrow. So the ttfs sit RIGHT BESIDE this CSS (not in a fonts/ subdir), referenced
+   Arial Narrow. So the ttf sits RIGHT BESIDE this CSS (not in a fonts/ subdir), referenced
    unquoted + bare, with a coui:// absolute as a belt-and-suspenders fallback. The family is
-   given a mod-unique name ("MoEBattle") so it can never collide with the engine's own
-   Flash-registered "MoEBattle".
+   given a mod-unique name so it can never collide with an engine-registered font.
 
    Geometry/typography values below were tuned in the browser overlay tuner
    (tools/dev/gen_overlay_tuner.ps1) against a real 4K battle backdrop and copied verbatim.
    Palette by VALUE (hex, NO var(--color-*) -- Gameface drops the whole declaration when a
    var() can't resolve); sizing in rem (engine scales the root font). */
 
-/* The overlay uses ONE cut only -- MoEBattle 600 (the MoEBattle glyphs, subset to
-   the ~18 chars we render). Every text element requests weight 600 so it maps to this single
-   face with no fallback synthesis. Bare-sibling url first (the scheme that actually works,
-   per card_border.png), coui:// absolute as a fallback. */
+/* The overlay uses ONE cut only -- weight 600, subset to the ~18 chars we render. Every text
+   element requests weight 600 so it maps to this single face with no fallback synthesis.
+   Bare-sibling url first (the scheme that actually works, per card_border.png), coui://
+   absolute as a fallback. */
 @font-face {
     font-family: "MoEBattle";
     font-weight: 600;
@@ -132,22 +128,53 @@ body {
     position: relative;
 }
 
-/* Icon glyph. <img> is clipped in Gameface -> background-image div. The quest_type/128
-   glyphs fill only ~23% of the PNG (transparent padding), so zoom to 260% to crop it.
-   The source art is ~#c8c8c8 grey line-art, so brightness() lifts the glyph itself toward
-   white BEFORE the drop-shadow (which keeps its own explicit gold colour). */
+/* Icon glyph + glow. <img> is clipped in Gameface -> background-image divs. The icon box is now a
+   TRANSPARENT, positioned container: the GLYPH rides on ::after (painted on top) and the gold GLOW
+   is a background element on ::before behind it -- a radial gradient in the glow colour, replacing
+   the old drop-shadow (which Gameface rendered unevenly). An element's own background always paints
+   BELOW its pseudos, so the glyph cannot stay on .mb-ico if the glow is to sit behind it -> the
+   glyph moves to ::after (img:// URL per row) and the glow to ::before. The transform keeps .mb-ico
+   a stacking context so ::before's z-index:-1 stays scoped here. Tuned in the overlay tuner
+   (tools/dev/gen_overlay_tuner.ps1). */
 .mb-ico {
     display: block;
     flex: none;
+    position: relative;
     width: 17rem;
     height: 17rem;
     margin-right: 4rem;
+    transform: translate(0rem, 1rem);   /* nudge onto the numeral baseline */
+}
+/* Gold glow behind the glyph: a radial gradient of the glow colour (#FFCD5A). Box is a touch larger
+   than the icon and centred; z-index:-1 drops it under the ::after glyph. */
+.mb-ico::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: -1;
+    width: 18rem;
+    height: 18rem;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle at 50% 50%, rgba(255, 205, 90, 0.5) 0%, transparent 73%);
+}
+/* The glyph, on top of the glow. The quest_type/128 glyphs fill only ~23% of the PNG (transparent
+   padding), so zoom to 260% to crop it; brightness() lifts the ~#c8c8c8 grey line-art toward white.
+   Per-row art set below -- img:// resolves game art (same scheme the garage mark glyph uses). */
+.mb-ico::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
     background-repeat: no-repeat;
     background-position: center;
     background-size: 260%;
-    filter: brightness(3) drop-shadow(0rem 0rem 1.5rem #ffcd5a);   /* brighten grey glyph to near-white + garage gold bloom (#FFCD5A) */
-    transform: translate(0rem, 1rem);   /* nudge onto the numeral baseline */
+    filter: brightness(3);
 }
+.mb-ico.dmg::after { background-image: url(img://gui/maps/icons/personal_missions_30/quest_type/128x128/icon_battle_condition_barrel_mark.png); }
+.mb-ico.pct::after { background-image: url(img://gui/maps/icons/personal_missions_30/quest_type/128x128/icon_battle_condition_improve.png); }
 
 /* Inter-element gap (icon->value handled by the icon's own margin above). */
 .mb-sep,

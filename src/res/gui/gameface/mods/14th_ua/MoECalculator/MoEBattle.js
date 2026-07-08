@@ -25,14 +25,9 @@
 // DOM/CSS conventions + Coherent quirks; mirrors MoECalculator.js.
 import { ModelObserver } from "../../libs/model.js";
 
-// Icon art (img:// into the game's own icon set -- same proven paths the garage widget
-// uses). These are placeholders that read correctly (damage / trend / gun-mark); swap
-// the URLs here for bespoke green glyphs to match WG's panel exactly. <img> is clipped
-// in Gameface -> rendered as background-image divs (see CSS).
-const ICON_ROOT = "img://gui/maps/icons/personal_missions_30/quest_type/128x128/";
-// User-picked (icon-picker artifact): the gun-mark glyph for BOTH rows. Swap here to change.
-const ICON_DMG = ICON_ROOT + "icon_battle_condition_barrel_mark.png";     // row 1: dmg / avg
-const ICON_PCT = ICON_ROOT + "icon_battle_condition_improve.png";         // row 2: MoE %
+// Icon art now lives in MoEBattle.css: the glyph is painted on `.mb-ico::after` (per-row class
+// `dmg`/`pct`, img:// background-image) so the gold glow can sit BEHIND it on `.mb-ico::before`
+// (an element's own background always paints below its pseudos). Swap the glyph art in the CSS.
 
 // No feature name -> observe this view's OWN root model (window.model == BattleMoEVM).
 const observer = ModelObserver();
@@ -76,14 +71,14 @@ function ensureRoot() {
     root.innerHTML =
         // Row 1: [dmg icon]  <live dmg> / <projected avg>
         '<div class="mb-row">' +
-        '  <span class="mb-ico" style="background-image:url(' + ICON_DMG + ')"></span>' +
+        '  <span class="mb-ico dmg"></span>' +
         '  <span class="mb-value mb-cd"></span>' +
         '  <span class="mb-sep">/</span>' +
         '  <span class="mb-value mb-avg"></span>' +
         '</div>' +
         // Row 2: [mark icon]  <projected %>  (<signed delta>)
         '<div class="mb-row">' +
-        '  <span class="mb-ico" style="background-image:url(' + ICON_PCT + ')"></span>' +
+        '  <span class="mb-ico pct"></span>' +
         '  <span class="mb-value mb-pct"></span>' +
         '  <span class="mb-delta">(<span class="mb-delta-num"></span>)</span>' +
         '</div>';

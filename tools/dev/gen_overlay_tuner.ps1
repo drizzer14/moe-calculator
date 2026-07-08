@@ -48,11 +48,17 @@ $tpl = @'
   .mb-row::after{content:"";position:absolute;left:0;top:0;right:0;bottom:0;z-index:-1;
     background:var(--uggrad,none);-webkit-mask:var(--ugmask,none);mask:var(--ugmask,none)}
   .mb-row>span{position:relative}
-  .mb-ico{display:block;flex:none;width:var(--icosize);height:var(--icosize);margin-right:var(--icomr);
-    background-repeat:no-repeat;background-position:center;background-size:var(--icozoom);filter:var(--icofilter);
-    transform:translate(var(--icotx,0),var(--icoty,0))}
-  .mb-ico.dmg{background-image:url("data:image/png;base64,__MARK__")}
-  .mb-ico.pct{background-image:url("data:image/png;base64,__IMP__")}
+  /* icon = a transparent, positioned box: the GLYPH rides on ::after (painted on top) while the
+     coloured GLOW is a background element on ::before behind it -- a radial gradient of the glow
+     colour, replacing the old drop-shadow. */
+  .mb-ico{display:block;flex:none;position:relative;width:var(--icosize);height:var(--icosize);
+    margin-right:var(--icomr);transform:translate(var(--icotx,0),var(--icoty,0))}
+  .mb-ico::before{content:"";position:absolute;left:50%;top:50%;z-index:-1;
+    width:var(--icoglowsize);height:var(--icoglowsize);transform:translate(-50%,-50%);background:var(--icoglow)}
+  .mb-ico::after{content:"";position:absolute;left:0;top:0;right:0;bottom:0;
+    background-repeat:no-repeat;background-position:center;background-size:var(--icozoom);filter:var(--icofilter)}
+  .mb-ico.dmg::after{background-image:url("data:image/png;base64,__MARK__")}
+  .mb-ico.pct::after{background-image:url("data:image/png;base64,__IMP__")}
   .mb-sep,.mb-avg,.mb-delta{margin-left:var(--valml)}
   .mb-value{font-size:var(--valfs);font-weight:var(--valwt);letter-spacing:var(--valls);color:#fff;text-shadow:var(--numsh)}
   .mb-sep{font-size:var(--sepfs);font-weight:var(--sepwt);color:rgba(237,230,217,.45);text-shadow:var(--numsh)}
@@ -106,7 +112,7 @@ $tpl = @'
   <div id="controls"></div>
   <div class="out" id="out"></div>
   <button class="copy" id="copyBtn">Copy CSS values</button>
-  <p class="note">Icon glow uses CSS <code>filter: drop-shadow</code> &mdash; verify it renders in Gameface before relying on it in-game. Icons are the real gold quest glyphs (WG&rsquo;s panel icons are green; swap art later).</p>
+  <p class="note">Icon glow is a radial-gradient <b>background element</b> behind the glyph (<code>.mb-ico::before</code>) &mdash; verify it renders in Gameface before relying on it in-game. Icons are the real gold quest glyphs (WG&rsquo;s panel icons are green; swap art later).</p>
 </div>
 <script>
   var PXREM=2.0*(1600/3840), PXVW=16, PXVH=9;   // recalibrated off the REAL MoEBattle: 13rem value = 19px @3840 -> 2.0px/rem
@@ -136,11 +142,13 @@ $tpl = @'
       {id:"icoZoom",label:"Icon zoom (%)",min:100,max:500,step:1,val:260},
       {id:"icoPosX",label:"Icon nudge X (rem)",min:-30,max:30,step:0.5,val:0},
       {id:"icoPosY",label:"Icon nudge Y (rem)",min:-30,max:30,step:0.5,val:1},
-      {id:"icoOffX",label:"Glow offset X (rem)",min:-10,max:10,step:0.5,val:0},
-      {id:"icoOffY",label:"Glow offset Y (rem)",min:-10,max:10,step:0.5,val:0},
       {id:"icoBright",label:"Icon brightness (x)",min:0.5,max:5,step:0.1,val:3},
-      {id:"icoGlowBlur",label:"Glow blur (rem)",min:0,max:40,step:0.5,val:1.5},
-      {id:"icoGlowStrength",label:"Glow strength (x)",min:0,max:5,step:1,val:1},
+      // Glow is now a background element behind the glyph (.mb-ico::before) painting a RADIAL
+      // GRADIENT of the glow colour -- not a drop-shadow. Size = the glow box (rem); spread =
+      // where the gradient fades to transparent (%); alpha = inner intensity.
+      {id:"icoGlowSize",label:"Glow size (rem)",min:0,max:120,step:1,val:40},
+      {id:"icoGlowSpread",label:"Glow spread (%)",min:0,max:100,step:1,val:60},
+      {id:"icoGlowAlpha",label:"Glow alpha",min:0,max:1,step:0.01,val:0.9},
       {id:"icoGlowColor",label:"Glow colour",color:true,val:"#ffcd5a"}]],
     ["Dots (checker dither)",[
       // checker.png is a 2x2-cell tile at CELL game-px, tiled 1:1 (background-size:auto ->
@@ -226,7 +234,10 @@ $tpl = @'
       " — stage shows this "+(st.loupeZoom/SCALE).toFixed(1)+"× smaller (true game scale)";
   }
   function dotMask(){return "radial-gradient("+st.gradRX+"% "+st.gradRY+"% at "+st.gradCX+"% "+st.gradCY+"%,#000 "+st.dotMaskIn+"%,transparent "+st.dotMaskOut+"%)";}
-  function icoFilter(){var b="brightness("+st.icoBright+") ",d="drop-shadow("+rem(st.icoOffX)+" "+rem(st.icoOffY)+" "+rem(st.icoGlowBlur)+" "+st.icoGlowColor+") ",o="";for(var i=0;i<st.icoGlowStrength;i++)o+=d;return b+o;}
+  function icoFilter(){return "brightness("+st.icoBright+")";}
+  // Icon glow = a radial gradient painted on a background element (.mb-ico::before) behind the
+  // glyph, in the glow colour. Replaces the old drop-shadow filter.
+  function icoGlow(){return "radial-gradient(circle at 50% 50%,"+hexA(st.icoGlowColor,st.icoGlowAlpha)+" 0%,transparent "+st.icoGlowSpread+"%)";}
   function numSh(){return rem(st.shX)+" "+rem(st.shY)+" "+rem(st.shBlur)+" "+hexA(st.shColor,st.shAlpha);}
   // Sign glow = dark legibility drop (numSh) + two stacked colored passes at growing radius.
   function glowStack(hex){return "0px 0px "+rem(st.glowB1)+" "+hexA(hex,st.glowA1)+", 0px 0px "+rem(st.glowB2)+" "+hexA(hex,st.glowA2);}
@@ -242,6 +253,7 @@ $tpl = @'
     S.setProperty("--rowgrad",ckBg(true));S.setProperty("--rowbgsize",tile+" "+tile);S.setProperty("--rowbgpos","0 0");S.setProperty("--rowop",st.dotAlpha);S.setProperty("--rowmask",dotMask());updateLoupe();
     S.setProperty("--uggrad",ugGrad());S.setProperty("--ugmask",rowMask());
     S.setProperty("--icosize",rem(st.icoSize));S.setProperty("--icozoom",st.icoZoom+"%");S.setProperty("--icofilter",icoFilter());
+    S.setProperty("--icoglow",icoGlow());S.setProperty("--icoglowsize",rem(st.icoGlowSize));
     S.setProperty("--icotx",rem(st.icoPosX));S.setProperty("--icoty",rem(st.icoPosY));
     S.setProperty("--numsh",numSh());
     S.setProperty("--upsh",signSh(st.glowUp));S.setProperty("--downsh",signSh(st.glowDown));
@@ -257,7 +269,7 @@ $tpl = @'
     document.getElementById("out").textContent=cssOut();
   }
   function cssOut(){
-    var filt=(function(){var a=["brightness("+st.icoBright+")"],d="drop-shadow("+st.icoOffX+"rem "+st.icoOffY+"rem "+st.icoGlowBlur+"rem "+st.icoGlowColor+")";for(var i=0;i<st.icoGlowStrength;i++)a.push(d);return a.join(" ");})();
+    var glowGrad="radial-gradient(circle at 50% 50%, "+hexA(st.icoGlowColor,st.icoGlowAlpha)+" 0%, transparent "+st.icoGlowSpread+"%)";
     var sh=st.shX+"rem "+st.shY+"rem "+st.shBlur+"rem "+hexA(st.shColor,st.shAlpha);
     var famcss=(famv==="MoEBattle")?'"MoEBattle", "Arial Narrow", sans-serif':'"Univers Condensed", sans-serif';
     // ::before = dots dither (with its own radial fade mask). UNPREFIXED mask only -- WG's own
@@ -271,7 +283,12 @@ $tpl = @'
       ".mb-row::before {\n  content: \"\";\n  position: absolute; left: 0; top: 0; right: 0; bottom: 0;\n"+beforeBody+"}\n"+
       afterBlock+
       ".mb-row > span { position: relative; }\n"+
-      ".mb-ico {\n  width: "+st.icoSize+"rem; height: "+st.icoSize+"rem;\n  background-size: "+st.icoZoom+"%;\n  margin-right: "+st.icoGap+"rem;\n  filter: "+filt+";\n"+((st.icoPosX||st.icoPosY)?("  transform: translate("+st.icoPosX+"rem, "+st.icoPosY+"rem);\n"):"")+"}\n"+
+      "/* Icon glow = a radial-gradient background element (::before) BEHIND the glyph, in the glow\n"+
+      "   colour -- replaces the drop-shadow. The glyph rides on ::after so it paints on top; set its\n"+
+      "   background-image per row (the mod sets it inline in MoEBattle.js). */\n"+
+      ".mb-ico {\n  position: relative;\n  width: "+st.icoSize+"rem; height: "+st.icoSize+"rem;\n  margin-right: "+st.icoGap+"rem;\n  transform: translate("+st.icoPosX+"rem, "+st.icoPosY+"rem);\n}\n"+
+      ".mb-ico::before {\n  content: \"\";\n  position: absolute; left: 50%; top: 50%; z-index: -1;\n  width: "+st.icoGlowSize+"rem; height: "+st.icoGlowSize+"rem;\n  transform: translate(-50%, -50%);\n  background: "+glowGrad+";\n}\n"+
+      ".mb-ico::after {\n  content: \"\";\n  position: absolute; left: 0; top: 0; right: 0; bottom: 0;\n  background-repeat: no-repeat; background-position: center;\n  background-size: "+st.icoZoom+"%;\n  filter: brightness("+st.icoBright+");\n}\n"+
       ".mb-sep, .mb-value.mb-avg, .mb-delta { margin-left: "+st.valGap+"rem; }\n"+
       ".mb-value {\n  font-size: "+st.valSize+"rem; font-weight: "+st.valWeight+";\n  letter-spacing: "+st.valLS+"em;\n  text-shadow: "+sh+";\n}\n"+
       ".mb-sep { font-size: "+st.sepSize+"rem; font-weight: "+st.sepWeight+"; }\n"+
