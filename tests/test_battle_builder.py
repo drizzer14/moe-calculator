@@ -89,6 +89,13 @@ def test_ewma_project_new_tank_zero_baseline():
     assert ewma_project(0, 3000) == int(round(EWMA_K * 3000))             # 59
 
 
+def test_ewma_project_zero_cd_does_not_fold():
+    # No net contribution yet -> keep the baseline exactly (was prev*(1-k), ~2% low).
+    assert ewma_project(1800, 0) == 1800
+    assert ewma_project(2000, 0) == 2000
+    assert ewma_project(0, 0) == 0
+
+
 # --- build_battle_model ------------------------------------------------------
 
 def test_build_battle_model_four_metrics():
@@ -97,11 +104,31 @@ def test_build_battle_model_four_metrics():
     assert m.combined_damage == 2500
     # 2) projected average: 1800 + k*(2500-1800)
     assert m.proj_avg_damage == int(round(1800 + EWMA_K * 700))           # 1814
-    # 3) current percent: interp of proj over the stops
-    assert round(m.cur_percent, 2) == round(damage_to_percent(m.proj_avg_damage, _THR), 2)
-    # 4) signed delta vs the pre-battle standing
-    assert round(m.pct_delta, 2) == round(m.cur_percent - 70.0, 2)
+    # 3) current percent is ANCHORED: pre_percentile + this battle's interp increment.
+    inc = damage_to_percent(m.proj_avg_damage, _THR) - damage_to_percent(1800, _THR)
+    assert inc > 0                                                        # above-avg battle
+    assert round(m.cur_percent, 2) == round(70.0 + inc, 2)
+    assert m.cur_percent > 70.0
+    # 4) delta IS the increment (self-consistent interp scale, not mixed vs WG rating)
+    assert round(m.pct_delta, 2) == round(inc, 2)
     assert m.has_data is True
+
+
+def test_build_battle_model_anchors_to_pre_percentile_before_battle():
+    # No damage yet (cd=0) -> proj == pre_avg -> increment 0 -> opens at WG's real number,
+    # NOT ~1.5% below it (the bug: interp(pre_avg) ~= 81 when pre_percentile is 84.7).
+    m = build_battle_model(_bsnap(damage=0, assist=0, stun=0,
+                                  pre_avg_damage=1800, pre_percentile=84.7))
+    assert m.proj_avg_damage == 1800
+    assert round(m.cur_percent, 2) == 84.7
+    assert m.pct_delta == 0.0
+
+
+def test_build_battle_model_clamps_cur_percent_to_100():
+    # High standing + a monster battle would push pre_percentile + increment over 100.
+    m = build_battle_model(_bsnap(damage=99999, assist=0, stun=0,
+                                  pre_avg_damage=1800, pre_percentile=99.0))
+    assert m.cur_percent == 100.0
 
 
 def test_build_battle_model_no_thresholds_degrades():
@@ -114,9 +141,11 @@ def test_build_battle_model_no_thresholds_degrades():
 
 
 def test_build_battle_model_negative_delta():
-    # a weak battle projects below standing -> negative delta
+    # a weak battle projects below standing -> negative increment -> cur_percent dips below
+    # the anchored pre_percentile
     m = build_battle_model(_bsnap(damage=100, assist=0, stun=0, pre_percentile=90.0))
     assert m.pct_delta < 0
+    assert m.cur_percent < 90.0
 
 
 # --- battle_bar_visible ------------------------------------------------------

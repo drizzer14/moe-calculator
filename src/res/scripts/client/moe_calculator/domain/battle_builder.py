@@ -83,9 +83,17 @@ def damage_to_percent(damage, thresholds):
 
 def ewma_project(prev_avg, cd, k=EWMA_K):
     """Fold this battle's combined damage `cd` into the moving average `prev_avg` one EWMA
-    step: prev + k*(cd - prev). Rounded to an integer damage value."""
+    step: prev + k*(cd - prev). Rounded to an integer damage value.
+
+    With no net contribution yet (`cd <= 0` -- pre-battle, or a battle whose team-damage
+    fully offsets it), DON'T fold: return `prev_avg` unchanged. Folding a zero would drag
+    the projection to prev*(1-k) ~= prev*0.98, opening the readout ~2% below career avg
+    before anything has happened (the start-of-battle low bias)."""
     prev = float(prev_avg or 0.0)
-    return int(round(prev + k * (float(cd or 0) - prev)))
+    c = float(cd or 0)
+    if c <= 0.0:
+        return int(round(prev))
+    return int(round(prev + k * (c - prev)))
 
 
 def build_battle_model(snapshot):
@@ -99,8 +107,16 @@ def build_battle_model(snapshot):
     stops = _threshold_stops(thresholds)
     has_data = stops is not None
     if has_data:
-        cur_percent = _interp_percent(proj, stops)
-        pct_delta = cur_percent - float(snapshot.pre_percentile or 0.0)
+        # Anchor the live percent to WG's REAL career standing (pre_percentile, from the
+        # dossier's getDamageRating) and add ONLY this battle's interpolation increment.
+        # Our interp curve and WG's damageRating are different functions of damage, so their
+        # ABSOLUTE values disagree by a percent or two -- but that constant bias cancels in
+        # the increment interp(proj) - interp(pre_avg). At battle start proj == pre_avg -> the
+        # increment is 0 -> we open exactly at WG's number instead of ~1.5% below it.
+        inc = (_interp_percent(proj, stops)
+               - _interp_percent(snapshot.pre_avg_damage, stops))
+        cur_percent = _clamp(float(snapshot.pre_percentile or 0.0) + inc, 0.0, 100.0)
+        pct_delta = inc
     else:
         cur_percent = 0.0
         pct_delta = 0.0

@@ -55,10 +55,13 @@ class BattleMoEModel(object):
 
     - `combined_damage` : live combined damage this battle (CD).
     - `proj_avg_damage` : projected moving-average combined damage folding in this CD (EWMA).
-    - `cur_percent`     : the MoE percentile of `proj_avg_damage` (0.0..100.0); "where you'd
-                          stand if the battle ended now". 0.0 when thresholds are unknown.
-    - `pct_delta`       : `cur_percent - pre_percentile`, signed -- how far this battle moves
-                          your standing. 0.0 when thresholds are unknown.
+    - `cur_percent`     : "where you'd stand if the battle ended now" (0.0..100.0), ANCHORED
+                          to WG's real career standing: pre_percentile + this battle's interp
+                          increment (interp(proj) - interp(pre_avg)), clamped 0..100. Opens at
+                          exactly pre_percentile before any damage. 0.0 when thresholds unknown.
+    - `pct_delta`       : the signed battle increment interp(proj) - interp(pre_avg) -- how far
+                          this battle moves your standing, on a self-consistent interp scale
+                          (NOT mixed against WG's rating). 0.0 when thresholds are unknown.
     - `has_data`        : True when the per-tank threshold table was usable (percent/delta real).
     """
     def __init__(self, combined_damage, proj_avg_damage, cur_percent, pct_delta,
