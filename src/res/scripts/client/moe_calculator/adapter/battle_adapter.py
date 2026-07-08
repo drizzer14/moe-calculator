@@ -48,6 +48,25 @@ def _settings_core():
         return None
 
 
+def read_damage_log_summary_flags():
+    """The four "Summarized damage" DAMAGE_LOG flags as a (total, blocked, assist, stun)
+    tuple of bools. Feeds domain.positioning.damage_log_summary_hidden to pick the overlay
+    anchor. Fail-soft: an unreadable core OR an unreadable individual flag defaults that flag
+    to TRUE (ticked) so the predicate lands on the DEFAULT (un-raised) anchor -- we never
+    raise the panel on a bad read."""
+    try:
+        from account_helpers.settings_core.settings_constants import DAMAGE_LOG
+        core = _settings_core()
+        if core is None:
+            return True, True, True, True
+        get = lambda name: bool(_safe(lambda: core.getSetting(name), True))
+        return (get(DAMAGE_LOG.TOTAL_DAMAGE), get(DAMAGE_LOG.BLOCKED_DAMAGE),
+                get(DAMAGE_LOG.ASSIST_DAMAGE), get(DAMAGE_LOG.ASSIST_STUN))
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+        return True, True, True, True
+
+
 def _efficiency_ctrl():
     """The personal-efficiency controller feeding the battle damage panel, or None."""
     sp = _session_provider()

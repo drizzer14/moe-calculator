@@ -76,6 +76,30 @@ py -3 tools/dev/repl_client.py "from moe_calculator.bridge import battle_view as
 
 ---
 
+## Phase 2 — damage-log-aware default anchor — DONE (verified in-game, committed)
+
+**What shipped:** when the "Summarized damage" group is fully unticked (all four `DAMAGE_LOG`
+summary flags off) WG collapses the summary block and the damage-log events shift up, so the
+overlay moves to a **separate RAISED anchor**; any one flag ticked → the signed-off default.
+- Pure predicate `domain/positioning.py::damage_log_summary_hidden(total, blocked, assist, assist_stun)`
+  (bool-coerced so getSetting's 0/1/None read right; unit-tested).
+- `domain/constants.py`: default `BATTLE_ANCHOR_X=264 / BATTLE_ANCHOR_Y=0` **UNCHANGED**; new
+  **`BATTLE_ANCHOR_X_RAISED=215 / BATTLE_ANCHOR_Y_RAISED=33`** — its OWN X+Y (per user decision:
+  *raised-only X*, default preserved). Calibrated LIVE via the box-drag tuner artifact
+  (real-readout graft: real MoEBattle font + `.mb-*` CSS + dither backdrop over a 2× 4K shot).
+- Fail-soft reader `battle_adapter.read_damage_log_summary_flags()` (`core.getSetting` ×4; a bad
+  read defaults that flag to *ticked* → predicate → DEFAULT anchor, so we never wrongly raise).
+- `battle_view._place` picks raised-vs-default **X and Y** from the predicate; re-applied on
+  interface-scale change (Phase 1) AND on `settingsCore.onSettingsChanged` when any of the four
+  flags toggles (new `settings`/`onSettingsChanged` listener + `_settings_core_holder` in
+  `battle_bridge`, membership-idempotent).
+- 62 tests pass; Python 2.7 byte-compile clean. Verified in-game (unticked → raised 215/33;
+  re-tick any one → default 264/bottom-flush). `commit-after-lgtm` satisfied.
+
+**Follow-up:** the deployed `.wotmod` still carries the OLD garage CSS via the `res_mods`
+hot-reload overlay-shadow (Phase 1 note) — a clean rebuild before release still applies. **Phase 3
+(Ctrl+drag + ModsSettingsAPI persist) is next** and un-started.
+
 ## Phase 2 — damage-log-aware default (own session, after Phase 1)
 Binary: read the four `DAMAGE_LOG` flags (`TOTAL_DAMAGE='damageLogTotalDamage'`, `BLOCKED_DAMAGE`, `ASSIST_DAMAGE`, `ASSIST_STUN`; confirmed in `settings_constants.py:268-272`) via `core.getSetting(...)` in `battle_adapter` (fail-soft). Pure predicate in `domain/`: all-unticked → raised anchor, else default. Re-apply via `onSettingsChanged` (any of the four in diff). Calibrate the raised anchor in-game (all-four-unticked layout) at 1×/2×. Builds on Phase 1's scale-aware placement.
 

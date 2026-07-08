@@ -33,6 +33,15 @@ EWMA_K = 2.0 / (EWMA_N + 1)
 # NO per-scale multiplication (confirmed in-client at 1x AND 2x; the old fraction-of-space
 # anchor wrongly doubled X to ~529 at 1x). X is measured from the LEFT edge, Y from the
 # BOTTOM edge (0 = bottom-flush). Calibrated empirically to WG's efficiency panel corner
-# (WG panels are Flash -- no runtime position API). Phase 2's raised anchor is a larger Y.
+# (WG panels are Flash -- no runtime position API). Phase 2 adds a separate raised anchor
+# (BATTLE_ANCHOR_*_RAISED) used when the damage-log summary block collapses.
 BATTLE_ANCHOR_X = 264
 BATTLE_ANCHOR_Y = 0
+
+# Phase 2: the RAISED anchor used when the "Summarized damage" group is fully unticked (all four
+# DAMAGE_LOG summary flags off -> WG collapses the summary block and the damage-log events shift
+# up, so the overlay moves to keep tracking them). Its OWN X + Y (independent of the default
+# above, which stays signed-off) -- both fixed logical-px offsets, scale-invariant. Calibrated
+# empirically against the collapsed layout (the summary block is Flash-side, no runtime px API).
+BATTLE_ANCHOR_X_RAISED = 215
+BATTLE_ANCHOR_Y_RAISED = 33

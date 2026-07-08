@@ -15,6 +15,18 @@ y_from_bottom RAISES the panel -- that's the hook the Phase-2 damage-log-aware a
 """
 
 
+def damage_log_summary_hidden(total, blocked, assist, assist_stun):
+    """True when ALL FOUR "Summarized damage" DAMAGE_LOG flags are unticked.
+
+    When every summary total (damage / blocked / assist-damage / assist-stun) is off, WG
+    collapses the summary block and the damage-log events shift UP -- so the overlay must
+    move to the raised anchor (constants.BATTLE_ANCHOR_Y_RAISED). Any one flag ticked keeps
+    the block present -> default anchor. Each flag is bool()-coerced so getSetting's 0/1/None
+    read correctly, and the fail-soft "treat an unreadable flag as ticked" default (see
+    battle_adapter) lands on the DEFAULT anchor rather than wrongly raising the panel."""
+    return not (bool(total) or bool(blocked) or bool(assist) or bool(assist_stun))
+
+
 def anchor_top_left(max_x, max_y, x_from_left, y_from_bottom):
     """Top-left (x, y) in logical GUI space for the overlay window.
 

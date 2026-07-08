@@ -92,6 +92,25 @@ def _on_scale_changed(*args, **kwargs):
         LOG_CURRENT_EXCEPTION()
 
 
+def _on_settings_changed(diff):
+    # settingsCore.onSettingsChanged(diff): the "Summarized damage" DAMAGE_LOG group drives
+    # our anchor (all four unticked -> summary block collapses -> events shift up -> raised
+    # anchor). Re-place only when one of those four flags changed. Fail-open (re-place anyway
+    # if the constants can't be resolved) -- a spurious re-place is harmless (idempotent).
+    try:
+        from account_helpers.settings_core.settings_constants import DAMAGE_LOG
+        flags = (DAMAGE_LOG.TOTAL_DAMAGE, DAMAGE_LOG.BLOCKED_DAMAGE,
+                 DAMAGE_LOG.ASSIST_DAMAGE, DAMAGE_LOG.ASSIST_STUN)
+        if diff is None or any(f in diff for f in flags):
+            battle_view.apply_position()
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+        try:
+            battle_view.apply_position()
+        except Exception:
+            LOG_CURRENT_EXCEPTION()
+
+
 def _on_moe_data_ready():
     # The external thresholds table finished loading (fired on the main thread by moe_data's
     # poll). Re-push so the overlay (hidden while hasData is false) reveals with real numbers.
@@ -126,6 +145,13 @@ def _interface_scale_holder():
     return sc.interfaceScale if sc is not None else None
 
 
+def _settings_core_holder():
+    # settingsCore itself -- exposes onSettingsChanged (fired with a {name: value} diff). Used
+    # to re-place the overlay when the "Summarized damage" DAMAGE_LOG group toggles. Persists
+    # across battles like interfaceScale, so re-arming is idempotent (membership-checked).
+    return battle_adapter._settings_core()
+
+
 # (label, holder-getter, event-attribute, handler)
 _LISTENERS = (
     ("avatar ready", _player_events_holder, "onAvatarReady", _on_mount_refresh),
@@ -139,6 +165,8 @@ _LISTENERS = (
      _on_observed_vehicle_changed),
     # Interface-scale changes re-place the overlay so it keeps tracking WG's efficiency panel.
     ("interface scale", _interface_scale_holder, "onScaleChanged", _on_scale_changed),
+    # "Summarized damage" DAMAGE_LOG group toggles re-place the overlay (raised vs default).
+    ("settings", _settings_core_holder, "onSettingsChanged", _on_settings_changed),
 )
 
 
