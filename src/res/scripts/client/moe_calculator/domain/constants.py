@@ -26,3 +26,13 @@ AXIS_MAX = 100
 # -- treat as an assumption to validate against real replays (see TASKS/in-battle-moe-panel.md).
 EWMA_N = 100
 EWMA_K = 2.0 / (EWMA_N + 1)
+
+# In-battle overlay window anchor, in FIXED logical-GUI-space px. WG's efficiency panel is
+# laid out in logical units (physical px / interfaceScale), so its screen corner sits at the
+# SAME logical coordinate at every interface scale -- a fixed logical offset tracks it with
+# NO per-scale multiplication (confirmed in-client at 1x AND 2x; the old fraction-of-space
+# anchor wrongly doubled X to ~529 at 1x). X is measured from the LEFT edge, Y from the
+# BOTTOM edge (0 = bottom-flush). Calibrated empirically to WG's efficiency panel corner
+# (WG panels are Flash -- no runtime position API). Phase 2's raised anchor is a larger Y.
+BATTLE_ANCHOR_X = 264
+BATTLE_ANCHOR_Y = 0

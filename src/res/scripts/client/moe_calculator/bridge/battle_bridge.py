@@ -81,6 +81,17 @@ def _on_teardown(*args, **kwargs):
         LOG_CURRENT_EXCEPTION()
 
 
+def _on_scale_changed(*args, **kwargs):
+    # Interface scale changed mid-battle (settingsCore.interfaceScale.onScaleChanged) -> the
+    # logical GUI space resized, so re-place the overlay to keep it tracking WG's efficiency
+    # panel (the fixed logical anchor is scale-invariant, but the window must be re-applied
+    # because the movable extent changed).
+    try:
+        battle_view.apply_position()
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+
+
 def _on_moe_data_ready():
     # The external thresholds table finished loading (fired on the main thread by moe_data's
     # poll). Re-push so the overlay (hidden while hasData is false) reveals with real numbers.
@@ -107,6 +118,14 @@ def _vehicle_state_holder():
     return sp.shared.vehicleState if (sp and sp.shared) else None
 
 
+def _interface_scale_holder():
+    # settingsCore.interfaceScale -- exposes onScaleChanged (Event.Event). None if the core is
+    # unavailable -> _arm skips. Unlike the arena controllers this persists across battles, so
+    # re-arming is idempotent (the membership check keeps it a single subscription).
+    sc = battle_adapter._settings_core()
+    return sc.interfaceScale if sc is not None else None
+
+
 # (label, holder-getter, event-attribute, handler)
 _LISTENERS = (
     ("avatar ready", _player_events_holder, "onAvatarReady", _on_mount_refresh),
@@ -118,6 +137,8 @@ _LISTENERS = (
      _on_observed_vehicle_changed),
     ("postmortem", _vehicle_state_holder, "onPostMortemSwitched",
      _on_observed_vehicle_changed),
+    # Interface-scale changes re-place the overlay so it keeps tracking WG's efficiency panel.
+    ("interface scale", _interface_scale_holder, "onScaleChanged", _on_scale_changed),
 )
 
 

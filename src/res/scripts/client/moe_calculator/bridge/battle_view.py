@@ -41,6 +41,8 @@ from gui.impl.pub import ViewImpl, WindowImpl
 from openwg_gameface import ModDynAccessor
 
 from moe_calculator.bridge.view_models import BattleMoEVM
+from moe_calculator.domain.constants import BATTLE_ANCHOR_X, BATTLE_ANCHOR_Y
+from moe_calculator.domain.positioning import anchor_top_left
 
 # itemID registered in mods/configs/res_map/MoEBattleView.json -- keep in lockstep.
 RES_MAP_ITEM_ID = "MoEBattleView"
@@ -73,20 +75,17 @@ class MoEBattleView(ViewImpl):
             LOG_CURRENT_EXCEPTION()
 
 
-# Top-left anchor of the readout window as a FRACTION of the screen (viewport-relative,
-# so it's resolution-independent -- reproduces the old CSS `left:13.8vw; top:78.8vh` that
-# aligned to WG's efficiency panel). We anchor the window's TOP-LEFT (the readout sits at
-# the top-left of the content box, MoEBattle.css #moe-battle-root left:0/top:0), because the
-# Wulf surface is a fixed ~256x256 (windowSize is read-only -- confirmed live -- so it does
-# NOT shrink to the CSS box; a BOTTOM anchor clamps to the top when the offset is smaller
-# than the window height). Interface-scale awareness is the mod-positioning task's job
-# (TASKS/mod-positioning.md).
-_ANCHOR_VW = 0.138
-_ANCHOR_VH = 0.788
+# The window is placed at a FIXED logical-GUI-space offset from the screen's bottom-left edge
+# (domain.constants.BATTLE_ANCHOR_X/Y), which tracks WG's (logical-unit) efficiency panel at
+# every interface scale -- see domain/positioning.py for WHY a fixed offset beats the old
+# `_ANCHOR_VW/_VH` fraction (the fraction was correct only at the 2x it was tuned at and
+# drifted at 1x). We always move() with a TOP-LEFT anchor: the surface is a fixed ~256x256
+# (windowSize is read-only -- confirmed live -- so it does NOT shrink to the CSS box), and a
+# BOTTOM anchor clamps to the top when the offset is smaller than the window height.
 
 # A large sentinel offset used to clamp the window to the far corner (LEFT/TOP anchor) so we
-# can read back the movable extent and recover the logical GUI-space size. Any value beyond
-# the space works; the engine clamps it to (space - windowSize).
+# can read back the movable extent (= logical space - windowSize) and place proportionally.
+# Any value beyond the space works; the engine clamps it to (space - windowSize).
 _FAR = 1 << 20
 
 
@@ -117,24 +116,33 @@ class MoEBattleWindow(WindowImpl):
     def _onReady(self):
         # Show WITHOUT taking focus -- an info-only overlay must never grab battle input.
         self.show(focus=False)
-        # Position the window's TOP-LEFT over WG's efficiency panel. move() operates in a
-        # LOGICAL GUI space (1920x1080-class, NOT physical px) and the surface is a fixed
-        # size, so we can't just multiply physical screenSize(). Instead self-calibrate:
-        # clamp to the far corner to read the movable extent (= space - windowSize), recover
-        # the logical space, then place proportionally (reproduces the old vw/vh anchor) --
-        # resolution- and interface-scale-independent. move() needs the window attached to
-        # its area, which load() does before _onReady fires. Fail-soft: a positioning error
-        # must never blank the overlay.
-        try:
-            self.move(_FAR, _FAR, xAnchor=PositionAnchor.LEFT, yAnchor=PositionAnchor.TOP)
-            max_x, max_y = self.position
-            win_w, win_h = self.size
-            space_w, space_h = max_x + win_w, max_y + win_h
-            x = min(max(0, int(_ANCHOR_VW * space_w)), max_x)
-            y = min(max(0, int(_ANCHOR_VH * space_h)), max_y)
-            self.move(x, y, xAnchor=PositionAnchor.LEFT, yAnchor=PositionAnchor.TOP)
-        except Exception:
-            LOG_CURRENT_EXCEPTION()
+        _place(self)
+
+
+def _place(window):
+    """Position the window's TOP-LEFT at the fixed logical anchor over WG's efficiency panel.
+    move() operates in a LOGICAL GUI space (physical px / interfaceScale) and the surface is a
+    fixed size, so we can't just multiply physical screenSize(). Instead self-calibrate: clamp
+    to the far corner to read the movable extent (= space - windowSize), then place at the
+    fixed logical offset (domain.anchor_top_left) -- resolution- and interface-scale-invariant.
+    move() needs the window attached to its area, which load() does before _onReady fires.
+    Fail-soft: a positioning error must never blank the overlay."""
+    try:
+        window.move(_FAR, _FAR, xAnchor=PositionAnchor.LEFT, yAnchor=PositionAnchor.TOP)
+        max_x, max_y = window.position
+        x, y = anchor_top_left(max_x, max_y, BATTLE_ANCHOR_X, BATTLE_ANCHOR_Y)
+        window.move(x, y, xAnchor=PositionAnchor.LEFT, yAnchor=PositionAnchor.TOP)
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+
+
+def apply_position():
+    """Re-place the currently-open overlay window at its logical anchor. Called on interface-
+    scale change (battle_bridge) so the overlay keeps tracking WG's panel mid-battle. No-op
+    (fail-soft) when the window is closed."""
+    if _active is None:
+        return
+    _place(_active[0])
 
 
 # Singleton (window, view) for the currently-open overlay (None when closed).

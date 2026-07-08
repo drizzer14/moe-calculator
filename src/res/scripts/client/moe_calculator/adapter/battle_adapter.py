@@ -35,6 +35,19 @@ def _session_provider():
     return dependency.instance(IBattleSessionProvider)
 
 
+def _settings_core():
+    """The ISettingsCore instance, or None. Its .interfaceScale exposes get() (the float
+    multiplier) and onScaleChanged (an Event) -- used to re-place the overlay on scale
+    changes. Fail-soft: a missing core just means no live re-placement."""
+    try:
+        from helpers import dependency
+        from skeletons.account_helpers.settings_core import ISettingsCore
+        return dependency.instance(ISettingsCore)
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+        return None
+
+
 def _efficiency_ctrl():
     """The personal-efficiency controller feeding the battle damage panel, or None."""
     sp = _session_provider()

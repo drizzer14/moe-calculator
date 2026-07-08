@@ -1,9 +1,16 @@
 /* 14th_ua's MoE Calculator widget. Uses WoT's native Gameface palette by VALUE
    (PFDINMax font + parchment/gold hex). We do NOT use var(--color-*) custom
    properties: Gameface's CSS engine drops a whole declaration when it can't resolve a
-   var() (ignoring the fallback), which renders elements invisible. Sizing in rem (the
-   engine scales the root font); viewport-anchored offsets in vh/vw (rem is quantized
-   per resolution bucket by WoT's UI scale and drifts across resolutions).
+   var() (ignoring the fallback), which renders elements invisible. EVERYTHING -- sizing
+   AND the anchor offsets -- is in rem: the engine sets the hangar doc's root font so
+   1rem == interfaceScale px (measured via the S1 probe: 1px @1x, 2px @2x), i.e. rem IS
+   WG's own logical layout unit. A rem offset therefore tracks WG's panels across BOTH
+   interface scale and resolution (a fixed physical offset at a given scale, independent of
+   resolution -- the CSS px viewport stays physical, 3840x2160, at every scale). The anchor
+   was originally vw/vh, which pins a fixed *physical* offset (a fraction of the physical
+   viewport, which does NOT shrink with scale), so the widget drifted against WG's
+   scale-tracking panels away from its calibration scale (tuned at 2x, drifted at 1x). The
+   engine reflows rem live when scale changes, so no Python scale-push / re-render is needed.
 
    Layout: a horizontal percentile bar (0..100) anchored bottom-right, above the
    carousel, styled like the garage's top-right Battlepass chapter-progress widget.
@@ -13,16 +20,18 @@
 #moe-root {
     position: fixed;
     /* Bottom-right, above the carousel, aligned toward the vehicle-info column's right
-       edge. These offsets are CALIBRATED LIVE in-client (read the resolved px with
-       getComputedStyle in the hangar console); the values here are the starting point
-       for a single-row carousel at the 1080 design baseline. */
-    right: 2.4vw;
-    bottom: 25.5vh;               /* single-row (rows=1) clearance, dialed in live at 2160p:
-                                     25vh read a touch low, 26vh a touch high -> 25.5vh. Reference
-                                     gaps above the single-row carousel top (~screen-y 1740):
-                                     22vh ~30px (tight), 25vh ~95px, 27vh ~140px, 30vh ~210px
-                                     (floated). (Earlier single values never rendered: the setting
-                                     was 'double', so rows=2 -> .moe-rows2 (28vh) overrode this.) */
+       edge (see the file header for the rem-is-WG's-logical-unit reasoning; converted from
+       the old vw/vh anchor, which was tuned at 2x and drifted at 1x).
+         X: pure rem -- the vehicle-info column's right edge scales cleanly with interface
+            scale, so right 2.4vw (92px@2x) -> 46rem tracks it at every scale. Verified 1x+2x.
+         Y: rem + a fixed 140px term -- the carousel top does NOT scale purely: it sits above
+            bottom chrome whose height is scale-INVARIANT, so a lone rem value that's right at
+            2x lands ~70px too low at 1x. calc(<rem> + 140px) fits BOTH scales (the rem part
+            still reflows live with scale; the 140px is the constant chrome). Per carousel
+            state, <rem> is pinned so 2x reproduces the original vh px exactly (no regression):
+            single-row 25.5vh=551px@2x -> calc(205.5rem+140px); .moe-rows2 confirmed live. */
+    right: 46rem;
+    bottom: calc(205.5rem + 140px);   /* single-row (rows=1) clearance (was 25.5vh / 275rem) */
     width: 315rem;                /* content width; matched to the missions-panel box width
                                      (was 360 -- box read ~13% wider than the reference) */
     z-index: 9000;
@@ -86,8 +95,8 @@
    than a single row; the small (shorter) double-row tiles need less lift than the tall
    adaptive tiles. .moe-small must follow .moe-rows2 in source order so it wins. Values
    calibrated live per resolution. */
-#moe-root.moe-rows2 { bottom: 28vh; }
-#moe-root.moe-rows2.moe-small { bottom: 24vh; }
+#moe-root.moe-rows2 { bottom: calc(232rem + 140px); }        /* was 28vh/302rem (605px@2x); verified live 1x+2x */
+#moe-root.moe-rows2.moe-small { bottom: calc(189rem + 140px); }  /* was 24vh/259rem (518px@2x) */
 
 /* --- current readout, sitting right on top of the bar ---------------------- */
 /* Anchored just above the track's left end (like the Battle Pass "Stage 1"
