@@ -57,8 +57,9 @@ class BattleMoEModel(object):
     - `proj_avg_damage` : projected moving-average combined damage folding in this CD (EWMA).
     - `cur_percent`     : "where you'd stand if the battle ended now" (0.0..100.0), ANCHORED
                           to WG's real career standing: pre_percentile + this battle's interp
-                          increment (interp(proj) - interp(pre_avg)), clamped 0..100. Opens at
-                          exactly pre_percentile before any damage. 0.0 when thresholds unknown.
+                          increment (interp(proj) - interp(pre_avg)), clamped 0..100. Opens just
+                          BELOW pre_percentile with 0 damage (the folded 0-damage projection) and
+                          moves with the battle. 0.0 when thresholds unknown.
     - `pct_delta`       : the signed battle increment interp(proj) - interp(pre_avg) -- how far
                           this battle moves your standing, on a self-consistent interp scale
                           (NOT mixed against WG's rating). 0.0 when thresholds are unknown.

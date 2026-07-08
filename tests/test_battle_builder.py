@@ -89,10 +89,11 @@ def test_ewma_project_new_tank_zero_baseline():
     assert ewma_project(0, 3000) == int(round(EWMA_K * 3000))             # 59
 
 
-def test_ewma_project_zero_cd_does_not_fold():
-    # No net contribution yet -> keep the baseline exactly (was prev*(1-k), ~2% low).
-    assert ewma_project(1800, 0) == 1800
-    assert ewma_project(2000, 0) == 2000
+def test_ewma_project_zero_cd_folds_below_baseline():
+    # A 0-damage battle-so-far IS folded: proj = prev*(1-k), the honest 'if it ended now'
+    # projection that opens just below career and climbs as damage accrues.
+    assert ewma_project(1800, 0) == int(round(1800 * (1 - EWMA_K)))       # 1764
+    assert ewma_project(2000, 0) == int(round(2000 * (1 - EWMA_K)))       # 1960
     assert ewma_project(0, 0) == 0
 
 
@@ -114,14 +115,17 @@ def test_build_battle_model_four_metrics():
     assert m.has_data is True
 
 
-def test_build_battle_model_anchors_to_pre_percentile_before_battle():
-    # No damage yet (cd=0) -> proj == pre_avg -> increment 0 -> opens at WG's real number,
-    # NOT ~1.5% below it (the bug: interp(pre_avg) ~= 81 when pre_percentile is 84.7).
+def test_build_battle_model_zero_damage_drags_below_career():
+    # No damage yet (cd=0) -> proj = prev*(1-k) < pre_avg -> the folded 0-damage battle
+    # drags the anchored percent just below WG's real number (honest 'if it ended now').
     m = build_battle_model(_bsnap(damage=0, assist=0, stun=0,
                                   pre_avg_damage=1800, pre_percentile=84.7))
-    assert m.proj_avg_damage == 1800
-    assert round(m.cur_percent, 2) == 84.7
-    assert m.pct_delta == 0.0
+    assert m.proj_avg_damage == int(round(1800 * (1 - EWMA_K)))           # 1764
+    inc = damage_to_percent(m.proj_avg_damage, _THR) - damage_to_percent(1800, _THR)
+    assert inc < 0                                                        # 0-damage drags down
+    assert round(m.cur_percent, 2) == round(84.7 + inc, 2)
+    assert m.cur_percent < 84.7
+    assert round(m.pct_delta, 2) == round(inc, 2)
 
 
 def test_build_battle_model_clamps_cur_percent_to_100():

@@ -85,15 +85,12 @@ def ewma_project(prev_avg, cd, k=EWMA_K):
     """Fold this battle's combined damage `cd` into the moving average `prev_avg` one EWMA
     step: prev + k*(cd - prev). Rounded to an integer damage value.
 
-    With no net contribution yet (`cd <= 0` -- pre-battle, or a battle whose team-damage
-    fully offsets it), DON'T fold: return `prev_avg` unchanged. Folding a zero would drag
-    the projection to prev*(1-k) ~= prev*0.98, opening the readout ~2% below career avg
-    before anything has happened (the start-of-battle low bias)."""
+    A 0-damage battle-so-far IS folded (proj = prev*(1-k)): the overlay honestly projects
+    'where you'd stand if the battle ended now', opening ~1-2 pts below career and climbing
+    as real damage accrues. `combined_damage()` clamps cd to >= 0 upstream, so the fold
+    never drags below prev*(1-k)."""
     prev = float(prev_avg or 0.0)
-    c = float(cd or 0)
-    if c <= 0.0:
-        return int(round(prev))
-    return int(round(prev + k * (c - prev)))
+    return int(round(prev + k * (float(cd or 0) - prev)))
 
 
 def build_battle_model(snapshot):
@@ -111,8 +108,9 @@ def build_battle_model(snapshot):
         # dossier's getDamageRating) and add ONLY this battle's interpolation increment.
         # Our interp curve and WG's damageRating are different functions of damage, so their
         # ABSOLUTE values disagree by a percent or two -- but that constant bias cancels in
-        # the increment interp(proj) - interp(pre_avg). At battle start proj == pre_avg -> the
-        # increment is 0 -> we open exactly at WG's number instead of ~1.5% below it.
+        # the increment interp(proj) - interp(pre_avg). At battle start proj == prev*(1-k),
+        # so the increment is slightly negative and we open just BELOW WG's number: the
+        # honest projection of an uncommitted (0-damage) battle, climbing as damage accrues.
         inc = (_interp_percent(proj, stops)
                - _interp_percent(snapshot.pre_avg_damage, stops))
         cur_percent = _clamp(float(snapshot.pre_percentile or 0.0) + inc, 0.0, 100.0)
