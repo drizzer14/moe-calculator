@@ -57,7 +57,9 @@ $tpl = @'
   .mb-value{font-size:var(--valfs);font-weight:var(--valwt);letter-spacing:var(--valls);color:#fff;text-shadow:var(--numsh)}
   .mb-sep{font-size:var(--sepfs);font-weight:var(--sepwt);color:rgba(237,230,217,.45);text-shadow:var(--numsh)}
   .mb-delta{font-size:var(--deltafs);font-weight:var(--deltawt);color:#fff;text-shadow:var(--numsh)}
-  .mb-value.mb-up,.mb-delta.mb-up{color:#8fd18f}.mb-value.mb-down,.mb-delta.mb-down{color:#e08585}
+  /* Sign now = WHITE text + a colored GLOW (the dark legibility drop stays layered under it). */
+  .mb-value.mb-up,.mb-delta.mb-up{color:#fff;text-shadow:var(--upsh)}
+  .mb-value.mb-down,.mb-delta.mb-down{color:#fff;text-shadow:var(--downsh)}
   /* ---- panel ---- */
   .panel{width:360px;flex:none;background:var(--panel);border-left:1px solid var(--line);padding:18px 18px 50px;overflow:auto;height:100vh;position:sticky;top:0}
   .panel h1{font-size:16px;margin:0 0 4px;font-weight:800}
@@ -118,13 +120,13 @@ $tpl = @'
     ["Typography",[
       {id:"valSize",label:"Number size (rem)",min:8,max:48,step:0.5,val:14},
       {id:"valWeight",label:"Number weight",min:300,max:700,step:100,val:600},
-      {id:"valLS",label:"Letter-spacing (em)",min:-0.1,max:0.2,step:0.005,val:-0.05},
-      {id:"sepSize",label:"Separator size (rem)",min:6,max:40,step:0.5,val:17},
+      {id:"valLS",label:"Letter-spacing (em)",min:-0.1,max:0.2,step:0.005,val:0},
+      {id:"sepSize",label:"Separator size (rem)",min:6,max:40,step:0.5,val:14},
       {id:"sepWeight",label:"Separator weight",min:300,max:700,step:100,val:600},
       {id:"deltaSize",label:"Delta size (rem)",min:6,max:40,step:0.5,val:14},
       {id:"deltaWeight",label:"Delta weight",min:300,max:700,step:100,val:600}]],
     ["Layout",[
-      {id:"rowGap",label:"Row gap / margin-bottom (rem)",min:-40,max:40,step:0.5,val:-13.5},
+      {id:"rowGap",label:"Row gap / margin-bottom (rem)",min:-40,max:40,step:0.5,val:-11},
       {id:"icoGap",label:"Icon→text gap (rem)",min:-40,max:40,step:0.5,val:4},
       {id:"valGap",label:"Value gap (rem)",min:-30,max:30,step:0.5,val:4.5},
       {id:"rowPadV",label:"Row pad vert (rem)",min:0,max:30,step:0.5,val:8},
@@ -136,9 +138,10 @@ $tpl = @'
       {id:"icoPosY",label:"Icon nudge Y (rem)",min:-30,max:30,step:0.5,val:1},
       {id:"icoOffX",label:"Glow offset X (rem)",min:-10,max:10,step:0.5,val:0},
       {id:"icoOffY",label:"Glow offset Y (rem)",min:-10,max:10,step:0.5,val:0},
-      {id:"icoGlowBlur",label:"Glow blur (rem)",min:0,max:40,step:0.5,val:0.5},
+      {id:"icoBright",label:"Icon brightness (x)",min:0.5,max:5,step:0.1,val:3},
+      {id:"icoGlowBlur",label:"Glow blur (rem)",min:0,max:40,step:0.5,val:1.5},
       {id:"icoGlowStrength",label:"Glow strength (x)",min:0,max:5,step:1,val:1},
-      {id:"icoGlowColor",label:"Glow colour",color:true,val:"#ffffff"}]],
+      {id:"icoGlowColor",label:"Glow colour",color:true,val:"#ffcd5a"}]],
     ["Dots (checker dither)",[
       // checker.png is a 2x2-cell tile at CELL game-px, tiled 1:1 (background-size:auto ->
       // native cells). The stage renders it at TRUE game scale (SCALE=1600/3840), so fine cells
@@ -147,13 +150,13 @@ $tpl = @'
       // radial mask (fade shape size/centre + solid-to/gone-by below).
       {id:"cellPx",label:"Cell size (game px @3840)",min:1,max:8,step:1,val:2},
       {id:"loupeZoom",label:"Magnifier zoom (px / game-px)",min:1,max:10,step:1,val:5},
-      {id:"dotAlpha",label:"Strength (opacity)",min:0,max:1,step:0.01,val:0.19},
+      {id:"dotAlpha",label:"Strength (opacity)",min:0,max:1,step:0.01,val:0.2},
       {id:"gradRX",label:"Fade shape size X (%)",min:0,max:250,step:1,val:223},
       {id:"gradRY",label:"Fade shape size Y (%)",min:0,max:250,step:1,val:120},
-      {id:"gradCX",label:"Fade centre X (%)",min:0,max:100,step:1,val:10},
+      {id:"gradCX",label:"Fade centre X (%)",min:0,max:100,step:1,val:32},
       {id:"gradCY",label:"Fade centre Y (%)",min:0,max:100,step:1,val:50},
       {id:"dotMaskIn",label:"Fade: solid to (%)",min:0,max:100,step:1,val:0},
-      {id:"dotMaskOut",label:"Fade: gone by (%)",min:0,max:120,step:1,val:53}]],
+      {id:"dotMaskOut",label:"Fade: gone by (%)",min:0,max:120,step:1,val:27}]],
     ["Background gradient (underlay)",[
       // The dark radial blob painted BEHIND the checker (::after, z-index:-1) -- the backdrop
       // that "worked before". Its own size/centre/alpha; its left edge fades via the clip below.
@@ -161,7 +164,7 @@ $tpl = @'
       {id:"ugRY",label:"Size Y (%)",min:0,max:250,step:1,val:50},
       {id:"ugCX",label:"Centre X (%)",min:0,max:100,step:1,val:50},
       {id:"ugCY",label:"Centre Y (%)",min:0,max:100,step:1,val:48},
-      {id:"ug1a",label:"Inner alpha",min:0,max:1,step:0.01,val:0.28},
+      {id:"ug1a",label:"Inner alpha",min:0,max:1,step:0.01,val:0.4},
       {id:"ug1p",label:"Inner pos (%)",min:0,max:100,step:1,val:0},
       {id:"ug2a",label:"Outer alpha",min:0,max:1,step:0.01,val:0},
       {id:"ug2p",label:"Outer pos (%)",min:0,max:100,step:1,val:58},
@@ -172,7 +175,16 @@ $tpl = @'
       {id:"shY",label:"Offset Y (rem)",min:-10,max:10,step:0.5,val:0},
       {id:"shBlur",label:"Blur (rem)",min:0,max:30,step:0.5,val:1},
       {id:"shAlpha",label:"Alpha",min:0,max:1,step:0.01,val:0.5},
-      {id:"shColor",label:"Colour",color:true,val:"#000000"}]]
+      {id:"shColor",label:"Colour",color:true,val:"#000000"}]],
+    ["Sign glow (up=green / down=red)",[
+      // Sign is carried by a COLORED GLOW: numerals stay white, a green/red halo (two stacked
+      // text-shadow passes) rides OVER the dark legibility drop above. Neutral = no glow.
+      {id:"glowUp",label:"Up (above avg) glow colour",color:true,val:"#7BEC37"},
+      {id:"glowDown",label:"Down (below avg) glow colour",color:true,val:"#D3443F"},
+      {id:"glowB1",label:"Wide glow blur (rem)",min:0,max:40,step:0.5,val:6},
+      {id:"glowA1",label:"Wide glow alpha",min:0,max:1,step:0.01,val:0.9},
+      {id:"glowB2",label:"Tight core blur (rem)",min:0,max:40,step:0.5,val:1},
+      {id:"glowA2",label:"Tight core alpha",min:0,max:1,step:0.01,val:0.9}]]
   ];
   var st={}, casev="above", famv="MoEBattle";
   SCHEMA.forEach(function(sec){sec[1].forEach(function(c){st[c.id]=c.val;});});
@@ -214,8 +226,11 @@ $tpl = @'
       " — stage shows this "+(st.loupeZoom/SCALE).toFixed(1)+"× smaller (true game scale)";
   }
   function dotMask(){return "radial-gradient("+st.gradRX+"% "+st.gradRY+"% at "+st.gradCX+"% "+st.gradCY+"%,#000 "+st.dotMaskIn+"%,transparent "+st.dotMaskOut+"%)";}
-  function icoFilter(){if(st.icoGlowStrength<=0)return "none";var d="drop-shadow("+rem(st.icoOffX)+" "+rem(st.icoOffY)+" "+rem(st.icoGlowBlur)+" "+st.icoGlowColor+") ";var o="";for(var i=0;i<st.icoGlowStrength;i++)o+=d;return o;}
+  function icoFilter(){var b="brightness("+st.icoBright+") ",d="drop-shadow("+rem(st.icoOffX)+" "+rem(st.icoOffY)+" "+rem(st.icoGlowBlur)+" "+st.icoGlowColor+") ",o="";for(var i=0;i<st.icoGlowStrength;i++)o+=d;return b+o;}
   function numSh(){return rem(st.shX)+" "+rem(st.shY)+" "+rem(st.shBlur)+" "+hexA(st.shColor,st.shAlpha);}
+  // Sign glow = dark legibility drop (numSh) + two stacked colored passes at growing radius.
+  function glowStack(hex){return "0px 0px "+rem(st.glowB1)+" "+hexA(hex,st.glowA1)+", 0px 0px "+rem(st.glowB2)+" "+hexA(hex,st.glowA2);}
+  function signSh(hex){return numSh()+", "+glowStack(hex);}
   function apply(){
     var r=document.getElementById("moe-battle-root"),S=r.style;
     S.setProperty("--fam",'"'+famv+'","Arial Narrow",sans-serif');
@@ -229,6 +244,7 @@ $tpl = @'
     S.setProperty("--icosize",rem(st.icoSize));S.setProperty("--icozoom",st.icoZoom+"%");S.setProperty("--icofilter",icoFilter());
     S.setProperty("--icotx",rem(st.icoPosX));S.setProperty("--icoty",rem(st.icoPosY));
     S.setProperty("--numsh",numSh());
+    S.setProperty("--upsh",signSh(st.glowUp));S.setProperty("--downsh",signSh(st.glowDown));
     S.setProperty("--valfs",rem(st.valSize));S.setProperty("--valwt",st.valWeight);S.setProperty("--valls",st.valLS+"em");
     S.setProperty("--sepfs",rem(st.sepSize));S.setProperty("--sepwt",st.sepWeight);
     S.setProperty("--deltafs",rem(st.deltaSize));S.setProperty("--deltawt",st.deltaWeight);
@@ -241,7 +257,7 @@ $tpl = @'
     document.getElementById("out").textContent=cssOut();
   }
   function cssOut(){
-    var filt=(st.icoGlowStrength<=0)?"none":(function(){var d="drop-shadow("+st.icoOffX+"rem "+st.icoOffY+"rem "+st.icoGlowBlur+"rem "+st.icoGlowColor+")";var a=[];for(var i=0;i<st.icoGlowStrength;i++)a.push(d);return a.join(" ");})();
+    var filt=(function(){var a=["brightness("+st.icoBright+")"],d="drop-shadow("+st.icoOffX+"rem "+st.icoOffY+"rem "+st.icoGlowBlur+"rem "+st.icoGlowColor+")";for(var i=0;i<st.icoGlowStrength;i++)a.push(d);return a.join(" ");})();
     var sh=st.shX+"rem "+st.shY+"rem "+st.shBlur+"rem "+hexA(st.shColor,st.shAlpha);
     var famcss=(famv==="MoEBattle")?'"MoEBattle", "Arial Narrow", sans-serif':'"Univers Condensed", sans-serif';
     // ::before = dots dither (with its own radial fade mask). UNPREFIXED mask only -- WG's own
@@ -259,7 +275,10 @@ $tpl = @'
       ".mb-sep, .mb-value.mb-avg, .mb-delta { margin-left: "+st.valGap+"rem; }\n"+
       ".mb-value {\n  font-size: "+st.valSize+"rem; font-weight: "+st.valWeight+";\n  letter-spacing: "+st.valLS+"em;\n  text-shadow: "+sh+";\n}\n"+
       ".mb-sep { font-size: "+st.sepSize+"rem; font-weight: "+st.sepWeight+"; }\n"+
-      ".mb-delta { font-size: "+st.deltaSize+"rem; font-weight: "+st.deltaWeight+"; text-shadow: "+sh+"; }";
+      ".mb-delta { font-size: "+st.deltaSize+"rem; font-weight: "+st.deltaWeight+"; text-shadow: "+sh+"; }\n"+
+      "/* Sign = WHITE text + colored GLOW (dark drop kept underneath for legibility). */\n"+
+      ".mb-value.mb-up,\n.mb-delta-num.mb-up {\n  color: #ffffff;\n  text-shadow: "+sh+",\n               0 0 "+st.glowB1+"rem "+hexA(st.glowUp,st.glowA1)+",\n               0 0 "+st.glowB2+"rem "+hexA(st.glowUp,st.glowA2)+";\n}\n"+
+      ".mb-value.mb-down,\n.mb-delta-num.mb-down {\n  color: #ffffff;\n  text-shadow: "+sh+",\n               0 0 "+st.glowB1+"rem "+hexA(st.glowDown,st.glowA1)+",\n               0 0 "+st.glowB2+"rem "+hexA(st.glowDown,st.glowA2)+";\n}";
   }
   // build UI
   var host=document.getElementById("controls");

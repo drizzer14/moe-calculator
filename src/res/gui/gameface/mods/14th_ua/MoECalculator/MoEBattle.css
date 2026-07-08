@@ -104,10 +104,10 @@ body {
     background-size: auto;              /* native 2px cells (fine dither); subtle at opacity 0.19. rem-scaling shrank it sub-pixel -- native renders crisp in-game. */
     background-position: 0px 0px;
     image-rendering: pixelated;
-    opacity: 0.19;
+    opacity: 0.2;
     /* unprefixed mask only -- WG's own Gameface CSS uses `mask` (679x) and never `-webkit-mask`;
        the engine honors the standard property, so the prefix is dead weight. */
-    mask: radial-gradient(223% 120% at 29% 50%, #000 0%, transparent 22%);
+    mask: radial-gradient(223% 120% at 32% 50%, #000 0%, transparent 27%);
 }
 
 /* Dark radial UNDERLAY -- the pre-dither backdrop shape, layered back BEHIND the checker.
@@ -123,7 +123,7 @@ body {
     right: 0;
     bottom: 0;
     z-index: -1;
-    background: radial-gradient(50% 50% at 50% 48%, rgba(0, 0, 0, 0.28) 0%, rgba(0, 0, 0, 0) 58%);
+    background: radial-gradient(50% 50% at 50% 48%, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0) 58%);
     mask: linear-gradient(90deg, transparent 13%, #000 22%);
 }
 
@@ -133,7 +133,9 @@ body {
 }
 
 /* Icon glyph. <img> is clipped in Gameface -> background-image div. The quest_type/128
-   glyphs fill only ~23% of the PNG (transparent padding), so zoom to 260% to crop it. */
+   glyphs fill only ~23% of the PNG (transparent padding), so zoom to 260% to crop it.
+   The source art is ~#c8c8c8 grey line-art, so brightness() lifts the glyph itself toward
+   white BEFORE the drop-shadow (which keeps its own explicit gold colour). */
 .mb-ico {
     display: block;
     flex: none;
@@ -143,7 +145,7 @@ body {
     background-repeat: no-repeat;
     background-position: center;
     background-size: 260%;
-    filter: drop-shadow(0rem 0rem 0.5rem #ffffff);
+    filter: brightness(3) drop-shadow(0rem 0rem 1.5rem #ffcd5a);   /* brighten grey glyph to near-white + garage gold bloom (#FFCD5A) */
     transform: translate(0rem, 1rem);   /* nudge onto the numeral baseline */
 }
 
@@ -180,15 +182,24 @@ body {
     text-shadow: 0rem 0rem 1rem rgba(0, 0, 0, 0.5);
 }
 
-/* Sign colours (compound selector beats the white defaults). Applies to the live-damage value
-   (row 1, vs projected avg) AND the signed delta NUMBER (row 2, .mb-delta-num) -- but NOT the
-   delta's surrounding parens, which are static markup on .mb-delta and stay white. */
+/* Sign is carried by a COLORED GLOW, not a text fill: the numerals stay WHITE and a green/red
+   halo (text-shadow) signals the sign, layered OVER the dark legibility drop so the numbers
+   still read over bright AND dark map areas. Applies to the live-damage value (row 1, vs
+   projected avg) AND the signed delta NUMBER (row 2, .mb-delta-num) -- but NOT the delta's
+   surrounding parens, which are static markup on .mb-delta and stay white. Neutral/at-par has
+   no .mb-up/.mb-down class -> plain white + dark drop only, no glow. */
 .mb-value.mb-up,
 .mb-delta-num.mb-up {
-    color: #61bf22;   /* WG ally 3D-flag team green (gui_colors.xml) */
+    color: #ffffff;
+    text-shadow: 0rem 0rem 1rem rgba(0, 0, 0, 0.5),    /* dark legibility drop (matches base) */
+                 0rem 0rem 6rem rgba(123, 236, 55, 0.9),  /* green glow (#7BEC37) wide pass */
+                 0rem 0rem 1rem rgba(123, 236, 55, 0.9);  /* tight core pass */
 }
 
 .mb-value.mb-down,
 .mb-delta-num.mb-down {
-    color: #c81400;   /* WG enemy 3D-flag team red (gui_colors.xml) */
+    color: #ffffff;
+    text-shadow: 0rem 0rem 1rem rgba(0, 0, 0, 0.5),
+                 0rem 0rem 6rem rgba(211, 68, 63, 0.9),   /* red glow (#D3443F) wide pass */
+                 0rem 0rem 1rem rgba(211, 68, 63, 0.9);   /* tight core pass */
 }
