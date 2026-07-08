@@ -52,18 +52,16 @@ function pctText(p) {
 }
 
 // Piecewise axis: map a percentile (0..100) to a position along the bar (0..100 %).
-// The bar spans the FULL width, divided into 5 EQUAL-WIDTH regions at the milestone
-// boundaries -- below 50 | 50-65 | 65-85 | 85-95 | 95-100 -- each region an even fifth
-// (20%) of the bar WIDTH. Equal fifths spread the crowded high-percentile marks
-// (65/85/95) instead of bunching them at the tail, while still filling the whole bar.
-// PCT_STOPS = the percentile region boundaries; BAR_STOPS = their bar-width positions.
-// Applied to BOTH the fill width and every tick's position so they stay consistent; the
-// CSS boundary guides (.moe-split at 50, .moe-tick-notch at 65/85/95, .moe-end at 100)
-// are positioned to the same stops (ticks data-driven via barX, the split hard-coded to
-// barX(50)=20% in the CSS).
-const PCT_STOPS = [0, 50, 65, 85, 95, 100];   // percentile region boundaries
-const BAR_STOPS = [0, 20, 40, 60, 80, 100];   // bar-width % (equal fifths)
-const SPLIT_PCT = 50;   // the percentile the 50% split lands on (drives moe-split-passed)
+// The bar spans the FULL width, divided into 4 EQUAL-WIDTH regions at the milestone
+// boundaries -- below 65 | 65-85 | 85-95 | 95-100 -- each region an even quarter
+// (25%) of the bar WIDTH. Equal quarters spread the crowded high-percentile marks
+// (65/85/95) evenly (25%/50%/75%) instead of bunching them at the tail, while still
+// filling the whole bar. PCT_STOPS = the percentile region boundaries; BAR_STOPS = their
+// bar-width positions. Applied to BOTH the fill width and every tick's position so they
+// stay consistent; the CSS boundary guides (.moe-tick-notch at 65/85/95, .moe-end at 100)
+// are positioned to the same stops (ticks data-driven via barX).
+const PCT_STOPS = [0, 65, 85, 95, 100];   // percentile region boundaries
+const BAR_STOPS = [0, 25, 50, 75, 100];   // bar-width % (equal quarters)
 function barX(percentile) {
     const p = Math.max(0, Math.min(100, Number(percentile) || 0));
     for (let i = 1; i < PCT_STOPS.length; i++) {
@@ -91,8 +89,6 @@ function ensureRoot() {
         '<div class="moe-body">' +
         '  <div class="moe-track">' +
         '    <div class="moe-fill"></div>' +
-        '    <div class="moe-split"></div>' +
-        '    <div class="moe-split-label">50%</div>' +
         '    <div class="moe-end"></div>' +
         '    <div class="moe-end-label"></div>' +
         '    <div class="moe-cur-marker"></div>' +
@@ -312,10 +308,6 @@ function render(model) {
     const fill = Math.max(0, Math.min(100, Number(data.fill) || 0));
     root.querySelector(".moe-fill").style.width = barX(fill) + "%";
     root.querySelector(".moe-cur-marker").style.left = barX(fill) + "%";
-
-    // Once the current percentile is at/past the 50% split, brighten the split divider +
-    // caption the way reached milestone ticks brighten (a consistent "passed" language).
-    root.classList.toggle("moe-split-passed", fill >= SPLIT_PCT);
 
     // 100% end-cap: the combined-damage goalpost for the 100th percentile, shown to the
     // RIGHT of the bar's end (not below, where it would overlap the 95% mark number).
