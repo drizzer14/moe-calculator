@@ -156,9 +156,12 @@ def _player_nation(descr):
 
 
 def _in_battle():
-    """True whenever the overlay should be up: from arena spin-up through active combat --
-    WAITING / PREBATTLE (the prestart countdown) / BATTLE -- so the readout shows at the START
-    of the battle, not only once the prestart timer hits 0. Excludes IDLE and AFTERBATTLE.
+    """True whenever the overlay should be up: from arena spin-up through the post-battle
+    aftermath -- WAITING / PREBATTLE (the prestart countdown) / BATTLE / AFTERBATTLE -- so
+    the readout shows from the START of the battle and STAYS up once the result is decided
+    (the last stats freeze), disappearing only when the player leaves the arena. Excludes
+    only IDLE. Teardown is driven separately by onAvatarBecomeNonPlayer (battle exit), NOT
+    by the result being decided.
     ARENA_PERIOD is an ordered enum (IDLE=0, WAITING=1, PREBATTLE=2, BATTLE=3, AFTERBATTLE=4).
     Fail-open (True) when unreadable: if we could read a vehicle + efficiency, showing the
     overlay is the safe default."""
@@ -168,7 +171,7 @@ def _in_battle():
         if arena is None:
             return True
         return arena.period in (ARENA_PERIOD.WAITING, ARENA_PERIOD.PREBATTLE,
-                                ARENA_PERIOD.BATTLE)
+                                ARENA_PERIOD.BATTLE, ARENA_PERIOD.AFTERBATTLE)
     except Exception:
         LOG_CURRENT_EXCEPTION()
         return True
