@@ -11,12 +11,12 @@ phase, deploy, get in-game "lgtm", commit, then append a "Phase N done" section 
 ## Locked decisions (from user)
 - Deliver **all three slices, phased, sign-off between each**.
 - Phase 3 drag = **Ctrl+drag, always available** (no separate edit mode).
-- Phase 3 persistence = **ModsSettingsAPI** (`izeberg.modssettingsapi_1.7.0.wotmod` is vendored in `installer/vendor/`; zero code refs today).
+- Phase 3 persistence = **a small mod-local JSON** under the mod (ModsSettingsAPI was removed as an unused dependency — no settings backend is wired today).
 - Phase 2 trigger = the **"Summarized damage" group only**: when ALL four `DAMAGE_LOG` summary flags are unticked, events shift up → raise the anchor; otherwise position unchanged. `EVENT_POSITIONS` does NOT matter.
 
 ## Reusable code (do not reinvent)
-- **`C:\Users\Dmytro Vasylkivskyi\wgmod-research-progress`** ("Garage Progress Bar") already ships **Ctrl+drag + ModsSettingsAPI + reset** — port from it for Phase 3:
-  `src/res/scripts/client/wgmod_research/bridge/mod_settings.py`, `WGModResearch.js:703-793` (invokeCommand + drag), `view_models.py:171-177` (`_addCommand`), `tests/test_position.py`.
+- **`C:\Users\Dmytro Vasylkivskyi\wgmod-research-progress`** ("Garage Progress Bar") already ships **Ctrl+drag + reset** — port the drag/reverse-channel from it for Phase 3 (but persist to a mod-local JSON, not MSA):
+  `WGModResearch.js:703-793` (invokeCommand + drag), `view_models.py:171-177` (`_addCommand`), `tests/test_position.py`. (Its `bridge/mod_settings.py` is MSA-specific — use it only as a shape reference for the store, not a direct port.)
 
 ---
 
@@ -98,7 +98,7 @@ overlay moves to a **separate RAISED anchor**; any one flag ticked → the signe
 
 **Follow-up:** the deployed `.wotmod` still carries the OLD garage CSS via the `res_mods`
 hot-reload overlay-shadow (Phase 1 note) — a clean rebuild before release still applies. **Phase 3
-(Ctrl+drag + ModsSettingsAPI persist) is next** and un-started.
+(Ctrl+drag + mod-local JSON persist) is next** and un-started.
 
 ## Phase 2 — damage-log-aware default (own session, after Phase 1)
 Binary: read the four `DAMAGE_LOG` flags (`TOTAL_DAMAGE='damageLogTotalDamage'`, `BLOCKED_DAMAGE`, `ASSIST_DAMAGE`, `ASSIST_STUN`; confirmed in `settings_constants.py:268-272`) via `core.getSetting(...)` in `battle_adapter` (fail-soft). Pure predicate in `domain/`: all-unticked → raised anchor, else default. Re-apply via `onSettingsChanged` (any of the four in diff). Calibrate the raised anchor in-game (all-four-unticked layout) at 1×/2×. Builds on Phase 1's scale-aware placement.

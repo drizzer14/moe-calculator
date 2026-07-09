@@ -9,9 +9,8 @@ each offending file:line. It exists because the version is hand-edited in severa
 places at release time (see the wotmod-release skill) and drift slips through.
 
 To avoid false positives on the *other* version numbers in the repo (the target
-client 2.3.0.1, bundled ModsSettingsAPI 1.7.0 / OpenWG GameFace
-1.1.6, etc.) this matches only patterns that unambiguously carry THIS
-mod's version:
+client 2.3.0.1, bundled OpenWG GameFace 1.1.6, etc.) this matches only patterns
+that unambiguously carry THIS mod's version:
 
   * com.14th_ua.moe_calculator_<v>.wotmod          (the packaged filename)
   * MoECalculator-Setup-<v>.exe   (the installer filename)

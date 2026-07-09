@@ -17,7 +17,7 @@ features and the build each have their own project skill:
 
 - **Mod id:** `com.14th_ua.moe_calculator` (`src/meta.xml` is the canonical version, currently **0.1.0**).
 - **Client:** WoT **EU 2.3.0.1**. Runtime **Python 2.7** (BigWorld); tests on **Python 3.13**.
-- **Hard dep:** OpenWG GameFace ≥ 1.1.6 (`import openwg_gameface` raises if absent). **Optional:** ModsSettingsAPI 1.7.0 (bundled; no settings panel yet).
+- **Hard dep:** OpenWG GameFace ≥ 1.1.6 (`import openwg_gameface` raises if absent). No optional deps.
 - **MoE data source:** `https://tomato.gg/moe/EU` — per-tank combined-damage thresholds `{1,2,3,100}` keyed by intCD (Tiger I id 1073). Fetched once/session on a worker thread in `adapter/moe_data.py`.
 
 ## The tree
@@ -64,6 +64,6 @@ Deploy yourself — never ask the user to run these (run the commands directly v
 | Live REPL | `<py3> tools\dev\repl_client.py "<expr>"` — needs `com.14th_ua.moe_calculator_debug.wotmod` on TCP **:2224** |
 
 - WoT install: `D:/Games/World_of_Tanks_EU`. Decompiled client source: `C:\Users\Dmytro Vasylkivskyi\wot-eu\source\res\scripts\client\`.
-- Sibling repo with portable code (Ctrl+drag, ModsSettingsAPI): `C:\Users\Dmytro Vasylkivskyi\wgmod-research-progress`.
+- Sibling repo with portable code (Ctrl+drag): `C:\Users\Dmytro Vasylkivskyi\wgmod-research-progress`.
 - **Deploy needs `WorldOfTanks.exe` closed** (file locks); the `wgc` launcher may stay open.
 - Backlog + research notes live in `TASKS/` (`TASKS/shipped/` = archived). Planner role: see `wotmod-planner`.

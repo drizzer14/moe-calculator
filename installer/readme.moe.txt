@@ -9,7 +9,6 @@ your World of Tanks folder and restart the game.
 WHAT'S IN THE BOX
     com.14th_ua.moe_calculator_{VERSION}.wotmod      the mod
     net.openwg.gameface_1.1.6.wotmod                 REQUIRED dependency
-    izeberg.modssettingsapi_1.7.0.wotmod             common dependency
 
 
 ==============================================================
@@ -38,10 +37,7 @@ INSTALL  (2 steps)
 
 DEPENDENCIES
     OpenWG GameFace is REQUIRED - the widget will not appear without
-    it. ModsSettingsAPI is a common dependency included here for
-    convenience; this mod has no in-game options yet, so it works
-    with or without it. If you already run either mod, keep your
-    existing copy.
+    it. If you already run it, keep your existing copy.
 
 UNINSTALL
     Delete com.14th_ua.moe_calculator_{VERSION}.wotmod from
@@ -76,9 +72,7 @@ UNINSTALL
 
 ЗАЛЕЖНОСТІ
     OpenWG GameFace ОБОВ'ЯЗКОВИЙ - без нього віджет не з'явиться.
-    ModsSettingsAPI - поширена залежність, додана тут для зручності;
-    цей мод поки не має налаштувань у грі, тож працює як із нею, так
-    і без неї. Якщо котрийсь із модів уже стоїть, лишіть свою копію.
+    Якщо він уже стоїть, лишіть свою копію.
 
 ВИДАЛЕННЯ
     Видаліть com.14th_ua.moe_calculator_{VERSION}.wotmod з

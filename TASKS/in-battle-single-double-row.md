@@ -129,10 +129,9 @@ coordinate so the two don't fight over `top`/anchor.
 - **How is the mode chosen?** (the real product decision)
   - (a) **Dev constant** (`BATTLE_COMPACT_LAYOUT` in `constants.py`, or a bare JS `const`) — ship
     ONE layout, changeable only by a rebuild. Simplest.
-  - (b) **In-game setting (ModsSettingsAPI)** — user picks single/double live. The mod does NOT
-    wire ModsSettingsAPI yet (the vendor `.wotmod` ships, but nothing registers a template); this
-    would be the first use and introduces the settings plumbing (shared with the desire for a
-    drag/position store in TASKS/mod-positioning.md). More work; do it as its own slice.
+  - (b) **In-game setting** — user picks single/double live. The mod has NO settings backend
+    wired, so this introduces settings plumbing from scratch (a small mod-local store, shared with
+    the drag/position store in TASKS/mod-positioning.md). More work; do it as its own slice.
   - Recommend building (a) now via the VM field so the JS/VM contract is ready, then layering (b)
     on top later by sourcing the constant from a saved setting.
 - Should single-row also apply to the **garage** widget, or is this in-battle-only? (Submission

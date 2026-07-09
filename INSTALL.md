@@ -21,7 +21,6 @@ plays out.
 |-------------|--------|
 | **Game** | World of Tanks **EU (Wargaming)** client, version **2.3.0.1**. Built and tested against this version. |
 | **Dependency** | **OpenWG GameFace** (required). The installer sets this up for you; for a manual install you add it yourself. |
-| **Optional** | **ModsSettingsAPI** — bundled by the installer as a common dependency. This mod has no in-game options yet, so it works with or without it. |
 
 This build targets the Wargaming EU/global client (version 2.3.0.1).
 
@@ -35,12 +34,12 @@ This build targets the Wargaming EU/global client (version 2.3.0.1).
    contains `version.xml`. The installer detects it automatically in most cases.
 4. If a newer version is available on GitHub, the installer offers to download and run the
    latest installer for you — accept to always get the newest build.
-5. The installer adds OpenWG GameFace and ModsSettingsAPI when your client doesn't already
-   have them, then installs the mod into `mods\<version>\`.
+5. The installer adds OpenWG GameFace when your client doesn't already have it, then
+   installs the mod into `mods\<version>\`.
 6. Start the game and go to the Garage.
 
 To remove the mod later, use its entry in Windows **Apps & features**, or re-run the
-installer. OpenWG GameFace and ModsSettingsAPI stay in place for other mods that use them.
+installer. OpenWG GameFace stays in place for other mods that use it.
 
 ---
 
@@ -48,8 +47,7 @@ installer. OpenWG GameFace and ModsSettingsAPI stay in place for other mods that
 
 1. Get **OpenWG GameFace** from the official WG mod portal (**wgmods.net**) or the OpenWG
    project's GitLab releases, and install its `.wotmod` into your game's `mods\<version>\`
-   folder. If you already run other GameFace mods you likely have it. Optionally also install
-   **ModsSettingsAPI** (izeberg) the same way — most modpacks (e.g. Aslain's) already include it.
+   folder. If you already run other GameFace mods you likely have it.
 2. Open your World of Tanks folder and the version-matched mods folder inside it:
 
    ```

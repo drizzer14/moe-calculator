@@ -42,11 +42,11 @@ this skill is the concrete file list and command set. **Two Pythons:** package w
 ## installer/
 
 - **`moe_calculator-setup.iss`** — Inno Setup 6. Detects WoT root, resolves client version, installs
-  to `mods\<version>\`, bundles OpenWG + ModsSettingsAPI from `installer/vendor/` **only if absent**
-  (`NeedOpenWg`/`NeedMsa`, `uninsneveruninstall`), cleans old builds, WoT-running guard, GitHub
+  to `mods\<version>\`, bundles OpenWG from `installer/vendor/` **only if absent**
+  (`NeedOpenWg`, `uninsneveruninstall`), cleans old builds, WoT-running guard, GitHub
   Atom-feed self-update. Repo `drizzer14/moe-calculator`, base name `MoECalculator-Setup`.
-- **`build_installer.ps1`** — preflights the built `.wotmod` + vendor deps, finds `ISCC.exe`, compiles → `dist/MoECalculator-Setup-<version>.exe`.
-- **`readme.moe.txt`** — bilingual EN/UA readme for the wgmods zip. **`readme.wgmods.txt`** — stub (superseded). **`installer/vendor/`** — `net.openwg.gameface_1.1.6.wotmod` + `izeberg.modssettingsapi_1.7.0.wotmod`.
+- **`build_installer.ps1`** — preflights the built `.wotmod` + vendor dep, finds `ISCC.exe`, compiles → `dist/MoECalculator-Setup-<version>.exe`.
+- **`readme.moe.txt`** — bilingual EN/UA readme for the wgmods zip. **`readme.wgmods.txt`** — stub (superseded). **`installer/vendor/`** — `net.openwg.gameface_1.1.6.wotmod`.
 
 ## Hot-reload (the split that bites)
 

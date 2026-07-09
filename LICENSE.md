@@ -19,6 +19,6 @@ You may **not** sell this mod, charge for access to it, or present it as your ow
 THE MOD IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. THE
 AUTHOR IS NOT LIABLE FOR ANY CLAIM, DAMAGE, OR OTHER LIABILITY ARISING FROM ITS USE.
 
-This license covers only the code authored in this repository. Bundled dependencies
-(**OpenWG GameFace**, **ModsSettingsAPI**) are the property of their respective authors
-and are governed by their own licenses.
+This license covers only the code authored in this repository. The bundled dependency
+(**OpenWG GameFace**) is the property of its respective authors and is governed by its
+own license.

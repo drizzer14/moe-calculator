@@ -114,8 +114,8 @@ content; a small Python change for the anchor.
   is the key call — it decides whether the Python/positioning change is in scope or whether RTL is
   purely a CSS content-mirror on the same left anchor. (Mirroring in place on the left looks odd;
   a right-side panel is the usual intent — confirm.)
-- **How is the mode chosen?** Same fork as the row-mode task: dev constant now vs a first
-  ModsSettingsAPI toggle later. Recommend the VM-flag + constant now; layer settings later.
+- **How is the mode chosen?** Same fork as the row-mode task: dev constant now vs an in-game
+  settings toggle later. Recommend the VM-flag + constant now; layer settings later.
 - Combine with the single/double-row task into ONE layout change (shared VM slot allocation and
   one relaunch), or keep them as separate slices? They touch the same files.
 

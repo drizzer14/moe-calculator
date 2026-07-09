@@ -40,7 +40,6 @@ alongside the minimap and battle markers.
 |-------------|--------|
 | **Game** | World of Tanks **EU 2.3.0.1** (Wargaming global client). Built and tested against this version. |
 | **Required** | **OpenWG GameFace** 1.1.6+ — install it first, or the widget will not appear. From [wgmods.net](https://wgmods.net) or [gitlab.com/openwg/wot.gameface](https://gitlab.com/openwg/wot.gameface). |
-| **Optional** | **ModsSettingsAPI** 1.7.0+ — bundled by the installer as a common dependency. This mod has no in-game options yet, so it works with or without it. |
 
 ## Download & install
 
@@ -48,8 +47,8 @@ alongside the minimap and battle markers.
 **`MoECalculator-Setup-<version>.exe`** from the
 [**GitHub Releases**](https://github.com/drizzer14/moe-calculator/releases) page and run
 it (close the game first). It finds your World of Tanks folder, installs the mod into
-`mods\<version>\`, and adds **OpenWG GameFace** and **ModsSettingsAPI** if you don't
-already have them. On each run it also checks GitHub and offers to fetch the newest
+`mods\<version>\`, and adds **OpenWG GameFace** if you don't already have it. On each
+run it also checks GitHub and offers to fetch the newest
 installer, so a copy you keep around stays current.
 
 **Manual installation.** Grab `com.14th_ua.moe_calculator_<version>.wotmod` from the same
@@ -59,7 +58,7 @@ verifying it works, troubleshooting, and uninstalling.
 ## Settings
 
 This mod has no in-game options yet — the Garage bar and the in-battle overlay show
-automatically. **ModsSettingsAPI** is bundled as a common dependency but is not required.
+automatically.
 
 ## Notes
 
@@ -73,7 +72,7 @@ automatically. **ModsSettingsAPI** is bundled as a common dependency but is not 
 Free to use, redistribute, and include in modpacks as long as it stays free and credits the
 author (**14th_ua**) with a link back to this repository — see [`LICENSE.md`](./LICENSE.md).
 For modpacks, add only the `.wotmod` and list OpenWG GameFace as a required dependency; don't
-bundle GameFace or ModsSettingsAPI yourself.
+bundle GameFace yourself.
 
 ## Contributing / developers
 
@@ -118,7 +117,6 @@ Building, deploying, testing, and the repo layout are documented in
 |--------|--------|
 | **Гра** | World of Tanks **EU 2.3.0.1** (глобальний клієнт Wargaming). Зібрано й перевірено для цієї версії. |
 | **Обов'язково** | **OpenWG GameFace** 1.1.6+ — встановіть першим, інакше віджет не з'явиться. З [wgmods.net](https://wgmods.net) або [gitlab.com/openwg/wot.gameface](https://gitlab.com/openwg/wot.gameface). |
-| **Необов'язково** | **ModsSettingsAPI** 1.7.0+ — додається інсталятором як поширена залежність. Цей мод поки не має налаштувань у грі, тож працює як із нею, так і без неї. |
 
 ## Завантаження та встановлення
 
@@ -126,7 +124,7 @@ Building, deploying, testing, and the repo layout are documented in
 **`MoECalculator-Setup-<version>.exe`** зі сторінки
 [**релізів на GitHub**](https://github.com/drizzer14/moe-calculator/releases) і запустіть
 (спершу закрийте гру). Він знаходить папку World of Tanks, встановлює мод у `mods\<version>\`
-і додає **OpenWG GameFace** та **ModsSettingsAPI**, якщо їх ще немає. Під час кожного запуску
+і додає **OpenWG GameFace**, якщо його ще немає. Під час кожного запуску
 він також перевіряє GitHub і пропонує завантажити найновіший інсталятор, тож збережена копія
 залишається актуальною.
 
@@ -137,7 +135,7 @@ Building, deploying, testing, and the repo layout are documented in
 ## Налаштування
 
 Цей мод поки не має параметрів у грі — смуга в Ангарі та оверлей у бою показуються
-автоматично. **ModsSettingsAPI** додається як поширена залежність, але не є обов'язковою.
+автоматично.
 
 ## Примітки
 
@@ -151,7 +149,7 @@ Building, deploying, testing, and the repo layout are documented in
 Вільно використовувати, поширювати та включати в модпаки, доки це залишається безкоштовним і
 зазначає автора (**14th_ua**) з посиланням на цей репозиторій — див. [`LICENSE.md`](./LICENSE.md).
 Для модпаків додавайте лише `.wotmod` і вкажіть OpenWG GameFace як обов'язкову залежність; не
-вкладайте GameFace чи ModsSettingsAPI самі.
+вкладайте GameFace самі.
 
 ## Розробка
 

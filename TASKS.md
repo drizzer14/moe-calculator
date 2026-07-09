@@ -21,7 +21,8 @@ single-row mode that lays both metric groups on ONE horizontal line for a shorte
 Mostly CSS: flip `#moe-battle-root` to `flex-direction: row` + kill the column-overlap margin;
 drive it off a `compact` flag (mirror the garage's `carouselRows` class-toggle precedent —
 BattleMoEVM even has a spare property slot). Couples with positioning (single row is shorter →
-re-tune the bottom-flush anchor). Open decision: dev-constant vs a first ModsSettingsAPI toggle.
+re-tune the bottom-flush anchor). Open decision: dev-constant vs a future in-game settings toggle
+(no settings backend is wired — would be new plumbing).
 → Research: TASKS/in-battle-single-double-row.md
 
 ### Garage widget — match the setup-slot box style EXACTLY (2nd pass)
@@ -42,6 +43,6 @@ Phases 1 (interface-scale + resolution correctness, `e4b7d1d`) and 2 (damage-log
 anchor, `0df7cff`) have **shipped** — both surfaces now scale-correct and the battle overlay
 auto-raises when the damage log is present. Remaining slice: **drag-and-drop the in-battle panel
 with a persisted position**. Drag needs a new reverse channel (VMs are read-only) + a settings
-store (ModsSettingsAPI?). A WIP patch exists: `TASKS/phase3-drag-wip.patch`. Full phased context,
-locked decisions, and per-phase verification live in the handoff note.
+store (a small mod-local JSON under the mod). Full phased context, locked decisions, and per-phase
+verification live in the handoff note.
 → Research: TASKS/mod-positioning-handoff.md

@@ -131,8 +131,7 @@ in-game calibration pass at 1× and 2× scale (see Verification / probe #4).
   px (overriding the CSS anchor).
 - **Persistence needs a new reverse channel** — `BattleMoEVM` is read-only today. Add an
   `invokeCommand`-style command (single MAP arg `{value:…}`, per wotmod-gameface-widget) to
-  send the dropped x/y back to Python, and a **store** to persist it (candidate:
-  **ModsSettingsAPI** — already in the mod's dependency stack per CLAUDE.md — or a small JSON
+  send the dropped x/y back to Python, and a **store** to persist it (a small JSON
   under the mod). On next battle, seed the default from the stored position (falling back to
   the Slice-2 computed default when unset). A "reset to default" affordance is worth
   including.
@@ -178,8 +177,8 @@ in-game calibration pass at 1× and 2× scale (see Verification / probe #4).
 - **Do we even need to push scale from Python?** Probe #1 settles it — if Gameface reports
   already-scaled CSS px, `vw/vh` may suffice and the whole scale-push can be dropped. Confirm
   before building Slice 1.
-- **Drag persistence store:** ModsSettingsAPI vs. a mod-local JSON — needs a decision (and
-  ModsSettingsAPI usage isn't yet in this mod, so it's new plumbing).
+- **Drag persistence store:** a small mod-local JSON (decided — MSA was removed as an unused
+  dependency). New plumbing either way, since the mod has no settings backend today.
 - **Drag interaction model:** always-draggable vs. an explicit unlock/edit mode (input-steal
   risk favors the latter).
 - **Scope of "screen size" for the garage:** is there an actual observed mispositioning at
