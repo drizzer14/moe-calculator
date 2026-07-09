@@ -29,7 +29,8 @@ def thousands(n):
 
 
 def percent(p, decimals=1):
-    """Percentile float -> string like '84.7%'. Clamped display; 0 -> '0%'."""
+    """Percentile float -> string like '84.7%'; <=0 -> '0%'. No upper clamp -- percent(140.0)
+    yields '140.0%'; callers pre-clamp to 0..100 when a bounded display is required."""
     try:
         p = float(p or 0.0)
     except (TypeError, ValueError):
@@ -42,13 +43,15 @@ def percent(p, decimals=1):
 
 
 def signed_percent(p, decimals=1):
-    """Signed percentile delta -> '+0.4%' / '-1.2%'; exactly 0 -> '0%'. Used for the
-    in-battle 'how much this battle moves your standing' readout."""
+    """Signed percentile delta -> '+0.4%' / '-1.2%'; zero AT DISPLAY PRECISION -> '0%'.
+    Used for the in-battle 'how much this battle moves your standing' readout. A tiny delta
+    that rounds to 0 at `decimals` (e.g. -0.04 at 1 dp) reads '0%' with no misleading sign
+    rather than '-0.0%'."""
     try:
         p = float(p or 0.0)
     except (TypeError, ValueError):
         return "0%"
-    if p == 0:
+    if round(p, decimals if decimals > 0 else 0) == 0:
         return "0%"
     sign = "+" if p > 0 else "-"
     mag = abs(p)

@@ -38,22 +38,31 @@ function thousands(n) {
     return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
-// Percentile float -> "84.73%" (two decimals, TRUNCATED not rounded); 0 -> "0%".
-// Truncate so the readout never overstates progress toward a mark threshold.
-function pctText(p) {
+// Truncate toward zero to 2 decimals -- the shared display precision for both the percent
+// and the delta. A sub-precision magnitude (e.g. 0.004) collapses to exactly 0 so it never
+// carries a misleading sign or colour that its "0%" text contradicts.
+function trunc2(p) {
     p = Number(p) || 0;
-    if (p <= 0) return "0%";
-    return (Math.floor(p * 100) / 100).toFixed(2) + "%";
+    const mag = Math.floor(Math.abs(p) * 100) / 100;
+    return p < 0 ? -mag : mag;
 }
 
-// Signed delta NUMBER -> "+0.41%" / "-1.20%"; exactly 0 -> "0%". Two decimals, TRUNCATED
-// (matches pctText) so the delta never overstates a mark gain. The surrounding parens are
-// STATIC markup (see ensureRoot) and stay white -- only this number carries the sign colour.
+// Percentile float -> "84.73%" (two decimals, TRUNCATED not rounded); <=0 at precision -> "0%".
+// Truncate so the readout never overstates progress toward a mark threshold.
+function pctText(p) {
+    const v = trunc2(p);
+    if (v <= 0) return "0%";
+    return v.toFixed(2) + "%";
+}
+
+// Signed delta NUMBER -> "+0.41%" / "-1.20%"; zero AT DISPLAY PRECISION -> "0%". Two decimals,
+// TRUNCATED (matches pctText) so the delta never overstates a mark gain and a sub-precision
+// value reads "0%" with no sign. The surrounding parens are STATIC markup (see ensureRoot) and
+// stay white -- only this number carries the sign colour.
 function signedPct(p) {
-    p = Number(p) || 0;
-    if (p === 0) return "0%";
-    const sign = p > 0 ? "+" : "-";
-    return sign + (Math.floor(Math.abs(p) * 100) / 100).toFixed(2) + "%";
+    const v = trunc2(p);
+    if (v === 0) return "0%";
+    return (v > 0 ? "+" : "-") + Math.abs(v).toFixed(2) + "%";
 }
 
 // Tri-state colour by sign: >0 green (mb-up), <0 red (mb-down), 0 white (neither class).
@@ -93,29 +102,49 @@ function render(model) {
     const data = model;
 
     // Hidden until Python confirms combat is live AND the per-tank threshold table is
-    // loaded (metrics 2-4 need it; without it the readout is meaningless).
-    if (!data || data.visible === false || data.hasData === false) {
+    // loaded (metrics 2-4 need it; without it the readout is meaningless). Truthy guard so a
+    // root VM whose visible/hasData are still undefined (before Python's first push) hides
+    // rather than painting a "0 / 0 -- 0%" stub over the HUD.
+    if (!data || !data.visible || !data.hasData) {
         root.style.display = "none";
         return;
     }
     root.style.display = "";
 
     const cd = data.combinedDamage || 0;
-    const avg = data.projAvgDamage || 0;
-    // Combined damage is shown exactly -- no approximation indicator.
+    // Live combined damage is ALWAYS meaningful -- even in a replay with no baseline -- so it
+    // is shown exactly, no approximation indicator.
     const cdEl = root.querySelector(".mb-cd");
     cdEl.textContent = thousands(cd);
-    root.querySelector(".mb-avg").textContent = thousands(avg);
-    // Live damage vs your own projected average: red below, white at par, green above.
-    colourBySign(cdEl, cd - avg);
-
-    root.querySelector(".mb-pct").textContent = pctText(data.curPercent || 0);
-    const delta = Number(data.pctDelta) || 0;
-    // Colour only the number; the parens on .mb-delta stay white.
     const deltaNum = root.querySelector(".mb-delta-num");
-    deltaNum.textContent = signedPct(delta);
-    // Delta vs pre-battle standing: green improves, red drags, white unchanged.
-    colourBySign(deltaNum, delta);
+
+    // Without a CAREER baseline (replay / relogin straight into battle -- the garage dossier
+    // was never read; BUG B) the projected avg, percent and delta are all collapsed and
+    // meaningless. Dash them out and drop the sign colours, keeping only the live CD. An absent
+    // flag (older Python push) is treated as "baseline present" so the normal render is unchanged.
+    if (data.hasBaseline !== false) {
+        const avg = data.projAvgDamage || 0;
+        root.querySelector(".mb-avg").textContent = thousands(avg);
+        // Live damage vs your own projected average: red below, white at par, green above.
+        colourBySign(cdEl, cd - avg);
+
+        root.querySelector(".mb-pct").textContent = pctText(data.curPercent || 0);
+        // Truncate to display precision FIRST so the sign, colour and text all agree: a
+        // sub-precision delta reads "0%" in white, never a green "+0.00%".
+        const delta = trunc2(Number(data.pctDelta) || 0);
+        // Colour only the number; the parens on .mb-delta stay white.
+        deltaNum.textContent = signedPct(delta);
+        // Delta vs pre-battle standing: green improves, red drags, white unchanged.
+        colourBySign(deltaNum, delta);
+    } else {
+        const DASH = "-";                    // hyphen: value unknown without a baseline (the
+                                             // subset MoEBattle.ttf has "-" but no em-dash)
+        root.querySelector(".mb-avg").textContent = DASH;
+        colourBySign(cdEl, 0);                    // nothing to compare CD against -> white
+        root.querySelector(".mb-pct").textContent = DASH + "%";
+        deltaNum.textContent = DASH;
+        colourBySign(deltaNum, 0);                // no sign -> white
+    }
 }
 
 engine.whenReady.then(() => {

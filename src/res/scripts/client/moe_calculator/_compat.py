@@ -33,4 +33,7 @@ def _safe(fn, default):
 
 
 def _safe_int(fn, default):
-    return int(_safe(fn, default))
+    """Call `fn` and coerce to int; return `default` on None / any exception (logged).
+    The int() runs INSIDE the guard, so a non-coercible return (a string, an object)
+    falls back to `default` rather than raising through this fail-soft helper."""
+    return _safe(lambda: int(fn()), default)

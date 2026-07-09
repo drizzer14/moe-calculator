@@ -25,26 +25,29 @@ def build_snapshot():
         if not g_currentVehicle.isPresent():
             return t.MoESnapshot(has_vehicle=False)
         veh = g_currentVehicle.item
+
+        int_cd = _safe_int(lambda: veh.intCD, 0)
+        nation = _safe(lambda: veh.nationName, "") or ""
+        marks, percentile, avg_damage = _read_moe(int_cd)
+        # Snapshot the career baseline for the in-battle overlay -- the dossier this reads is
+        # unavailable in battle, so battle_adapter falls back to this cache (see baseline_cache).
+        baseline_cache.remember(int_cd, percentile, avg_damage)
+        thresholds = moe_data.get_thresholds(int_cd)
+
+        return t.MoESnapshot(
+            vehicle_int_cd=int_cd,
+            nation=nation,
+            marks=marks,
+            cur_percentile=percentile,
+            cur_avg_damage=avg_damage,
+            thresholds=thresholds,
+            has_vehicle=True)
     except Exception:
+        # Whole-body guard (matches battle_adapter.build_battle_snapshot): any unexpected
+        # raise in the tail -- baseline_cache / get_thresholds / snapshot construction --
+        # degrades to a hidden bar instead of propagating into the hangar mount.
         LOG_CURRENT_EXCEPTION()
         return t.MoESnapshot(has_vehicle=False)
-
-    int_cd = _safe_int(lambda: veh.intCD, 0)
-    nation = _safe(lambda: veh.nationName, "") or ""
-    marks, percentile, avg_damage = _read_moe(int_cd)
-    # Snapshot the career baseline for the in-battle overlay -- the dossier this reads is
-    # unavailable in battle, so battle_adapter falls back to this cache (see baseline_cache).
-    baseline_cache.remember(int_cd, percentile, avg_damage)
-    thresholds = moe_data.get_thresholds(int_cd)
-
-    return t.MoESnapshot(
-        vehicle_int_cd=int_cd,
-        nation=nation,
-        marks=marks,
-        cur_percentile=percentile,
-        cur_avg_damage=avg_damage,
-        thresholds=thresholds,
-        has_vehicle=True)
 
 
 def _read_moe(int_cd):

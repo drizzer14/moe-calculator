@@ -247,9 +247,9 @@ def push(rvm):
         snap = battle_adapter.build_battle_snapshot()
         model = build_battle_model(snap)
         visible = battle_bar_visible(snap.in_battle, snap.has_vehicle, snap.is_spectating)
-        LOG_NOTE("[moe-battle] push visible=%s spectating=%s cd=%d pct=%.1f delta=%.2f data=%s" % (
+        LOG_NOTE("[moe-battle] push visible=%s spectating=%s cd=%d pct=%.1f delta=%.2f data=%s baseline=%s" % (
             visible, snap.is_spectating, model.combined_damage, model.cur_percent,
-            model.pct_delta, model.has_data))
+            model.pct_delta, model.has_data, model.has_baseline))
         with rvm.transaction() as tx:
             tx.setVisible(visible)
             tx.setCombinedDamage(model.combined_damage)
@@ -257,5 +257,6 @@ def push(rvm):
             tx.setCurPercent(model.cur_percent)
             tx.setPctDelta(model.pct_delta)
             tx.setHasData(model.has_data)
+            tx.setHasBaseline(model.has_baseline)
     except Exception:
         LOG_CURRENT_EXCEPTION()

@@ -121,6 +121,8 @@ class BattleMoEVM(ViewModel):
                                                          #    MUST be Real: _setNumber casts to int())
         self._addRealProperty("pctDelta", 0.0)           # 4  signed delta vs pre-battle standing (float, Real)
         self._addBoolProperty("hasData", False)          # 5  threshold table usable (percent real)
+        self._addBoolProperty("hasBaseline", False)      # 6  career baseline present; false (replay/
+                                                         #    relogin) -> proj/percent/delta dashed out
 
     def setVisible(self, v):
         self._setBool(0, v)
@@ -139,3 +141,6 @@ class BattleMoEVM(ViewModel):
 
     def setHasData(self, v):
         self._setBool(5, v)
+
+    def setHasBaseline(self, v):
+        self._setBool(6, v)

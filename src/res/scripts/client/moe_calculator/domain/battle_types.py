@@ -64,11 +64,17 @@ class BattleMoEModel(object):
                           this battle moves your standing, on a self-consistent interp scale
                           (NOT mixed against WG's rating). 0.0 when thresholds are unknown.
     - `has_data`        : True when the per-tank threshold table was usable (percent/delta real).
+    - `has_baseline`    : True when a CAREER baseline (pre_avg / pre_percentile) was available to
+                          project from. False on the replay / relogin-into-battle path where the
+                          garage dossier was never read (BUG B): proj_avg / cur_percent / pct_delta
+                          are then all collapsed/meaningless and the overlay dashes them out,
+                          keeping only the live combined_damage.
     """
     def __init__(self, combined_damage, proj_avg_damage, cur_percent, pct_delta,
-                 has_data=False):
+                 has_data=False, has_baseline=False):
         self.combined_damage = combined_damage
         self.proj_avg_damage = proj_avg_damage
         self.cur_percent = cur_percent
         self.pct_delta = pct_delta
         self.has_data = has_data
+        self.has_baseline = has_baseline

@@ -101,6 +101,13 @@ def build_battle_model(snapshot):
                          snapshot.team_damage)
     proj = ewma_project(snapshot.pre_avg_damage, cd)
 
+    # Whether we have a CAREER baseline to project from. Without it (replay / relogin straight
+    # into battle -- the garage dossier was never read; see baseline_cache + BUG B) the EWMA
+    # fold collapses (proj ~= k*cd) and cur_percent anchors on 0, so proj/percent/delta are all
+    # meaningless. The overlay dashes them out and shows only the live combined damage.
+    has_baseline = ((snapshot.pre_percentile or 0) > 0
+                    or (snapshot.pre_avg_damage or 0) > 0)
+
     stops = _threshold_stops(thresholds)
     has_data = stops is not None
     if has_data:
@@ -124,7 +131,8 @@ def build_battle_model(snapshot):
         proj_avg_damage=proj,
         cur_percent=cur_percent,
         pct_delta=pct_delta,
-        has_data=has_data)
+        has_data=has_data,
+        has_baseline=has_baseline)
 
 
 def battle_bar_visible(in_battle, has_vehicle, is_spectating=False):
