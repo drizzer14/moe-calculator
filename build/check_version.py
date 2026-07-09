@@ -35,10 +35,10 @@ from __future__ import print_function
 import os
 import re
 import sys
-import xml.etree.ElementTree as ET
+
+import meta
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-META = os.path.join(ROOT, "src", "meta.xml")
 
 # Directories not worth scanning (build output, VCS, vendored binaries, editor cfg).
 _SKIP_DIRS = {".git", "dist", "__pycache__", "node_modules", ".idea", ".vscode",
@@ -75,10 +75,6 @@ _REQUIRED = (
 )
 
 
-def _meta_version():
-    return ET.parse(META).getroot().findtext("version").strip()
-
-
 def _iter_files():
     for dirpath, dirs, files in os.walk(ROOT):
         dirs[:] = [d for d in dirs if d not in _SKIP_DIRS]
@@ -93,7 +89,7 @@ def _iter_files():
 
 
 def main():
-    expected = _meta_version()
+    expected = meta.read_version()
     mismatches = []
     counts = {}  # rel path -> number of version references found
     found_any = False

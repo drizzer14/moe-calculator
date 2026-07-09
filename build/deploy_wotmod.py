@@ -31,6 +31,7 @@ import shutil
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "build"))
 import build_wotmod  # noqa: E402
+import meta  # noqa: E402
 
 
 def _resolve_args(argv):
@@ -110,7 +111,7 @@ def main():
         print("mods dir not found:", mods_dir)
         sys.exit(1)
 
-    mod_id, mod_version = build_wotmod._read_meta()
+    mod_id, mod_version = meta.read_meta()
     _clean(mods_dir, res_mods_dir, mod_id)
 
     build_wotmod.main()  # builds dist/<id>_<version>.wotmod

@@ -24,13 +24,13 @@ import shutil
 import sys
 
 REL = os.path.join("gui", "gameface", "mods", "14th_ua", "MoECalculator")
-ASSETS = ("MoECalculator.js", "MoECalculator.css", "card_border.png",
-          "tooltip_bg.png", "tooltip_divider.png", "MoEBattle.js",
-          "MoEBattle.css", "MoEBattleView.html", "checker.png",
-          # Battle-overlay font: ONE cut (weight 600), a bare sibling of the CSS
-          # (Coherent @font-face only resolves bare-sibling src urls, not subdir-relative).
-          # This window has NO in-session hot-reload (resources pin at launch) -- needs relaunch.
-          "MoEBattle.ttf")
+# Every file in the MoECalculator asset dir is synced (mirrors what the packaged
+# build ships) -- globbing rather than a hand-kept name list, so a NEW asset can
+# never be silently forgotten here (a missing name would let the packaged .wotmod
+# copy shadow it and serve a stale file, exactly the trap this loop exists to beat).
+# Includes MoEBattle.ttf, a bare sibling of the CSS (Coherent @font-face resolves
+# only bare-sibling src urls). NOTE the battle WINDOW has no in-session hot-reload
+# (its resources pin at launch) -- MoEBattle.* changes still need a client relaunch.
 
 
 def main(argv):
@@ -49,7 +49,9 @@ def main(argv):
         return 1
     if not os.path.isdir(dst):
         os.makedirs(dst)
-    for name in ASSETS:
+    names = sorted(n for n in os.listdir(src)
+                   if os.path.isfile(os.path.join(src, n)))
+    for name in names:
         shutil.copy2(os.path.join(src, name), os.path.join(dst, name))
         print("synced: %s" % os.path.join(dst, name))
     print("Done. In-game: switch screen (e.g. to Tech Tree) and back to reload.")

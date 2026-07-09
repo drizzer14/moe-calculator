@@ -22,13 +22,19 @@ import sys
 import shutil
 import zipfile
 import py_compile
-import xml.etree.ElementTree as ET
+
+import meta
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "src")
 RES = os.path.join(SRC, "res")
 META = os.path.join(SRC, "meta.xml")
 DIST = os.path.join(ROOT, "dist")
+
+# Fixed zip-entry timestamp (the earliest a zip can represent) so identical
+# source produces a byte-identical .wotmod -- lets a release verify diff/checksum
+# the artifact instead of eyeballing it. See _normalize_pyc for the bytecode half.
+_FIXED_DATE = (1980, 1, 1, 0, 0, 0)
 
 
 def _check_python():
@@ -40,11 +46,17 @@ def _check_python():
                  .format(sys.version_info[0], sys.version_info[1]))
 
 
-def _read_meta():
-    root = ET.parse(META).getroot()
-    mod_id = root.findtext("id").strip()
-    version = root.findtext("version").strip()
-    return mod_id, version
+def _normalize_pyc(pyc):
+    """Zero the mtime field in the .pyc header for reproducible builds.
+
+    A 2.7 .pyc header is magic(4) + source-mtime(4); py_compile stamps the .py's
+    mtime, so identical source otherwise yields a byte-different .pyc every build.
+    Only the .pyc ships (the .py is dropped), so this timestamp is never consulted
+    at load time -- zeroing it is safe and makes the package deterministic.
+    """
+    with open(pyc, "r+b") as fh:
+        fh.seek(4)
+        fh.write(b"\x00\x00\x00\x00")
 
 
 def _compile_tree(src_root, out_root):
@@ -61,6 +73,7 @@ def _compile_tree(src_root, out_root):
             if name.endswith(".py"):
                 pyc = os.path.join(target_dir, name + "c")  # foo.py -> foo.pyc
                 py_compile.compile(src_file, cfile=pyc, doraise=True)
+                _normalize_pyc(pyc)
             elif name.endswith(".pyc"):
                 continue  # skip stray/foreign bytecode; we compile fresh from .py
             else:
@@ -69,7 +82,7 @@ def _compile_tree(src_root, out_root):
 
 def main():
     _check_python()
-    mod_id, version = _read_meta()
+    mod_id, version = meta.read_meta()
 
     build_dir = os.path.join(DIST, "_build")
     if os.path.isdir(build_dir):
@@ -87,13 +100,27 @@ def main():
     if os.path.exists(out_path):
         os.remove(out_path)
 
-    # ZIP_STORED = no compression (required by WoT)
+    # Gather entries in a stable (sorted) order -- os.walk order is filesystem-
+    # dependent, and a reproducible archive needs a fixed member sequence.
+    entries = []
+    for dirpath, _dirs, files in os.walk(build_dir):
+        for name in files:
+            full = os.path.join(dirpath, name)
+            arc = os.path.relpath(full, build_dir).replace(os.sep, "/")
+            entries.append((arc, full))
+    entries.sort()
+
+    # ZIP_STORED = no compression (required by WoT). Fixed per-entry timestamps
+    # (via ZipInfo) drop the last source of nondeterminism, so identical source
+    # yields a byte-identical .wotmod.
     with zipfile.ZipFile(out_path, "w", zipfile.ZIP_STORED) as zf:
-        for dirpath, _dirs, files in os.walk(build_dir):
-            for name in files:
-                full = os.path.join(dirpath, name)
-                arc = os.path.relpath(full, build_dir).replace(os.sep, "/")
-                zf.write(full, arc)
+        for arc, full in entries:
+            with open(full, "rb") as fh:
+                data = fh.read()
+            info = zipfile.ZipInfo(arc, date_time=_FIXED_DATE)
+            info.compress_type = zipfile.ZIP_STORED
+            info.external_attr = 0o644 << 16  # -rw-r--r--
+            zf.writestr(info, data)
 
     shutil.rmtree(build_dir)
     print("Built: {0}".format(out_path))

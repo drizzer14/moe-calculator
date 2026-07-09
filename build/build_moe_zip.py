@@ -26,10 +26,10 @@ from __future__ import print_function
 import os
 import glob
 import zipfile
-import xml.etree.ElementTree as ET
+
+import meta
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-META = os.path.join(ROOT, "src", "meta.xml")
 DIST = os.path.join(ROOT, "dist")
 VENDOR = os.path.join(ROOT, "installer", "vendor")
 README_TEMPLATE = os.path.join(ROOT, "installer", "readme.moe.txt")
@@ -40,13 +40,8 @@ README_TEMPLATE = os.path.join(ROOT, "installer", "readme.moe.txt")
 CLIENT_VERSION = "2.3.0.1"
 
 
-def _read_meta():
-    root = ET.parse(META).getroot()
-    return root.findtext("id").strip(), root.findtext("version").strip()
-
-
 def main():
-    mod_id, version = _read_meta()
+    mod_id, version = meta.read_meta()
 
     wotmod = os.path.join(DIST, "{0}_{1}.wotmod".format(mod_id, version))
     if not os.path.isfile(wotmod):
