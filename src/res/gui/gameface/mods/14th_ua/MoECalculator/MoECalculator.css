@@ -163,11 +163,12 @@
     pointer-events: none;
 }
 
-/* Fill + current-percent readout are plain parchment white (#ede6d9) at every percentile
-   -- the earlier per-zone colour bands (gold/teal/purple) were dropped; the whole widget
-   now reads in the one WG parchment tone. The dot-textured fill masks this colour (below);
-   .moe-cur-pct already defaults to #ede6d9 in its base rule. */
-#moe-root .moe-fill { background-color: #ede6d9; }
+/* The current-percent readout is plain parchment white (#ede6d9 == WG --color-general-primary,
+   the exact colour WG's own daily-mission / Battle Pass widgets use for their value text) at
+   every percentile -- the earlier per-zone colour bands (gold/teal/purple) were dropped.
+   .moe-cur-pct already defaults to #ede6d9 in its base rule. The dot fill itself is NOT this
+   colour: it paints WG's filled_pattern texture directly (below) so its warm-greige dots match
+   the daily/Battle Pass bars pixel-for-pixel. */
 
 /* --- bar body: room above for icons, below for requirement labels ---------- */
 #moe-root .moe-body {
@@ -213,19 +214,21 @@
     top: 0;
     bottom: 0;
     left: 0;
-    /* Parchment white (#ede6d9, set above) MASKED by WG's filled_pattern dot texture, so the
-       reached portion reads as brighter white dots on the same grid as the track's dim dots
-       -- matching the daily/weekly missions bar (a dotted fill, not a solid line). If a url
-       mask ever fails to load, the colour falls back to a solid band. Same 99x2 size + left
-       origin as the track -> dots stay in phase as the fill grows. */
-    -webkit-mask-image: url(img://gui/maps/icons/ui/progressbar/filled_pattern_small.png);
-    mask-image: url(img://gui/maps/icons/ui/progressbar/filled_pattern_small.png);
-    -webkit-mask-repeat: repeat-x;
-    mask-repeat: repeat-x;
-    -webkit-mask-size: 99rem 2rem;
-    mask-size: 99rem 2rem;
-    -webkit-mask-position: left center;
-    mask-position: left center;
+    /* WG's bright fill dots, rendered EXACTLY as the client's own daily-mission / Battle Pass
+       bars render them: paint `filled_pattern_small.png` DIRECTLY as a background-image (WG's
+       Filled component sets the fill background transparent and lets this texture supply the
+       colour -- mono/user_missions + mono/battle_pass `.Filled_pattern` / `.Filled_fill`). The
+       texture's baked warm-greige (~rgb(182,174,165) @ ~90% alpha, reading ~rgb(180,172,163)
+       on the dark backing) IS the match; we previously masked #ede6d9 over it, which rendered
+       ~rgb(216,209,197) -- markedly whiter than WG. No mask, no colour tint -> pixel-for-pixel.
+       Same 99x2 size + left origin as the track, so the bright dots sit exactly on the track's
+       dim dots and stay in phase as the fill grows; the transparent gaps show the track's dark
+       backing, just like WG. (Mirrors the .moe-track rule, which paints bg_pattern_small the
+       same way and renders correctly in the hangar -- so this texture loads too.) */
+    background-image: url(img://gui/maps/icons/ui/progressbar/filled_pattern_small.png);
+    background-repeat: repeat-x;
+    background-size: 99rem 2rem;
+    background-position: left center;
     transition: width 0.3s ease;
     z-index: 1;
 }
