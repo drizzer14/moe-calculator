@@ -52,10 +52,12 @@ destroys it. `battle_view.open_window()`/`close_window()` keep a `_active` singl
 
 ## VM slots (`bridge/view_models.py::BattleMoEVM`)
 
-`properties=7` declared but only **6 registered (indices 0–5)** → **index 6 is a free slot**
-(reserved for a `compact`/single-row flag; RTL would then need index 7 + `properties=8`).
+`properties=7`, all **7 registered (indices 0–6)** — no free slot (a future `compact`/single-row
+flag would be index 7 + `properties=8`; RTL index 8 + `properties=9`).
 0 `visible`, 1 `combinedDamage`, 2 `projAvgDamage`, **3 `curPercent` (Real)**, **4 `pctDelta`
-(Real)**, 5 `hasData`. `curPercent`/`pctDelta` are `_setReal` (the Wulf int-cast rule — see `wotmod-architecture`).
+(Real)**, 5 `hasData`, **6 `hasBaseline`** (career baseline present; false on the replay/relogin
+BUG-B path → JS dashes proj/%/delta). `curPercent`/`pctDelta` are `_setReal` (the Wulf int-cast
+rule — see `wotmod-architecture`).
 
 ## Front-end (`MoEBattle.js` / `.css` / `.html`)
 
@@ -66,7 +68,12 @@ destroys it. `battle_view.open_window()`/`close_window()` keep a `_active` singl
   row 2 `[mark icon] <curPercent%> (<signed pctDelta>)`. Icons
   `icon_battle_condition_barrel_mark.png` (row 1) / `icon_battle_condition_improve.png` (row 2),
   from `…/personal_missions_30/quest_type/128x128/`.
-- **Render branch:** hidden unless `visible` **and `hasData`** (metrics are meaningless without the table).
+- **Render branch:** hidden unless `visible` **and `hasData`** (truthy guard, not `=== false` —
+  a VM whose flags are still undefined before the first push must hide, not paint a `0/0` stub).
+  When shown but **`hasBaseline` is false** (replay / relogin — no career baseline; BUG B), the
+  projected avg, percent and delta are **dashed to `-`**, keeping only the live combined damage
+  (a plain hyphen, NOT an em-dash — see Font). `signedPct`/`pctText` truncate via a `trunc2`
+  helper so a sub-precision value reads `0`/`0%` in white, never a coloured `+0.00%`.
 - **Colour by sign (`colourBySign`)** — sign carried by a **coloured text-shadow glow, not a fill**
   (numerals stay white): `.mb-up` green, `.mb-down` red, neutral = white + dark drop only. Row 1
   live damage vs projected avg; row 2 delta vs pre-battle standing. Only the delta **number**
@@ -77,6 +84,10 @@ destroys it. `battle_view.open_window()`/`close_window()` keep a `_active` singl
 - **Font:** `@font-face "MoEBattle"` weight 600 from **bare-sibling `url(MoEBattle.ttf)`**
   (+ a `coui://` absolute fallback). A `fonts/…` subdir path silently falls back to Arial Narrow.
   The family is renamed to avoid colliding with the engine's Flash-registered `MoEBattle`.
+  **`MoEBattle.ttf` is a 19-glyph SUBSET** — `0-9 % ( ) + - , . /` + space, NO em-dash/letters;
+  an unsupported char renders blank in Gameface (this is why the no-baseline placeholder is `-`,
+  not `—`). A new overlay glyph needs a wider re-extract via `tools/dev/swf_font_to_ttf.py` (it
+  pulls whatever the SWF `DefineFont3` embeds); check coverage with `fontTools …getBestCmap()`.
 - **Backdrop (two layers):** `.mb-row::before` tiles `checker.png` (WG halftone dither, 4px tile /
   2px cells, `background-size:auto`, `image-rendering:pixelated`, `opacity:0.2`, radial **`mask`**
   — unprefixed); `.mb-row::after` = dark radial gradient + left-clip `mask:linear-gradient(...)`.

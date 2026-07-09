@@ -26,6 +26,13 @@ concrete wiring. All paths under `src/res/`.
    fill = clamped percentile, `end_damage_required` from threshold key `100`. `bar_visible()` gates.
 5. **Push** — `bridge/view_models.py::MoEVM` (see slots below).
 
+**Lifecycle guard:** `attach()` caches `_active=(host_vm, rvm)` and nothing clears it (no
+view-destroy hook is wired). Session-persistent listeners — the `moe_data` ready hook and
+`IItemsCache.onSyncCompleted` — can fire AFTER battle entry tears the hangar down, so `refresh()`
+early-returns via `_host_alive()` (lobby state machine present) instead of pushing into the dead
+VM. `_arm` uses `getattr(holder, attr, None)` so a renamed WG event degrades quietly. A full
+`_active` teardown + the re-injection observer-stacking question stay open (`TASKS/garage-bridge-lifecycle.md`).
+
 ## VM slots (`bridge/view_models.py`) — HAND-NUMBERED, JS reads by name
 
 - **`MoEVM`** — `properties=12`, `commands=0`. Indices: 0 `visible`, 1 `nation`, 2 `marks`,
