@@ -6,6 +6,36 @@ note under `TASKS/`; delete an entry here once it ships.
 
 ## Open
 
+### FEATURE — collision-aware sub-view injection (coexist with any mod)
+The garage widget injects onto `HangarVehicleParamsPresenter` unconditionally, so it
+clobbers / is clobbered by any other OpenWG mod on that sub-view (OpenWG is one
+`ModInjectModel` per sub-view, last-writer-wins). Port the Garage Progress Bar's
+collision-avoidance (its commit `6a6a631`): detect an occupied sub-view via
+`vm.proxy.toString()` and place on the first FREE candidate in a priority list —
+`[params, stats]`, deliberately disjoint from the Garage bar's `[crew, loadout]` so the
+two 14th_ua mods never contend. Pure `domain/placement.py` + bridge `note_mount` +
+multi-presenter patch; folds into the `_active` teardown from garage-bridge-lifecycle.
+→ Research: TASKS/collision-aware-injection.md
+
+### BUG — garage bridge lifecycle: leftover `_active` teardown + Rider 2 (PARTIAL)
+The `refresh()` view-alive guard (`_host_alive()` early-return) + Rider 1 (`_arm` getattr `None`
+default) **shipped** (76fa5c3): a mid-battle fetch/sync no longer pushes into a dead VM.
+**Remaining:** a real `_active` teardown (no view-destroy hook is wired — the guard makes stale
+`_active` harmless but never clears it; folds into the collision-aware `note_mount` above) and
+**Rider 2** — does OpenWG re-execute injected modules per mount, stacking JS `observer.onUpdate`
+callbacks? Needs a live REPL probe before deciding on a guard.
+→ Research: TASKS/garage-bridge-lifecycle.md
+
+### Cleanup (batch) — the deferred remainder (PARTIAL)
+Doc/markup/micro drift + the `moe_data` late-subscriber no-op **shipped** (76fa5c3). **Remaining
+(each deferred with a reason in the note):** the bridge listener/refresh-scaffolding extraction
+(needs bridge test coverage first); `moe_data._RECORD_RX` keyed-JSON rewrite (only if a 2nd data
+source is added); the worker-thread `LOG_CURRENT_EXCEPTION` invariant; the `_AGENT` vs
+`MOD_VERSION` version dedup + uncheck'd `CLIENT_VERSION`; inconsistent partial-table degrade
+between the two builders. NOT doing: the JS `thousands`/`pctText` extraction (`../../libs/` is
+OpenWG's, not ours). `wulf_args.py` stays (Phase-3 drag needs it).
+→ Research: TASKS/code-cleanups-2026-07.md
+
 ### In-battle overlay — LTR (current) / RTL layout direction
 The overlay is built left-to-right (`[icon] [value]`, left-aligned, backdrop fading from the
 left, window anchored bottom-left). Add an RTL mode that mirrors it (`[value] [icon]`,
