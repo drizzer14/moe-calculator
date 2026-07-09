@@ -2,9 +2,17 @@
 """Bridge: attach our Gameface widget to a hangar sub-view and push the MoE model.
 
 OpenWG's JS injector scans hangar SUB-views for a `ModInjectModel` and loads the listed
-assets into the hangar document. So we inject onto a sub-view's ViewModel
-(HangarVehicleParamsPresenter) and hang our own data model on it (property `moeData`),
-which the widget JS reads via ModelObserver("MoECalculator").
+assets into the hangar document. So we inject onto a sub-view's ViewModel and hang our own
+data model on it (property `moeData`), which the widget JS reads via
+ModelObserver("MoECalculator").
+
+Placement is COLLISION-AWARE across a priority list of candidate sub-views: OpenWG stores
+one `ModInjectModel` per sub-view (last-writer-wins, no merge), so two mods on the same
+sub-view blank each other. `note_mount` records each candidate as it mounts, detects an
+already-occupied one (`has_inject_model` via the VM proxy's serialized field names) and
+`choose_placement` (pure, in domain/) picks the first FREE candidate -- yielding a
+sub-view a foreign mod claimed first instead of clobbering it. See
+TASKS/collision-aware-injection.md.
 
 This is the seam between the engine and the pure domain: it READS via the adapter,
 builds the model via the domain, and MARSHALS it into Wulf ViewModels. See the
@@ -24,11 +32,15 @@ from moe_calculator.adapter import moe_data
 from moe_calculator.adapter import format as fmt
 from moe_calculator.adapter import i18n
 from moe_calculator.domain.builder import build_model, bar_visible
+from moe_calculator.domain.placement import choose_placement, INJECT, BLOCKED
 from moe_calculator.bridge.view_models import MoEVM, MarkTickVM
 import openwg_gameface
 
 WIDGET_NAME = "MoECalculator"
 DATA_PROP = "moeData"
+# The fixed VM field OpenWG's gf_mod_inject writes its ModInjectModel to. Its presence in
+# a sub-view's serialized model tree is how we detect an already-occupied sub-view.
+INJECT_FIELD = "ModInjectModel"
 COUI = "coui://gui/gameface/mods/14th_ua/MoECalculator"
 
 # The tooltip labels, resolved to the client language once and JSON-encoded for the VM's
@@ -50,6 +62,15 @@ def _labels_json():
 # (host_vm, rvm) for the currently-mounted widget. Importable so the entry point and
 # the dev REPL can drive refreshes without poking module-private state.
 _active = None
+
+# --- collision-aware placement state -----------------------------------------
+# Priority list of candidate sub-view names (set once at install), the candidate VMs seen
+# so far (name -> host_vm, cleared on detach), and the sub-view we've committed to
+# (_placed_name / its host_vm). Once committed we never migrate -- see note_mount.
+_candidate_order = []
+_candidate_vms = {}
+_placed_name = None
+_placed_vm = None
 
 # Set while a coalesced refresh is already queued for the next tick, so a burst of
 # onSyncCompleted fires collapses to a single deferred refresh().
@@ -322,15 +343,92 @@ def attach(host_vm):
         return None
 
 
+def set_candidate_order(names):
+    """Set the priority list of candidate sub-view names (highest first). Called once at
+    install time by the entry point; drives choose_placement in note_mount."""
+    global _candidate_order
+    _candidate_order = list(names)
+
+
+def has_inject_model(vm):
+    """True when `vm` already carries an inject model (a foreign mod's, or -- after we
+    inject -- our own). Wulf exposes no name-based child getter, but the native proxy's
+    toString() serializes the model tree (field names included) to JSON, so INJECT_FIELD
+    appears there iff a ModInjectModel is attached. Fail-soft -> False (treat an unreadable
+    VM as free): the worst case is a clobber we already can't prevent, never a crash."""
+    try:
+        return ('"%s"' % INJECT_FIELD) in vm.proxy.toString()
+    except Exception:
+        return False
+
+
+def note_mount(name, vm):
+    """Record a candidate sub-view's mount and (re)decide placement. Returns (host_vm, rvm)
+    to push into when we injected / are committed to this sub-view, else None (still
+    waiting, blocked, or a sub-view that is not ours -- we never migrate to it).
+
+    Once committed to a sub-view we NEVER migrate (that would leave a duplicate widget on
+    the old one); we only re-attach when OUR OWN sub-view re-mounts with a fresh VM (a
+    hangar rebuild), and even then we yield if a foreign mod claimed that fresh VM first.
+    While uncommitted, choose_placement picks the first free candidate in priority order."""
+    global _placed_name, _placed_vm
+    _candidate_vms[name] = vm
+
+    if _placed_name is not None:
+        if name != _placed_name:
+            return None  # a non-ours candidate mounted -- never migrate.
+        if vm is _placed_vm:
+            return (_placed_vm, _active[1]) if _active is not None else None
+        # Our sub-view re-mounted with a fresh VM (post-battle hangar rebuild).
+        if has_inject_model(vm):
+            LOG_NOTE("[moe] our sub-view '%s' re-mounted foreign-occupied -> yield" % name)
+            return None
+        rvm = attach(vm)
+        if rvm is None:
+            return None
+        _placed_vm = vm
+        return (vm, rvm)
+
+    # Uncommitted: decide across every candidate seen so far.
+    action, chosen = choose_placement(_candidate_order, _candidate_vms, has_inject_model)
+    if action == INJECT:
+        rvm = attach(_candidate_vms[chosen])
+        if rvm is None:
+            return None
+        _placed_name = chosen
+        _placed_vm = _candidate_vms[chosen]
+        if _candidate_order and chosen != _candidate_order[0]:
+            LOG_NOTE("[moe] preferred sub-view occupied -> placed on fallback '%s'" % chosen)
+        return (_placed_vm, rvm)
+    if action == BLOCKED:
+        LOG_NOTE("[moe] all candidate sub-views occupied -> yielding (no placement)")
+    return None
+
+
+def detach():
+    """Clear the mounted-widget + placement state. The hangar has no view-destroy hook, so
+    this is called lazily from refresh() once the lobby host is gone (battle entry tore the
+    hangar down). Resets _active AND the placement commitment + the cached candidate VMs, so
+    the next garage entry re-evaluates placement fresh instead of pushing into / staying
+    committed to torn-down ViewModels (the `_active` teardown from TASKS/garage-bridge-lifecycle.md)."""
+    global _active, _placed_name, _placed_vm
+    _active = None
+    _placed_name = None
+    _placed_vm = None
+    _candidate_vms.clear()
+
+
 def refresh():
     """Re-push the current vehicle's model into the mounted widget. No-op when no widget is
     mounted, or when the hangar host is gone (a background fetch / items-cache sync that
-    completes mid-battle must not push into the torn-down `_active` VM)."""
+    completes mid-battle must not push into the torn-down `_active` VM -- and detaches then,
+    so the state is cleared for a fresh placement decision on the next garage entry)."""
     if _active is None:
         LOG_NOTE("[moe] refresh: no active widget")
         return False
     if not _host_alive():
-        LOG_NOTE("[moe] refresh: hangar host gone -> skip (stale listener fired off-lobby)")
+        LOG_NOTE("[moe] refresh: hangar host gone -> detach (stale listener fired off-lobby)")
+        detach()
         return False
     push(_active[1], host_vm=_active[0])
     return True

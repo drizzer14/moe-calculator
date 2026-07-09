@@ -129,6 +129,11 @@ def _poll():
             _schedule_poll()
             return
         result = getattr(thread, "result", None) if thread is not None else None
+        # Emit any traceback the worker stashed -- on the MAIN thread, so the worker never
+        # has to touch WG's logger itself (see _FetchThread's invariant).
+        error = getattr(thread, "error", None) if thread is not None else None
+        if error:
+            LOG_NOTE("[moe] fetch worker failed:\n%s" % error)
         if result:
             _table.update(result)
         _loaded = True
@@ -161,13 +166,16 @@ try:
 
     class _FetchThread(_threading.Thread):
         """Downloads + parses the MoE table off the main thread. Stores the parsed dict
-        on self.result (None on failure). Never touches game state -- the main-thread
-        poll adopts the result."""
+        on self.result (None on failure) and, on failure, the formatted traceback on
+        self.error. Never touches game state -- including NOT logging from here: the
+        main-thread poll adopts the result AND emits any stashed traceback, so WG's logger
+        is only ever touched on the main thread (honouring this invariant)."""
 
         def __init__(self, url):
             _threading.Thread.__init__(self)
             self.url = url
             self.result = None
+            self.error = None
             self.name = "MoE table downloader"
             self.daemon = True
 
@@ -176,7 +184,8 @@ try:
                 text = _fetch_text(self.url)
                 self.result = parse_table(text)
             except Exception:
-                LOG_CURRENT_EXCEPTION()
+                import traceback
+                self.error = traceback.format_exc()
                 self.result = None
 except Exception:  # pragma: no cover - threading always present; defensive only
     _FetchThread = None
