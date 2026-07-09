@@ -73,8 +73,17 @@ def get_thresholds(int_cd):
 
 
 def add_ready_listener(cb):
-    """Register a no-arg callback fired (once per fetch) on the main thread when the
-    table finishes loading, so the bridge can re-push and reveal the damage labels."""
+    """Register a no-arg callback fired (once per fetch) on the main thread when the table
+    finishes loading, so the bridge can re-push and reveal the damage labels. If the fetch
+    already completed before this call, fire the callback immediately -- otherwise a late
+    subscriber (armed after load) would silently never fire (`_poll` fires listeners exactly
+    once). Guarded so a raising callback can't propagate into the caller."""
+    if _loaded:
+        try:
+            cb()
+        except Exception:
+            LOG_CURRENT_EXCEPTION()
+        return
     if cb not in _ready_listeners:
         _ready_listeners.append(cb)
 

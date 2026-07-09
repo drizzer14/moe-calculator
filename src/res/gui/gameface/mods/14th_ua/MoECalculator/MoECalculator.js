@@ -46,9 +46,9 @@ function thousands(n) {
 // the natural non-spurious maximum. We truncate (floor) rather than round so the readout
 // never overstates progress toward a mark threshold (e.g. 84.999 shows "84.99%", not "85").
 function pctText(p) {
-    p = Number(p) || 0;
+    p = Math.floor((Number(p) || 0) * 100) / 100;   // truncate to 2dp first
     if (p <= 0) return "0%";
-    return (Math.floor(p * 100) / 100).toFixed(2) + "%";
+    return p.toFixed(2) + "%";
 }
 
 // Piecewise axis: map a percentile (0..100) to a position along the bar (0..100 %).
@@ -100,9 +100,8 @@ function ensureRoot() {
     return root;
 }
 
-function markIcon(tk) {
-    // Always the flat glyph for the tick's mark level (1/2/3), ignoring tk.icon.
-    const count = Math.max(1, Math.min(3, tk.markCount || 1));
+function markIcon(count) {
+    // Flat glyph for the given mark level (1/2/3, already clamped by the caller).
     return FLAT_MARK.replace("%d", String(count));
 }
 
@@ -118,7 +117,7 @@ function renderTicks(ticksEl, ticks) {
         // Nation mark art ON TOP of the bar.
         const icon = document.createElement("div");
         icon.className = "moe-tick-icon";
-        icon.style.backgroundImage = "url(" + markIcon(tk) + ")";
+        icon.style.backgroundImage = "url(" + markIcon(count) + ")";
         el.appendChild(icon);
 
         // A small notch sitting on the track at the milestone.

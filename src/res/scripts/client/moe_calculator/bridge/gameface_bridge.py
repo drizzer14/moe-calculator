@@ -172,7 +172,10 @@ def _arm(label, get_holder, attr, handler):
         holder = get_holder()
         if holder is None:
             return
-        event = getattr(holder, attr)
+        # Default to None (matches battle_bridge._arm): if a WG event attribute is renamed
+        # across a client patch, this degrades quietly (listener skips + retries) instead of
+        # raising AttributeError -> logged -- on every hangar mount.
+        event = getattr(holder, attr, None)
         if event is not None and handler not in event:
             event += handler
             setattr(holder, attr, event)
@@ -280,6 +283,22 @@ def _settings_core_iface():
     return ISettingsCore
 
 
+def _host_alive():
+    """True while the lobby (the hangar document that hosts our widget) exists. False in
+    battle, where the hangar space -- and the `_active` ViewModel with it -- has been torn
+    down. `_active` is never cleared (there is no view-destroy hook wired), so a
+    session-persistent listener (the MoE-table ready hook, an items-cache sync) can fire
+    AFTER battle entry; gating refresh() on this turns a push into a dead VM (fail-soft but
+    wasteful + log spam) into an early return. Guarded -> False (skip) when the state machine
+    is unreadable, matching _in_garage's fail-closed stance (the bar would be hidden anyway)."""
+    try:
+        from gui.Scaleform.lobby_entry import getLobbyStateMachine
+        return getLobbyStateMachine() is not None
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+        return False
+
+
 # --- mount + push ------------------------------------------------------------
 
 def attach(host_vm):
@@ -304,9 +323,14 @@ def attach(host_vm):
 
 
 def refresh():
-    """Re-push the current vehicle's model into the mounted widget."""
+    """Re-push the current vehicle's model into the mounted widget. No-op when no widget is
+    mounted, or when the hangar host is gone (a background fetch / items-cache sync that
+    completes mid-battle must not push into the torn-down `_active` VM)."""
     if _active is None:
         LOG_NOTE("[moe] refresh: no active widget")
+        return False
+    if not _host_alive():
+        LOG_NOTE("[moe] refresh: hangar host gone -> skip (stale listener fired off-lobby)")
         return False
     push(_active[1], host_vm=_active[0])
     return True

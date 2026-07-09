@@ -108,7 +108,7 @@ body {
 
 /* Dark radial UNDERLAY -- the pre-dither backdrop shape, layered back BEHIND the checker.
    z-index:-1 drops it under both the checker ::before and the numerals; it stays scoped to
-   this row because #moe-battle-root (position:fixed + z-index:9000) is its stacking context.
+   this row because #moe-battle-root (position:absolute + z-index:9000) is its stacking context.
    Its own size/centre/alpha (independent of the dither); left edge soft-clipped by the mask.
    Tuned in the overlay tuner ("Gradient underlay" + "Left clip"). */
 .mb-row::after {
