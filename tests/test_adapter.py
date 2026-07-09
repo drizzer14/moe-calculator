@@ -34,6 +34,17 @@ def test_signed_percent():
     assert fmt.signed_percent(-2.0, decimals=0) == "-2%"
 
 
+def test_signed_percent_sub_precision_reads_zero():
+    # A delta that rounds to 0 at the display precision must read "0%" (no misleading
+    # "-0.0%" / "+0.0%" sign) -- the signed-zero fix.
+    assert fmt.signed_percent(-0.04, decimals=1) == "0%"
+    assert fmt.signed_percent(0.04, decimals=1) == "0%"
+    assert fmt.signed_percent(0.004, decimals=2) == "0%"
+    assert fmt.signed_percent(0.4, decimals=0) == "0%"
+    # Just past the rounding boundary still shows a sign.
+    assert fmt.signed_percent(0.06, decimals=1) == "+0.1%"
+
+
 def test_mark_icon_url():
     assert fmt.mark_icon_url("germany", 1) == \
         "img://gui/maps/icons/marksOnGun/95x85/germany_1_mark.png"
