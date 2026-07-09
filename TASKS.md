@@ -6,25 +6,20 @@ note under `TASKS/`; delete an entry here once it ships.
 
 ## Open
 
-### BUG — garage bridge lifecycle: Rider 2 (only remaining piece)
-The `refresh()` view-alive guard + Rider 1 **shipped** (76fa5c3), and the real `_active`
-teardown now **landed uncommitted** (2026-07-09) with the collision-aware feature: `bridge.detach()`
-clears `_active` + the placement commitment + cached candidate VMs, called from `refresh()`'s
-host-gone branch. **Remaining: Rider 2** — does OpenWG re-execute injected modules per mount,
-stacking JS `observer.onUpdate` callbacks? Needs a live REPL probe before deciding on a guard
-(plus in-client confirmation of the teardown: no `[moe]` push/exception spam during battle).
-→ Research: TASKS/shipped/collision-aware-injection.md · TASKS/garage-bridge-lifecycle.md
-
-### Cleanup (batch) — the deferred remainder (PARTIAL)
-Doc/markup/micro drift + the `moe_data` late-subscriber no-op **shipped** (76fa5c3); the
-worker-thread `LOG_CURRENT_EXCEPTION` invariant now **landed uncommitted** (2026-07-09 — the
-worker stashes the traceback, the main-thread `_poll` logs it). **Remaining (each deferred with a
-reason in the note):** the bridge listener/refresh-scaffolding extraction (needs bridge test
-coverage first); `moe_data._RECORD_RX` keyed-JSON rewrite (only if a 2nd data source is added);
-the `_AGENT` vs `MOD_VERSION` version dedup + uncheck'd `CLIENT_VERSION` (deferred to the 0.2.0
-release bump the collision-aware feature triggers); inconsistent partial-table degrade between the
-two builders. NOT doing: the JS `thousands`/`pctText` extraction (`../../libs/` is OpenWG's, not
-ours). `wulf_args.py` stays (Phase-3 drag needs it).
+### Cleanup (batch) — the deferred remainder (all TRIGGER-GATED)
+Doc/markup/micro drift, the `moe_data` late-subscriber no-op, and the worker-thread
+`LOG_CURRENT_EXCEPTION` invariant all **shipped** (76fa5c3). Everything still listed here is
+deliberately deferred behind a trigger condition — none is landable standalone today:
+- **Bridge listener/refresh-scaffolding extraction** — wait until an adjacent feature touches
+  `gameface_bridge.py`/`battle_bridge.py` AND bridge test coverage exists (too risky bare).
+- **`moe_data._RECORD_RX` keyed-JSON rewrite** — only if a 2nd data source is ever added.
+- **`_AGENT` vs `MOD_VERSION` version dedup + unchecked `CLIENT_VERSION`** — fold into the
+  **0.2.0 release bump** (the collision-aware feature triggers it) so versioning + the
+  `check_version.py` REQUIRED-list update are touched once, not twice.
+- **Inconsistent partial-table degrade between the two builders** — note-only; only bites
+  malformed `moe_data` (always supplies key 100). Intentional; revisit only if a real case appears.
+NOT doing: JS `thousands`/`pctText` extraction (`../../libs/` is OpenWG's, not ours);
+`battle_adapter._read_moe` battle short-circuit (keep the seam). `wulf_args.py` stays (Phase-3 drag).
 → Research: TASKS/code-cleanups-2026-07.md
 
 ### In-battle overlay — LTR (current) / RTL layout direction

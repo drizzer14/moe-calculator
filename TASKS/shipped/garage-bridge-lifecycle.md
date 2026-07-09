@@ -1,18 +1,19 @@
 # Research: Garage bridge lifecycle — stale `_active`, no teardown
 
-_Submitted: repo-wide bug hunt (2026-07-09) · Status: PARTIALLY SHIPPED (76fa5c3) + `_active` teardown IMPLEMENTED IN WORKING TREE (UNCOMMITTED, 2026-07-09)_
+_Submitted: repo-wide bug hunt (2026-07-09) · Status: **RESOLVED / CLOSED** (2026-07-09) — refresh guard + `_active` teardown shipped (76fa5c3, c4e60df); Rider 2 resolved statically (no leak, no code change)_
 
 > **Shipped (76fa5c3):** the `refresh()` view-alive guard (`_host_alive()` early-returns when
 > the lobby host is gone, so a mid-battle threshold-fetch / items-cache push no longer hits a
 > dead VM) and Rider 1 (garage `_arm` `getattr` aligned to the battle twin's `None` default).
-> **Landed uncommitted (2026-07-09, with the collision-aware feature — [[collision-aware-injection]]):**
+> **Shipped (c4e60df, committed 2026-07-09, with the collision-aware feature — [[collision-aware-injection]]):**
 > the real `_active` teardown. `bridge.detach()` now clears `_active` + the placement
 > commitment (`_placed_name`/`_placed_vm`) + the cached candidate VMs, and `refresh()` calls it
 > on the host-gone branch (the lobby-state signal suggested below), so a return to the garage
-> re-evaluates placement fresh instead of clinging to torn-down ViewModels.
-> **Still open:** **Rider 2** (does OpenWG re-execute injected modules per mount, stacking
-> `observer.onUpdate` callbacks?) — needs a live REPL probe; and in-client confirmation of the
-> teardown (no `[moe]` push/exception spam during battle).
+> re-evaluates placement fresh instead of clinging to torn-down ViewModels. In-client verified
+> (no `[moe]` push/exception spam during battle).
+> **Rider 2 — RESOLVED (2026-07-09, static analysis of the OpenWG 1.1.6 injector; no code change):**
+> OpenWG does NOT stack `observer.onUpdate` callbacks across garage remounts. Three independent
+> mechanisms guarantee it (see the updated Rider 2 section below). No guard needed.
 
 ## Summary
 
@@ -46,14 +47,31 @@ into `python.log`. Two adjacent robustness items ride along.
   `AttributeError` → caught + logged on **every** hangar mount, and that listener silently
   never arms. The battle twin degrades quietly. Align the garage version to the battle one.
 
-### Rider 2 — front-end remount observer stacking (UNCONFIRMED)
+### Rider 2 — front-end remount observer stacking (RESOLVED: no leak)
 
-- `MoECalculator.js:325-329` (approx) registers `observer.onUpdate(render)` +
-  `observer.subscribe()` at module top-level inside `engine.whenReady`. Python re-injects
-  the assets on every `_onLoading` (mod_moe_calculator.py:31-45). If OpenWG re-executes the
-  module per injection, each hangar mount stacks another `onUpdate` callback (leak +
-  redundant renders). If it dedupes by URL, no leak. Cannot confirm without `libs/model.js`
-  / the injector source.
+- `MoECalculator.js:324-326` registers `observer.onUpdate(render)` + `observer.subscribe()`
+  at module top-level inside `engine.whenReady`. Python re-injects the assets on every
+  `_onLoading` (mod_moe_calculator.py). The concern was that per-mount re-injection stacks a
+  new `onUpdate` callback each time (leak + redundant renders).
+- **Resolved by reading the OpenWG 1.1.6 injector + libs (extracted from
+  `net.openwg.gameface_1.1.6.wotmod`).** No stacking is possible — three independent guards:
+  1. **Injector dedups by resId.** `res/gui/gameface/js/index.js` keeps an `injectedResIds`
+     `Set`; `injectModAssets` early-returns when the sub-view's resId is already present, so a
+     given sub-view's assets are appended to the DOM **exactly once** regardless of how many
+     times Python re-writes the `ModInjectModel`.
+  2. **ES-module URL dedup.** We register on the `modules` channel
+     (`gameface_bridge.py:333` → injector `assetTypes` `{type:"module", tag:"script",
+     type:"module"}`), i.e. `<script type="module" src="coui://…/MoECalculator.js">`. Even if
+     a same-URL module tag were appended again (a new resId within a still-living view),
+     Gameface evaluates a module graph **once per (realm, URL)** — the top-level
+     `observer.onUpdate(render)` does not re-run. (A classic `scripts`-channel tag WOULD
+     re-execute; we do not use that channel.)
+  3. **View-realm teardown.** The dominant real path — battle exit tears down and rebuilds the
+     whole hangar Gameface view — creates a fresh JS realm (new `window`, fresh
+     `injectedResIds`, fresh module instances). Old-realm `onUpdate` callbacks die with the old
+     view and cannot accumulate into the new one.
+- **Verdict:** no callback leak, no redundant-render growth, **no guard needed**. This was the
+  last open piece of this note; the bug entry closes.
 
 ## Root cause
 
@@ -93,5 +111,7 @@ its ViewModel while session-scoped listeners keep calling `refresh()`.
 
 ## Open questions
 
-- Is there a clean view-destroy signal to hang teardown on, or must `refresh()` self-guard?
-- Rider 2: does OpenWG re-execute injected modules per mount? (Decides leak vs. no-op.)
+- ~~Is there a clean view-destroy signal to hang teardown on, or must `refresh()` self-guard?~~
+  RESOLVED: `refresh()` self-guards via `_host_alive()` and `detach()` on the host-gone branch.
+- ~~Rider 2: does OpenWG re-execute injected modules per mount?~~ RESOLVED: no — injector
+  dedups by resId, module execution is URL-deduped, and a torn-down view is a fresh realm.

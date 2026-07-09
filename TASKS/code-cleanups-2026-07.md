@@ -30,7 +30,7 @@ noise. Pick off opportunistically — none is urgent.
   `battle_bridge.py:173-228` are near-verbatim twins: `_arm`, `install_all_listeners`,
   `_schedule_refresh`/`_do_scheduled_refresh`, the `_refresh_pending`/`_data_listener_armed`
   globals, the `_LISTENERS` table pattern. The `getattr` divergence in
-  TASKS/garage-bridge-lifecycle.md is exactly the drift this breeds. Extract a shared
+  TASKS/shipped/garage-bridge-lifecycle.md is exactly the drift this breeds. Extract a shared
   listener-manager/coalescer helper.
 - **JS format helpers** — `thousands` and `pctText` are byte-identical in
   `MoECalculator.js:39-52` and `MoEBattle.js:36-47` (`signedPct` a near-twin). Both files
