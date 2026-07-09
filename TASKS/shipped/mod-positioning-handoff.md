@@ -1,4 +1,4 @@
-# Handoff: mod-positioning (phased) — Phases 0-1 DONE, Phases 2-3 pending
+# Handoff: mod-positioning (phased) — Status: shipped (Phases 0-3 DONE)
 
 **Workflow:** one **clean session per phase**. Read this note + the approved plan, do the
 phase, deploy, get in-game "lgtm", commit, then append a "Phase N done" section here and

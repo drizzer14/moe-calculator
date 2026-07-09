@@ -1,13 +1,18 @@
 # Research: Garage bridge lifecycle — stale `_active`, no teardown
 
-_Submitted: repo-wide bug hunt (2026-07-09) · Status: PARTIALLY SHIPPED (2026-07-09, 76fa5c3)_
+_Submitted: repo-wide bug hunt (2026-07-09) · Status: PARTIALLY SHIPPED (76fa5c3) + `_active` teardown IMPLEMENTED IN WORKING TREE (UNCOMMITTED, 2026-07-09)_
 
-> **Shipped:** the `refresh()` view-alive guard (`_host_alive()` early-returns when the lobby
-> host is gone, so a mid-battle threshold-fetch / items-cache push no longer hits a dead VM)
-> and Rider 1 (garage `_arm` `getattr` aligned to the battle twin's `None` default).
-> **Still open:** a real `_active` teardown (no view-destroy hook is wired -- the guard makes
-> stale `_active` harmless but doesn't clear it) and **Rider 2** (does OpenWG re-execute
-> injected modules per mount, stacking `observer.onUpdate` callbacks?) -- needs a live REPL probe.
+> **Shipped (76fa5c3):** the `refresh()` view-alive guard (`_host_alive()` early-returns when
+> the lobby host is gone, so a mid-battle threshold-fetch / items-cache push no longer hits a
+> dead VM) and Rider 1 (garage `_arm` `getattr` aligned to the battle twin's `None` default).
+> **Landed uncommitted (2026-07-09, with the collision-aware feature — [[collision-aware-injection]]):**
+> the real `_active` teardown. `bridge.detach()` now clears `_active` + the placement
+> commitment (`_placed_name`/`_placed_vm`) + the cached candidate VMs, and `refresh()` calls it
+> on the host-gone branch (the lobby-state signal suggested below), so a return to the garage
+> re-evaluates placement fresh instead of clinging to torn-down ViewModels.
+> **Still open:** **Rider 2** (does OpenWG re-execute injected modules per mount, stacking
+> `observer.onUpdate` callbacks?) — needs a live REPL probe; and in-client confirmation of the
+> teardown (no `[moe]` push/exception spam during battle).
 
 ## Summary
 

@@ -8,10 +8,14 @@ _Submitted: repo-wide bug hunt (2026-07-09) · Status: PARTIALLY SHIPPED (2026-0
 > the JS `thousands`/`pctText` extraction (rejected -- `../../libs/` is OpenWG's shared runtime
 > dir, NOT ours to add a `format.js` to; a bad import kills both untested front-ends); the
 > bridge listener/refresh-scaffolding extraction (too risky without any bridge test coverage);
-> `_RECORD_RX` keyed-JSON rewrite (deferred pending a 2nd data source); the worker-thread
-> `LOG_CURRENT_EXCEPTION` invariant contradiction; the `_AGENT` vs `MOD_VERSION` version dedup;
-> and the `battle_adapter._read_moe` battle short-circuit (foreclosed an unprobed early-load
-> dossier read for negligible gain -- keep the seam). `wulf_args.py` stays (Phase-3 drag).
+> `_RECORD_RX` keyed-JSON rewrite (deferred pending a 2nd data source); ~~the worker-thread
+> `LOG_CURRENT_EXCEPTION` invariant contradiction~~ (now DONE, see the finding below); the
+> `_AGENT` vs `MOD_VERSION` version dedup (deferred to the **0.2.0 release bump** the
+> collision-aware feature triggers — the dedup wants a shared version module + a
+> `check_version.py` REQUIRED-list update, so folding it into the bump touches versioning once
+> instead of twice); and the `battle_adapter._read_moe` battle short-circuit (foreclosed an
+> unprobed early-load dossier read for negligible gain -- keep the seam). `wulf_args.py` stays
+> (Phase-3 drag).
 
 ## Summary
 
@@ -54,7 +58,10 @@ noise. Pick off opportunistically — none is urgent.
   no-ops in that ordering. Consider firing immediately if `_loaded`.
 - **`_FetchThread.run` calls `LOG_CURRENT_EXCEPTION`** (moe_data.py:170) from the worker
   thread despite the "Never touches game state" docstring (moe_data.py:155-156). WG logging
-  is likely thread-tolerant, but it contradicts the stated invariant.
+  is likely thread-tolerant, but it contradicts the stated invariant. **DONE (working tree,
+  UNCOMMITTED, 2026-07-09):** the worker now stashes `traceback.format_exc()` on `self.error`
+  and the main-thread `_poll` emits it via `LOG_NOTE` — WG's logger is only ever touched on the
+  main thread, honouring the invariant.
 - **`battle_adapter._read_moe` in battle** (battle_adapter.py:190) — always returns zeros in
   battle (lobby dossier is None), so it imports dossier symbols + does a lookup every
   snapshot purely to get zeros before falling through to `baseline_cache`. Could

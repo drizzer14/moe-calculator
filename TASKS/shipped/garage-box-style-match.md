@@ -1,6 +1,6 @@
 # Research: Garage widget — match the setup-slot box style EXACTLY (2nd pass)
 
-_Submitted: "Second pass on exactly matching the style of the crew/equipment/directive/ammo/consumables boxes. First pass yielded bad results, degrading the visuals and not delivering anything of value. When I say 'match styles exactly', it means to look for the in-game CSS." · Status: open_
+_Submitted: "Second pass on exactly matching the style of the crew/equipment/directive/ammo/consumables boxes. First pass yielded bad results, degrading the visuals and not delivering anything of value. When I say 'match styles exactly', it means to look for the in-game CSS." · Status: shipped_
 
 > **Supersedes** `TASKS/garage-widget-ammo-border.md` (the 1st pass — border-texture swap only).
 >
