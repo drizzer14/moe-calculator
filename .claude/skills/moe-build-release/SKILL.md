@@ -73,7 +73,7 @@ this skill is the concrete file list and command set. **Two Pythons:** package w
 
 ## Release state
 
-**v0.1.0 and v0.2.0 are published** on `github.com/drizzer14/moe-calculator` (`origin/main`).
+**v0.1.0, v0.2.0 and v0.2.1 are published** on `github.com/drizzer14/moe-calculator` (`origin/main`).
 Both channels now ship the **same single build** (WG-API threshold source): the GitHub release
 carries `MoECalculator-Setup-<ver>.exe` + the bare `.wotmod`, and `MoECalculator_<ver>.zip`
 (same `.wotmod` + vendor deps) is uploaded manually to
