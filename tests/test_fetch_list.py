@@ -9,8 +9,8 @@ from moe_calculator.domain import fetch_list
 from moe_calculator.domain import constants
 
 NOW = 1_700_000_000
-WINDOW = constants.STALE_WINDOW_SECONDS  # 30 days
-TTL = constants.REVALIDATE_SECONDS       # 24h
+WINDOW = constants.STALE_WINDOW_SECONDS  # 7 days
+TTL = constants.REVALIDATE_SECONDS       # 7 days
 
 
 # --- bootstrap_ids -----------------------------------------------------------
@@ -147,3 +147,30 @@ def test_needs_refetch_past_ttl_is_true():
 def test_needs_refetch_boundary_is_true():
     # now == updated_at + ttl -> due (>= boundary).
     assert fetch_list.needs_refetch(NOW - TTL, NOW) is True
+
+
+# --- data_changed ------------------------------------------------------------
+
+def test_data_changed_differing_values_is_true():
+    assert fetch_list.data_changed(1_700_000_000, 1_700_086_400) is True
+
+
+def test_data_changed_same_value_is_false():
+    assert fetch_list.data_changed(1_700_000_000, 1_700_000_000) is False
+
+
+def test_data_changed_first_ever_fetch_is_false():
+    # No prior value (0 / None) -> a first fetch is not a "change" (nothing to invalidate).
+    assert fetch_list.data_changed(0, 1_700_000_000) is False
+    assert fetch_list.data_changed(None, 1_700_000_000) is False
+
+
+def test_data_changed_missing_new_value_is_false():
+    # A fetch that carried no updated_at can't prove a change -> keep the cache.
+    assert fetch_list.data_changed(1_700_000_000, None) is False
+    assert fetch_list.data_changed(1_700_000_000, 0) is False
+
+
+def test_data_changed_unparseable_is_false():
+    assert fetch_list.data_changed("x", 1_700_000_000) is False
+    assert fetch_list.data_changed(1_700_000_000, "y") is False

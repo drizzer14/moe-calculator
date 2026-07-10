@@ -34,13 +34,15 @@ FETCH_LIST_CAP = 100
 
 # A tank drops out of the fetch list if it hasn't been played within this window (the
 # session-open purge). Measured against the vehicle's last-battle timestamp; a freshly bought
-# tank is stamped with the purchase time so it survives ~30 days even if never played.
-STALE_WINDOW_SECONDS = 30 * 24 * 3600
+# tank is stamped with the purchase time so it survives ~7 days even if never played.
+STALE_WINDOW_SECONDS = 7 * 24 * 3600
 
-# Threshold data is served without refetching while now < updated_at + this (the WG
-# distribution's refresh cadence). Single source shared by moe_wgapi.fresh_table (cache-adopt
-# gate) and fetch_list.needs_refetch (the "don't refetch multiple sessions/day" throttle).
-REVALIDATE_SECONDS = 24 * 3600
+# Threshold data is served without refetching while now < updated_at + this (the cache-freshness
+# fallback TTL). Single source shared by moe_wgapi.fresh_table (cache-adopt gate) and
+# fetch_list.needs_refetch (the "don't refetch every session" throttle). This is the time-based
+# backstop; a fetch that reveals a changed WG `updated_at` forces a full refetch sooner
+# (fetch_list.data_changed + moe_wgapi._poll).
+REVALIDATE_SECONDS = 7 * 24 * 3600
 
 # In-battle projected-rating (EWMA) coefficient. WG's Marks rating is a moving average
 # over "~50-100 battles"; we model it as an EWMA newAvg = prevAvg + k*(CD - prevAvg) with

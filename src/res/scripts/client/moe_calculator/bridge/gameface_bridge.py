@@ -349,7 +349,7 @@ def attach(host_vm):
         rvm = MoEVM()
         host_vm._addViewModelProperty(DATA_PROP, rvm)
         _active = (host_vm, rvm)
-        # Kick the MoE-data source (idempotent): loads the per-day cache and starts the
+        # Kick the MoE-data source (idempotent): loads the threshold cache and starts the
         # WG-API fetch rounds. The ready hook re-pushes when data lands.
         moe_data.start()
         return rvm

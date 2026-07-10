@@ -62,7 +62,7 @@ def test_parse_response_missing_distribution_is_empty():
     assert moe_wgapi.parse_response(json.dumps({"status": "ok", "data": {}}))[0] == {}
 
 
-# --- fresh_table (per-day cache envelope, revalidated at updated_at + 24h) ----
+# --- fresh_table (threshold cache envelope, revalidated at updated_at + 7d) ---
 
 _UPD = 1783468800  # the data's own updated_at (epoch s)
 

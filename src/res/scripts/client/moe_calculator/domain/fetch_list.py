@@ -4,14 +4,15 @@ owned tank ids we maintain thresholds for.
 
 The *list* is membership + recency ("which tanks we want data for"); the fetched thresholds
 live elsewhere (adapter/moe_wgapi._table + its own cache file). Keeping them separate lets the
-existing threshold-cache freshness + _table/_seen/_inflight dedup do the 24h-throttle work,
+existing threshold-cache freshness + _table/_seen/_inflight dedup do the revalidation work,
 while this module owns only the set arithmetic:
 
-  bootstrap_ids   : the session-open seed when the list is empty (selected + recent-30d).
+  bootstrap_ids   : the session-open seed when the list is empty (selected + recent-7d).
   add_with_eviction : add a tank, evicting the least-recently-played member when full.
   remove_id       : drop a sold tank.
   purge_stale     : session-open drop of tanks not played within the window.
   needs_refetch   : the boolean "is the current data older than the revalidation window".
+  data_changed    : the boolean "did a fetch reveal WG's updated_at changed" (force full refetch).
 
 Everything is pure (no engine imports): the caller passes now_epoch / recency_map / cap so
 each function is directly unit-testable, mirroring garage_roster.rank_by_recency. Recency is
@@ -89,9 +90,23 @@ def purge_stale(current, recency_map, now_epoch, max_age=constants.STALE_WINDOW_
 
 def needs_refetch(updated_at, now_epoch, ttl=constants.REVALIDATE_SECONDS):
     """True when the current data is missing or older than the revalidation window -- i.e. a
-    fresh batch fetch is due. False while now_epoch < updated_at + ttl (so repeated sessions in
-    the same day serve the cache without refetching). Pure."""
+    fresh batch fetch is due. False while now_epoch < updated_at + ttl (so repeated sessions
+    within the window serve the cache without refetching). Pure."""
     try:
         return now_epoch >= int(updated_at) + ttl
     except (TypeError, ValueError):
         return True
+
+
+def data_changed(prev_updated_at, new_updated_at):
+    """True when a completed fetch reveals the WG distribution's `updated_at` has changed from
+    the previously-held value -- i.e. every cached threshold is now stale and the whole fetch
+    list must be refetched. Requires BOTH a prior value and a new value: a first-ever fetch
+    (prev = 0/None) is not a change, and a fetch that carried no `updated_at` (new = 0/None)
+    can't prove one, so both leave the cache intact. Pure."""
+    try:
+        prev = int(prev_updated_at or 0)
+        new = int(new_updated_at or 0)
+    except (TypeError, ValueError):
+        return False
+    return bool(prev) and bool(new) and prev != new
