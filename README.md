@@ -74,7 +74,7 @@ so the two download channels obtain them differently:
 
 - **GitHub release** (the installer / manual `.wotmod` above) — fetches the up-to-date per-tank
   thresholds from **tomato.gg** once per session.
-- **WGMods release** ([wgmods.net](https://wgmods.net)) — makes **no external requests**. It
+- **WGMods release** ([wgmods.net/7745](https://wgmods.net/7745/)) — makes **no external requests**. It
   estimates each tank's thresholds from your own in-game MoE data and refines them as you play,
   so the mark numbers begin as estimates and sharpen with more battles.
 
@@ -165,7 +165,7 @@ Wargaming не публікує пороги знаків для кожної т
 
 - **Реліз на GitHub** (інсталятор / ручний `.wotmod` вище) — раз за сесію завантажує актуальні
   пороги для кожної техніки з **tomato.gg**.
-- **Реліз на WGMods** ([wgmods.net](https://wgmods.net)) — **не робить зовнішніх запитів**. Він
+- **Реліз на WGMods** ([wgmods.net/7745](https://wgmods.net/7745/)) — **не робить зовнішніх запитів**. Він
   оцінює пороги кожної техніки з ваших власних ігрових даних класності й уточнює їх у міру гри,
   тож числа знаків спершу є оцінками та стають точнішими з боями.
 
