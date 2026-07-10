@@ -138,8 +138,8 @@ def _on_sync_completed(*args, **kwargs):
 
 
 def _on_moe_data_ready():
-    # The MoE-data source signalled ready (tomato: fetch completed on the main-thread poll;
-    # offline: fires immediately, synchronous). Re-push so the per-mark damage labels appear.
+    # The MoE-data source signalled ready (a WG-API fetch round completed on the main-thread
+    # poll). Re-push so the per-mark damage labels appear.
     try:
         LOG_NOTE("[moe] table ready -> refresh")
         refresh()
@@ -334,8 +334,8 @@ def attach(host_vm):
         rvm = MoEVM()
         host_vm._addViewModelProperty(DATA_PROP, rvm)
         _active = (host_vm, rvm)
-        # Kick the MoE-data source (idempotent): tomato starts its one-time fetch; offline
-        # loads its on-disk sample store. The ready hook re-pushes when data is available.
+        # Kick the MoE-data source (idempotent): loads the per-day cache and starts the
+        # WG-API fetch rounds. The ready hook re-pushes when data lands.
         moe_data.start()
         return rvm
     except Exception:

@@ -43,37 +43,39 @@ only for what is specific to THIS mod.
     `gui/Scaleform/daapi/view/lobby/hangar/carousels/basic/tank_carousel.py` +
     `account_helpers/settings_core/options.py`.
 
-- **MoE damage thresholds (NOT available client-side) — the data source:**
-  The 65/85/95% combined-damage thresholds are computed server-side and never sent to the
-  client. Neither the official WG public web API nor the game client exposes the *population*
-  thresholds — WG returns only the player's OWN result (dossier `damageRating` = their achieved
-  percentile, `movingAvgDamage` = their EWMA combined damage). The mod ships **two build
-  variants**, selected at package time by `moe_calculator/build_config.py::MOE_DATA_SOURCE`
-  (see `adapter/moe_data.py`, the source router):
+- **MoE damage thresholds — the data source (official WG API):**
+  The 65/85/95% combined-damage thresholds are computed server-side and not in the client
+  dossier (which exposes only the player's OWN `damageRating` = achieved percentile and
+  `movingAvgDamage` = EWMA combined damage). They ARE, however, published by the official
+  Wargaming public API's `wot/tanks/mastery` method — the real *population* distribution:
 
-  - **`offline` (WGMods release) — no external API.** `adapter/moe_offline.py` ESTIMATES each
-    tank's thresholds from the client's own dossier. Every garage read is one point
-    `(movingAvgDamage, damageRating)` on that tank's combined-damage→percentile curve; the
-    samples accumulate per tank (persisted under the prefs dir: `mods_data/14th_ua_moe/
-    moe_samples.json`) and feed `domain/moe_estimate.py`, which assumes a ~normal population
-    (`d = mu + sigma·Φ⁻¹(p)`), fits `(mu, sigma)` by OLS over ≥2 percentile-spread samples,
-    and reads off the 65/85/95/99 targets. A single sample still yields an estimate via a baked
-    universal prior (`UNIVERSAL_CV`, derived once at dev time by `tools/dev/derive_moe_prior.py`
-    — median σ/µ over ~760 EU tanks ≈ 0.808; normal-fit residual at the 85th ≈ 1.4%). Results
-    are ESTIMATES; caveats: weakest in the tails / when extrapolating far from the player's
-    current standing; a never-played tank shows no labels.
+    `GET https://api.worldoftanks.eu/wot/tanks/mastery/?application_id=<id>`
+    `&distribution=damage&percentile=65,85,95,100&tank_id=<≤100 comma-separated intCDs>`
+    `→ {"status":"ok","data":{"distribution":{"<tank_id>":{"65":D1,"85":D2,"95":D3,"100":D4}},`
+    `   "updated_at":<epoch>}}`
 
-  - **`tomato` (GitHub release, default) — crowd-sourced exact values.** `adapter/moe_tomato.py`
-    fetches `https://tomato.gg/moe/<SERVER>` (`EU` here). App-Router SSR; the per-tank table
-    (~768 tanks) is embedded in the HTML flight payload as JSON records
-    `{"65":1291,"85":1858,"95":2287,"100":2641,"id":1073, ...}` (`"65/85/95"` = 1/2/3-mark
-    requirements, `"100"` = the 100% goalpost, `"id"` = WG tank id == client `intCD`). One
-    request per session (≈640 KB) on a worker thread; degrades gracefully (blank per-mark
-    labels) on any network/parse failure. NB: the `me.poliroid.tomatogg` .wotmod is an
-    updater-stub (no in-package URL) — not a usable static source; tomato's SSR page is.
+  Percentiles 65/85/95/100 map straight onto the mod's `{1,2,3,100}` contract (1/2/3 marks +
+  the right-edge goalpost); `tank_id` == client `intCD`. `adapter/moe_wgapi.py` is the sole
+  provider (behind the `adapter/moe_data.py` facade); there is one build for all channels.
 
-  - The fill / current % / current avg damage never depended on the table (they read
-    `damageRating`/`movingAvgDamage` directly), so they stay exactly official in both variants.
+  - **Fetch:** on garage entry, round 1 fetches the selected tank (fast first paint), round 2
+    warms the 100 most-recently-played owned vehicles in one request (`adapter/garage_roster.py`
+    ranks by the dossier TOTAL `getLastBattleTime()`). Selecting a tank not yet cached fetches
+    just that one. `helpers.http.openUrl` is blocking, so each request runs on a worker thread
+    and results are adopted on the main thread via a `BigWorld.callback` poll (mirrors the old
+    tomato provider's discipline). Missing/invalid `tank_id`s are simply absent from the reply.
+
+  - **Cache:** results are persisted (`mods_data/14th_ua_moe/moe_wgapi_cache.json`) and
+    revalidated 24h after the reply's own `updated_at` (Wargaming's data-refresh cadence).
+
+  - **Fallback:** if a request errors (or the API has no data for a tank), `engine_adapter`
+    extrapolates that tank's thresholds from the player's single dossier point via
+    `domain/moe_estimate.py` — a ~normal-population fit (`d = mu + sigma·Φ⁻¹(p)`), single-sample
+    universal prior (`UNIVERSAL_CV`). Estimates are marked and weakest in the tails; a
+    still-pending fetch does NOT trigger the fallback (it waits).
+
+  - The fill / current % / current avg damage never depended on the thresholds (they read
+    `damageRating`/`movingAvgDamage` directly), so they stay exactly official regardless.
 
 - **Modes / states** — a single MoE bar. Hidden when off the plain garage (reuse the
   sibling's `hangar/{root}` visible-state check) or while a tank-setup overlay is open.
@@ -81,10 +83,8 @@ only for what is specific to THIS mod.
 - **Actions it performs** — none in v1 (read-only display; no clickable ticks).
 
 - **Open questions / to verify in-client:**
-  - Confirm tomato.gg `id` == client `intCD` for the vehicle key mapping.
-  - Confirm the in-client HTTP mechanism (WoT Python 2.7 HTTPS): worker thread +
-    `urllib2` with an SSL context, marshalling the parsed table back to the main thread via
-    `BigWorld.callback`. Check whether the bundled Python 2.7 verifies TLS certs.
+  - (Resolved) WG API `tank_id` == client `intCD`, and `helpers.http.openUrl` handles the
+    HTTPS fetch on a worker thread — both confirmed live via the debug REPL.
   - Calibrate the exact bottom-right anchor: widget width to match the top-right
     Battlepass/missions widgets, and per-carousel-case bottom offsets, via the debug REPL
     (`getComputedStyle`).

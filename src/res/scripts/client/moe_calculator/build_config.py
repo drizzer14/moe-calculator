@@ -1,15 +1,12 @@
 # -*- coding: utf-8 -*-
-"""Build-variant configuration.
+"""Build-injected configuration.
 
-`MOE_DATA_SOURCE` selects which Marks-of-Excellence threshold provider the `moe_data` router
-uses at runtime:
-  - "tomato"  -> adapter/moe_tomato  (fetch tomato.gg; the GitHub-release / dev / deploy build)
-  - "offline" -> adapter/moe_offline (estimate from the client's own dossier; no external API --
-                 the WGMods-release build)
-
-The in-repo default is "tomato". build/build_wotmod.py OVERWRITES this constant at package time
-from its --data-source argument (compiling a substituted copy -- the repo file is never mutated),
-so the WGMods package ships "offline" without a source edit. Keep this module import-cheap and
-free of game symbols: the router imports it at module load.
+`WG_APPLICATION_ID` is the Wargaming API application_id used by adapter/moe_wgapi. It is a
+SECRET, so it is NOT committed: the repo ships an empty placeholder here, and
+build/build_wotmod.py substitutes the real value (read from the gitignored `.env`) into a
+compiled copy at package time -- the repo file is never mutated and the id only ever exists in
+the built .wotmod. A build with no `.env` leaves it empty; moe_wgapi then can't fetch and the
+bar degrades to ticks without per-mark damage labels. Keep this module import-cheap and free of
+game symbols: moe_wgapi imports it at module load.
 """
-MOE_DATA_SOURCE = "tomato"   # "tomato" | "offline"
+WG_APPLICATION_ID = ""

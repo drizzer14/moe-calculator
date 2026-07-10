@@ -2,20 +2,19 @@
 """
 Build a distributable .wotmod package from src/.
 
-  python build/build_wotmod.py                     # GitHub / dev build (tomato.gg source)
-  python build/build_wotmod.py --data-source offline   # WGMods build (offline estimator)
+  python build/build_wotmod.py
 
 What it does:
   1. Reads <id> and <version> from src/meta.xml.
-  2. Compiles every .py under src/res/ to .pyc bytecode. The build-variant config module
-     (moe_calculator/build_config.py) is compiled from a SUBSTITUTED copy so its
-     MOE_DATA_SOURCE matches --data-source (default "tomato") -- the repo file is untouched.
+  2. Compiles every .py under src/res/ to .pyc bytecode. moe_calculator/build_config.py is
+     compiled from a SUBSTITUTED copy so its WG_APPLICATION_ID carries the secret read from the
+     gitignored .env (the repo file, an empty placeholder, is never mutated).
   3. Zips meta.xml + res/ (with .pyc, NOT .py) into dist/<id>_<version>.wotmod
      using ZIP_STORED (no compression) — WoT rejects compressed archives.
 
-The two variants share the same output filename, so build sequentially per channel: for
-WGMods, `--data-source offline` then build/build_moe_zip.py; for GitHub, the default build
-then installer/build_installer.ps1.
+There is a single build: MoE thresholds come from the official Wargaming API (adapter/
+moe_wgapi), so the GitHub and WGMods channels ship the identical .wotmod. The API
+application_id is injected from .env at build time (copy .env.example -> .env).
 
 IMPORTANT: run this with **Python 2.7.18**. The game executes the .pyc, and
 bytecode is tied to the Python version (magic number). Compiling under Python 3
@@ -40,12 +39,13 @@ RES = os.path.join(SRC, "res")
 META = os.path.join(SRC, "meta.xml")
 DIST = os.path.join(ROOT, "dist")
 
-# The build-variant config module whose MOE_DATA_SOURCE constant selects the MoE threshold
-# provider. build packages a SUBSTITUTED copy so the WGMods build ships "offline" without
-# ever mutating the repo file. See moe_calculator/build_config.py.
+# The WG API application_id is a secret injected at build time: the repo's build_config.py
+# ships an empty WG_APPLICATION_ID placeholder, and we compile a SUBSTITUTED copy carrying the
+# real id (read from the gitignored .env) so the secret lives only in the built .wotmod, never
+# in source control. See moe_calculator/build_config.py and .env.example.
 BUILD_CONFIG = os.path.join(RES, "scripts", "client", "moe_calculator", "build_config.py")
-_DATA_SOURCE_RX = re.compile(r'MOE_DATA_SOURCE\s*=\s*"[^"]*"')
-DATA_SOURCES = ("tomato", "offline")
+_APP_ID_RX = re.compile(r'WG_APPLICATION_ID\s*=\s*"[^"]*"')
+ENV_FILE = os.path.join(ROOT, ".env")
 
 # Fixed zip-entry timestamp (the earliest a zip can represent) so identical
 # source produces a byte-identical .wotmod -- lets a release verify diff/checksum
@@ -75,16 +75,34 @@ def _normalize_pyc(pyc):
         fh.write(b"\x00\x00\x00\x00")
 
 
-def _compile_py(src_file, pyc, data_source):
-    """Compile one .py -> .pyc. For the build-variant config module, compile a SUBSTITUTED
-    temp copy (MOE_DATA_SOURCE rewritten to `data_source`) instead of the repo file, so the
-    packaged bytecode carries the chosen source without mutating the working tree."""
+def _read_app_id():
+    """Read WG_APPLICATION_ID from the gitignored .env (KEY=VALUE lines, '#' comments). Returns
+    "" if the file or key is absent -- the build then warns and ships no id (fetch disabled)."""
+    try:
+        with open(ENV_FILE, "rb") as fh:
+            text = fh.read().decode("utf-8")
+    except (IOError, OSError):
+        return ""
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if key.strip() == "WG_APPLICATION_ID":
+            return value.strip().strip('"').strip("'")
+    return ""
+
+
+def _compile_py(src_file, pyc, app_id):
+    """Compile one .py -> .pyc (normalized for reproducible builds). For build_config.py, compile
+    a SUBSTITUTED temp copy (WG_APPLICATION_ID set to `app_id`) instead of the repo file, so the
+    packaged bytecode carries the injected secret without mutating the working tree."""
     if os.path.abspath(src_file) == os.path.abspath(BUILD_CONFIG):
         with open(src_file, "rb") as fh:
             text = fh.read().decode("utf-8")
-        text, n = _DATA_SOURCE_RX.subn('MOE_DATA_SOURCE = "%s"' % data_source, text)
+        text, n = _APP_ID_RX.subn('WG_APPLICATION_ID = "%s"' % app_id, text)
         if n != 1:
-            raise SystemExit("ERROR: could not substitute MOE_DATA_SOURCE in {0} "
+            raise SystemExit("ERROR: could not substitute WG_APPLICATION_ID in {0} "
                              "(matched {1} times).".format(BUILD_CONFIG, n))
         tmp = tempfile.NamedTemporaryFile(suffix=".py", delete=False)
         try:
@@ -98,7 +116,7 @@ def _compile_py(src_file, pyc, data_source):
     _normalize_pyc(pyc)
 
 
-def _compile_tree(src_root, out_root, data_source):
+def _compile_tree(src_root, out_root, app_id):
     """Copy res/ to out_root, compiling .py -> .pyc and dropping the .py."""
     for dirpath, dirs, files in os.walk(src_root):
         # Never ship dev/build artifacts: Python 3 __pycache__ from pytest, etc.
@@ -111,21 +129,21 @@ def _compile_tree(src_root, out_root, data_source):
             src_file = os.path.join(dirpath, name)
             if name.endswith(".py"):
                 pyc = os.path.join(target_dir, name + "c")  # foo.py -> foo.pyc
-                _compile_py(src_file, pyc, data_source)
+                _compile_py(src_file, pyc, app_id)
             elif name.endswith(".pyc"):
                 continue  # skip stray/foreign bytecode; we compile fresh from .py
             else:
                 shutil.copy2(src_file, os.path.join(target_dir, name))
 
 
-def main(data_source="tomato"):
-    """Build the .wotmod. `data_source` selects the MoE threshold provider baked into
-    build_config.py: "tomato" (default; GitHub / dev / deploy) or "offline" (WGMods, no
-    external API). deploy_wotmod calls main() with the default."""
+def main():
+    """Build the single .wotmod (thresholds come from the WG API at runtime; the API
+    application_id is injected from .env into build_config.py)."""
     _check_python()
-    if data_source not in DATA_SOURCES:
-        sys.exit("ERROR: --data-source must be one of {0} (got {1!r}).".format(
-            DATA_SOURCES, data_source))
+    app_id = _read_app_id()
+    if not app_id:
+        print("WARNING: no WG_APPLICATION_ID in .env -- the packaged mod will NOT fetch MoE\n"
+              "         thresholds (bar shows ticks only). Copy .env.example to .env and set it.")
     mod_id, version = meta.read_meta()
 
     build_dir = os.path.join(DIST, "_build")
@@ -135,8 +153,8 @@ def main(data_source="tomato"):
 
     # meta.xml at archive root
     shutil.copy2(META, os.path.join(build_dir, "meta.xml"))
-    # compiled res/ tree (build_config.py's MOE_DATA_SOURCE substituted to `data_source`)
-    _compile_tree(RES, os.path.join(build_dir, "res"), data_source)
+    # compiled res/ tree (build_config.py's WG_APPLICATION_ID substituted to the .env secret)
+    _compile_tree(RES, os.path.join(build_dir, "res"), app_id)
 
     if not os.path.isdir(DIST):
         os.makedirs(DIST)
@@ -167,19 +185,8 @@ def main(data_source="tomato"):
             zf.writestr(info, data)
 
     shutil.rmtree(build_dir)
-    print("Built: {0} [data-source={1}]".format(out_path, data_source))
-
-
-def _parse_args(argv):
-    """Minimal --data-source parse (keeps the no-arg main() callable from deploy_wotmod)."""
-    data_source = "tomato"
-    for i, arg in enumerate(argv):
-        if arg == "--data-source" and i + 1 < len(argv):
-            data_source = argv[i + 1]
-        elif arg.startswith("--data-source="):
-            data_source = arg.split("=", 1)[1]
-    return data_source
+    print("Built: {0}".format(out_path))
 
 
 if __name__ == "__main__":
-    main(_parse_args(sys.argv[1:]))
+    main()

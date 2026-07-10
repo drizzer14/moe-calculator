@@ -18,8 +18,8 @@ branch 2.3; see the wotmod-debug-repl harness skill for the clone location):
 Still confirm live (behaviour, not symbol names): ARENA_PERIOD gating and that a played
 tank has thresholds. The dossier baseline (pre_avg / pre_percentile) and the MoE thresholds
 are the SAME reads the garage path uses -- we reuse engine_adapter._read_moe and the moe_data
-router (tomato table or offline estimate, per build). Battle never RECORDS a sample (the
-dossier is unreadable here); it only reads the thresholds the garage path already fed.
+facade (the official Wargaming API). Battle reads only the thresholds the garage path already
+cached (the dossier / garage roster is unreadable here).
 """
 import BigWorld
 

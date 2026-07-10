@@ -67,19 +67,20 @@ automatically.
 - **After a game update**, move the `.wotmod` to the new `mods\<version>\` folder. A new
   client version may need a rebuilt mod — check the Releases page.
 
-## MoE data source (two build variants)
+## MoE data source
 
-Wargaming doesn't publish the per-tank mark thresholds (the combined damage each mark needs),
-so the two download channels obtain them differently:
+The per-tank mark thresholds (the combined damage each mark needs) come from the **official
+Wargaming API** — the real damage distribution, so the numbers are authoritative and current.
+On entering the garage the mod fetches the selected tank first, then warms your 100
+most-recently-played vehicles so switching between them is instant. Results are cached for the
+day (revalidated about 24h after Wargaming's own data refresh), and both download channels
+(GitHub and WGMods) ship the identical build.
 
-- **GitHub release** (the installer / manual `.wotmod` above) — fetches the up-to-date per-tank
-  thresholds from **tomato.gg** once per session.
-- **WGMods release** ([wgmods.net/7745](https://wgmods.net/7745/)) — makes **no external requests**. It
-  estimates each tank's thresholds from your own in-game MoE data and refines them as you play,
-  so the mark numbers begin as estimates and sharpen with more battles.
+If a request ever fails, the mod falls back to estimating that tank's thresholds from your own
+in-game MoE data so the bar still shows numbers rather than blanks.
 
-Either way your current percentage, average combined damage, and the bar fill come straight
-from the game client and are always exact — only the per-mark target numbers differ.
+Your current percentage, average combined damage, and the bar fill always come straight from
+the game client and are exact.
 
 ## Modpacks & license
 
@@ -158,19 +159,20 @@ Building, deploying, testing, and the repo layout are documented in
 - **Після оновлення гри** перемістіть `.wotmod` у нову папку `mods\<версія>\`. Нова версія
   клієнта може потребувати перезібраного мода — перевіряйте сторінку релізів.
 
-## Джерело даних класності (два варіанти збірки)
+## Джерело даних класності
 
-Wargaming не публікує пороги знаків для кожної техніки (комбіновану шкоду, потрібну для знака),
-тож два канали завантаження отримують їх по-різному:
+Пороги знаків для кожної техніки (комбінована шкода, потрібна для знака) беруться з
+**офіційного API Wargaming** — це реальний розподіл шкоди, тож числа автентичні й актуальні.
+При вході в ангар мод спершу завантажує обрану техніку, а потім прогріває 100 ваших
+найнедавніше зіграних машин, щоб перемикання між ними було миттєвим. Результати кешуються на
+день (перевіряються приблизно за 24 год після оновлення даних Wargaming), і обидва канали
+завантаження (GitHub і WGMods) постачають ідентичну збірку.
 
-- **Реліз на GitHub** (інсталятор / ручний `.wotmod` вище) — раз за сесію завантажує актуальні
-  пороги для кожної техніки з **tomato.gg**.
-- **Реліз на WGMods** ([wgmods.net/7745](https://wgmods.net/7745/)) — **не робить зовнішніх запитів**. Він
-  оцінює пороги кожної техніки з ваших власних ігрових даних класності й уточнює їх у міру гри,
-  тож числа знаків спершу є оцінками та стають точнішими з боями.
+Якщо запит колись не вдасться, мод оцінює пороги цієї техніки з ваших власних ігрових даних
+класності, тож смуга все одно показує числа, а не порожнечу.
 
-У будь-якому разі ваш поточний відсоток, середня комбінована шкода й заповнення смуги беруться
-безпосередньо з клієнта гри й завжди точні — різняться лише цільові числа для кожного знака.
+Ваш поточний відсоток, середня комбінована шкода й заповнення смуги завжди беруться
+безпосередньо з клієнта гри й точні.
 
 ## Модпаки та ліцензія
 

@@ -1,47 +1,33 @@
 # -*- coding: utf-8 -*-
-"""MoE-threshold source ROUTER.
+"""MoE-threshold source facade.
 
 The rest of the mod imports `from moe_calculator.adapter import moe_data` and calls
-get_thresholds / start / add_ready_listener / is_loaded / record_sample. This module keeps that
-surface stable while delegating to whichever provider the build selected
-(build_config.MOE_DATA_SOURCE):
-
-  - "tomato"  -> moe_tomato  : fetch the crowd-sourced table from tomato.gg (GitHub release).
-  - "offline" -> moe_offline : estimate thresholds from the client's own dossier samples, no
-                               external API (WGMods release).
-
-The active provider is resolved per call (the constant is static at runtime; resolving per call
-also lets tests flip MOE_DATA_SOURCE). Both providers expose the same surface -- the tomato one
-supplies an inert record_sample() so the router never needs to branch per method.
+get_thresholds / start / add_ready_listener / is_loaded. This module keeps that surface stable
+while delegating to the sole provider, `moe_wgapi` (the official Wargaming API). It used to
+route between a tomato.gg scrape and an offline estimator; both were retired in favor of the
+authoritative WG-API distribution, so this is now a thin pass-through kept as the stable
+import seam (so a future source swap touches one file, not every caller).
 """
-from moe_calculator import build_config
-from moe_calculator.adapter import moe_tomato
-from moe_calculator.adapter import moe_offline
-
-
-def _provider():
-    if build_config.MOE_DATA_SOURCE == "offline":
-        return moe_offline
-    return moe_tomato
+from moe_calculator.adapter import moe_wgapi
 
 
 def get_thresholds(int_cd):
-    return _provider().get_thresholds(int_cd)
+    return moe_wgapi.get_thresholds(int_cd)
 
 
 def start():
-    return _provider().start()
+    return moe_wgapi.start()
 
 
 def add_ready_listener(cb):
-    return _provider().add_ready_listener(cb)
+    return moe_wgapi.add_ready_listener(cb)
 
 
 def is_loaded():
-    return _provider().is_loaded()
+    return moe_wgapi.is_loaded()
 
 
-def record_sample(int_cd, percentile, avg_damage):
-    """Record a per-player (avg_damage, percentile) sample for a tank (offline provider). A
-    no-op under the tomato provider -- the caller records unconditionally on every garage read."""
-    return _provider().record_sample(int_cd, percentile, avg_damage)
+def needs_estimate(int_cd):
+    """True when the WG request for this tank completed without data (errored / no data), so the
+    caller should fall back to the offline estimator rather than wait for a pending fetch."""
+    return moe_wgapi.needs_estimate(int_cd)

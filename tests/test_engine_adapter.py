@@ -37,9 +37,6 @@ def test_build_snapshot_happy_path_and_remembers_baseline(monkeypatch):
     monkeypatch.setattr(ea, "_read_moe", lambda cd: (2, 73.7, 1800))
     monkeypatch.setattr(ea.moe_data, "get_thresholds",
                         lambda cd: {1: 1, 2: 2, 3: 3, 100: 4})
-    recorded = []
-    monkeypatch.setattr(ea.moe_data, "record_sample",
-                        lambda cd, pct, dmg: recorded.append((cd, pct, dmg)))
     snap = ea.build_snapshot()
     assert snap.has_vehicle is True
     assert snap.vehicle_int_cd == 1073
@@ -50,8 +47,35 @@ def test_build_snapshot_happy_path_and_remembers_baseline(monkeypatch):
     assert snap.thresholds == {1: 1, 2: 2, 3: 3, 100: 4}
     # The career baseline is snapshotted for the in-battle overlay (garage -> battle bridge).
     assert baseline_cache.get(1073) == (73.7, 1800)
-    # The offline estimator is fed one (avg_damage, percentile) sample from this dossier read.
-    assert recorded == [(1073, 73.7, 1800)]
+
+
+def test_build_snapshot_estimates_when_request_errored(monkeypatch):
+    # WG request completed with no data (needs_estimate True) -> fall back to the offline
+    # estimator's extrapolation from the player's own dossier point.
+    monkeypatch.setattr(ea, "g_currentVehicle", _CV(present=True, item=_Veh()))
+    monkeypatch.setattr(ea, "_read_moe", lambda cd: (1, 60.0, 1500))
+    monkeypatch.setattr(ea.moe_data, "get_thresholds", lambda cd: {})
+    monkeypatch.setattr(ea.moe_data, "needs_estimate", lambda cd: True)
+    calls = []
+    monkeypatch.setattr(ea, "_estimate_thresholds",
+                        lambda pct, dmg: calls.append((pct, dmg)) or {1: 11, 2: 22, 3: 33, 100: 44})
+    snap = ea.build_snapshot()
+    assert snap.thresholds == {1: 11, 2: 22, 3: 33, 100: 44}
+    assert calls == [(60.0, 1500)]
+
+
+def test_build_snapshot_waits_when_fetch_pending(monkeypatch):
+    # WG fetch still pending (needs_estimate False) -> do NOT estimate; leave thresholds empty
+    # and let the ready-listener re-push fill them in when the fetch lands.
+    monkeypatch.setattr(ea, "g_currentVehicle", _CV(present=True, item=_Veh()))
+    monkeypatch.setattr(ea, "_read_moe", lambda cd: (1, 60.0, 1500))
+    monkeypatch.setattr(ea.moe_data, "get_thresholds", lambda cd: {})
+    monkeypatch.setattr(ea.moe_data, "needs_estimate", lambda cd: False)
+    called = []
+    monkeypatch.setattr(ea, "_estimate_thresholds", lambda pct, dmg: called.append(1) or {})
+    snap = ea.build_snapshot()
+    assert snap.thresholds == {}
+    assert called == []
 
 
 def test_build_snapshot_tail_guard_degrades_on_raise(monkeypatch):

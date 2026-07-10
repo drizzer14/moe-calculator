@@ -7,14 +7,13 @@ blanking the whole bar. Symbols verified against the EU 2.3 decompiled client:
 - vehicle dossier TOTAL block: MarkOnGunAchievement.getValue()/getDamageRating() and
   the movingAvgDamage record (gui/shared/gui_items/dossier/achievements/mark_on_gun.py;
   read pattern from gui/impl/lobby/tooltips/carousel_vehicle_tooltip.py).
-- the 65/85/95% damage thresholds come from adapter/moe_data (the source router: tomato.gg
-  table on the GitHub build, or an offline estimator fed by the (avg_damage, percentile)
-  samples this adapter records on the WGMods build).
+- the 65/85/95% damage thresholds come from adapter/moe_data (the official Wargaming API).
 """
 from CurrentVehicle import g_currentVehicle
 
 from moe_calculator._compat import LOG_CURRENT_EXCEPTION, _safe, _safe_int
 from moe_calculator.domain import types as t
+from moe_calculator.domain import moe_estimate
 from moe_calculator.adapter import moe_data
 from moe_calculator.adapter import baseline_cache
 
@@ -34,11 +33,14 @@ def build_snapshot():
         # Snapshot the career baseline for the in-battle overlay -- the dossier this reads is
         # unavailable in battle, so battle_adapter falls back to this cache (see baseline_cache).
         baseline_cache.remember(int_cd, percentile, avg_damage)
-        # Feed the offline threshold estimator one (avg_damage, percentile) sample -- this is
-        # the ONLY place with a live dossier. No-op under the tomato source; guarded + deduped
-        # inside record_sample, so redundant garage refreshes don't grow the store.
-        moe_data.record_sample(int_cd, percentile, avg_damage)
         thresholds = moe_data.get_thresholds(int_cd)
+        # Fallback: if the WG request for this tank completed with no usable data (errored /
+        # not in the API), extrapolate from the player's own dossier point (movingAvgDamage @
+        # this percentile) via the offline estimator, so the bar still shows numbers rather
+        # than blank labels. A still-pending fetch does NOT trigger this (needs_estimate is
+        # False) -- we wait for it. The estimate is per-read, not cached into the WG table.
+        if not thresholds and moe_data.needs_estimate(int_cd):
+            thresholds = _estimate_thresholds(percentile, avg_damage)
 
         return t.MoESnapshot(
             vehicle_int_cd=int_cd,
@@ -54,6 +56,22 @@ def build_snapshot():
         # degrades to a hidden bar instead of propagating into the hangar mount.
         LOG_CURRENT_EXCEPTION()
         return t.MoESnapshot(has_vehicle=False)
+
+
+def _estimate_thresholds(percentile, avg_damage):
+    """Extrapolate {1,2,3,100: dmg} from the player's single dossier point (avg_damage at
+    `percentile`) using the offline estimator's universal prior -- the WG-request-error
+    fallback. Returns {} when the point is unusable (never-played / degenerate). Pure math,
+    guarded."""
+    try:
+        p = float(percentile or 0.0)
+        d = float(avg_damage or 0)
+        if d <= 0.0 or p <= 0.0 or p >= 100.0:
+            return {}
+        return moe_estimate.thresholds_from_samples([(d, p / 100.0)])
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+        return {}
 
 
 def _read_moe(int_cd):

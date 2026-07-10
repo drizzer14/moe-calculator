@@ -21,5 +21,9 @@ Thumbs.db
 # Local, machine-specific config (e.g. your WoT install path)
 deploy.local.json
 
+# Secrets: the WG API application_id, injected into the .wotmod at build time (never committed).
+# Copy .env.example -> .env and fill it in.
+.env
+
 # Dev tool staging
 tools/dev/_stage_debug/

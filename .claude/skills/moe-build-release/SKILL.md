@@ -22,8 +22,8 @@ this skill is the concrete file list and command set. **Two Pythons:** package w
 | `INSTALL.md` | `MoECalculator-Setup-0.1.0.exe`, `…_0.1.0.wotmod` |
 | `dist/INSTALL.txt` | prose `version 0.1.0` (gitignored build output; checked when present) |
 
-- `README.md` uses `<version>` placeholders (no hard-coded number). `adapter/moe_data.py`'s
-  `_AGENT` string embeds `0.1.0` cosmetically (**not** enforced).
+- `README.md` uses `<version>` placeholders (no hard-coded number). `adapter/moe_wgapi.py`'s
+  `_AGENT` string carries the project URL (no version number — nothing cosmetic to bump there).
 - The **client** version `2.3.0.1` is deliberately excluded from the check (a `(?!\.\d)` lookahead skips the 4-part client version).
 
 ## build/ scripts
@@ -31,18 +31,15 @@ this skill is the concrete file list and command set. **Two Pythons:** package w
 - **`build_wotmod.py`** — **Python 2.7 only** (asserts). Reads `meta.xml`, compiles `.py`→`.pyc`
   (drops `.py`, skips `__pycache__`), zips `meta.xml` + `res/` as **`ZIP_STORED`** →
   `dist/com.14th_ua.moe_calculator_<version>.wotmod`. Non-`.py` files (fonts/PNG/JSON) are copied verbatim.
-  **`--data-source {tomato,offline}`** (default `tomato`) selects the MoE threshold variant by
-  compiling a substituted `moe_calculator/build_config.py` (repo file untouched): `tomato` =
-  tomato.gg fetch (GitHub); `offline` = no-API estimator (WGMods, labels marked `~`). Both
-  variants share the output filename, so build **sequentially per channel**.
+  **Single build, no arguments** — MoE thresholds come from the official WG API at runtime
+  (`adapter/moe_wgapi.py`), so GitHub and WGMods ship the identical `.wotmod`.
 - **`deploy_wotmod.py`** — Python 2.7. Cleans old `…_[0-9]*.wotmod` from `mods/<ver>/` + loose
   `res_mods` leftovers, calls `build_wotmod.main()`, copies in. Reads `deploy.local.json` if no args.
   `--clean-overlay` removes the hot-reload overlay. **Needs `WorldOfTanks.exe` closed** (`wgc` ok).
 - **`build_moe_zip.py`** — any Python. Builds `dist/MoECalculator_<version>.zip` = bilingual
   `readme.txt` (from `installer/readme.moe.txt`, `{VERSION}` substituted, CRLF) + the mod `.wotmod`
   + all `installer/vendor/*.wotmod` under `mods/2.3.0.1/`. Manual upload to wgmods.net. Holds `CLIENT_VERSION="2.3.0.1"`.
-  **WGMods = the `offline` variant:** first `build_wotmod.py --data-source offline`, THEN this
-  (it packages whatever `.wotmod` is in `dist/`). GitHub installer = the default `tomato` build.
+  Packages whatever `.wotmod` is in `dist/` — the same single build the GitHub installer uses.
 - **`check_version.py`** — the version gate above. **`clean_dist.py`** — prunes non-current release artifacts from `dist/` (`--dry-run`).
 
 ## installer/
@@ -77,8 +74,9 @@ this skill is the concrete file list and command set. **Two Pythons:** package w
 ## Release state
 
 **v0.1.0 and v0.2.0 are published** on `github.com/drizzer14/moe-calculator` (`origin/main`).
-The GitHub release carries the **tomato** variant (`MoECalculator-Setup-<ver>.exe` + bare
-`.wotmod`); the **offline** variant ships as `MoECalculator_<ver>.zip` uploaded manually to
+Both channels now ship the **same single build** (WG-API threshold source): the GitHub release
+carries `MoECalculator-Setup-<ver>.exe` + the bare `.wotmod`, and `MoECalculator_<ver>.zip`
+(same `.wotmod` + vendor deps) is uploaded manually to
 [wgmods.net/7745](https://wgmods.net/7745/). The installer self-update reads the GitHub Atom
 feed, so keep the `vX.Y.Z` tag + `MoECalculator-Setup-<ver>.exe` asset-name convention. Follow
 `wotmod-release` for the bump→tag→build→publish flow.

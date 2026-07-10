@@ -112,7 +112,7 @@ def _on_settings_changed(diff):
 
 
 def _on_moe_data_ready():
-    # The MoE-data source signalled ready (tomato: main-thread poll; offline: immediate).
+    # The MoE-data source signalled ready (a WG-API fetch round completed on the main-thread poll).
     # Re-push so the overlay (hidden while hasData is false) reveals with numbers.
     try:
         LOG_NOTE("[moe-battle] table ready -> refresh")
