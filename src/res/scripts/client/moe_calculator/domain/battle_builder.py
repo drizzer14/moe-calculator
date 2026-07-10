@@ -139,10 +139,14 @@ def build_battle_model(snapshot):
         has_baseline=has_baseline)
 
 
-def battle_bar_visible(in_battle, has_vehicle, is_spectating=False):
+def battle_bar_visible(in_battle, has_vehicle, is_spectating=False, overlay_open=False):
     """Whether the in-battle overlay should render. Pure/engine-free so it unit-tests on
     plain inputs: a player vehicle must be readable and combat must be active, and we must
     NOT be spectating another player. While spectating (postmortem free-look), the tank
     identity/thresholds follow the observed vehicle but the damage stats stay ours, so the
-    percent/delta is meaningless -- hide it. Defaults keep prior callers unchanged."""
-    return bool(has_vehicle) and bool(in_battle) and not bool(is_spectating)
+    percent/delta is meaningless -- hide it. `overlay_open` is a hard override: while WG's
+    full-stats scoreboard family (Tab / personal missions / reserves) is up, hide the
+    readout so it does not clutter the full-screen scoreboard. Defaults keep prior callers
+    unchanged."""
+    return (bool(has_vehicle) and bool(in_battle)
+            and not bool(is_spectating) and not bool(overlay_open))

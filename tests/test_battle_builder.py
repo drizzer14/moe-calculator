@@ -211,3 +211,21 @@ def test_battle_bar_visible_hidden_while_spectating():
     assert battle_bar_visible(True, True, is_spectating=False) is True
     # Default arg preserves prior behavior (never wrongly hides when the flag is absent).
     assert battle_bar_visible(True, True) is True
+
+
+def test_battle_bar_visible_hidden_while_scoreboard_open():
+    # Any full-stats scoreboard overlay (Tab / personal missions / reserves) is open ->
+    # hide the readout so it doesn't clutter the full-screen scoreboard. Hard override:
+    # hides even an otherwise-visible, alive, in-combat readout.
+    assert battle_bar_visible(True, True, overlay_open=True) is False
+    # Closed (default) preserves prior behavior.
+    assert battle_bar_visible(True, True, overlay_open=False) is True
+    assert battle_bar_visible(True, True) is True
+
+
+def test_battle_bar_visible_overlay_never_reveals_hidden_case():
+    # A closed scoreboard must not flip an already-hidden case visible: no vehicle / not in
+    # combat / spectating all stay hidden regardless of the overlay flag.
+    assert battle_bar_visible(True, False, overlay_open=False) is False   # no vehicle
+    assert battle_bar_visible(False, True, overlay_open=False) is False   # not in combat
+    assert battle_bar_visible(True, True, is_spectating=True, overlay_open=False) is False

@@ -35,6 +35,19 @@ _data_listener_armed = False
 # during the battle and re-armed only after the result has already posted.
 _battle_recorded = False
 
+# The full-stats scoreboard views currently open, keyed by their g_eventBus eventType. While
+# any is open the overlay hides (it would otherwise clutter the full-screen scoreboard). All
+# four are dispatched on g_eventBus at EVENT_BUS_SCOPE.BATTLE with ctx['isDown'] (True open /
+# False close) -- this mirrors WG's own damage_log_panel gating (see battle.shared.page).
+# Deliberately EXCLUDED: Ctrl free-look (SHOW_CURSOR), F1 help and the ESC menu all keep the
+# readout visible.
+_open_overlays = set()
+
+# Whether the g_eventBus scoreboard listeners are armed. Unlike the arena controllers (rebuilt
+# every battle), g_eventBus is a persistent singleton whose BATTLE-scope listeners survive
+# arena teardown -- so we arm ONCE and never re-add (a second add would only warn + no-op).
+_overlay_listeners_armed = False
+
 
 # --- engine event subscriptions ---------------------------------------------
 # Handlers are module-level (stable identity) so the membership-checked _arm is idempotent.
@@ -46,6 +59,9 @@ def _on_mount_refresh(*args, **kwargs):
     global _battle_recorded
     try:
         _battle_recorded = False
+        # Clear any scoreboard flag left over from a prior battle / relogin / replay teardown,
+        # so a stale key can never keep the fresh battle's overlay hidden.
+        _open_overlays.clear()
         battle_view.open_window()
         install_all_listeners()
         moe_data.start()  # idempotent; the garage path may already have kicked it
@@ -131,6 +147,23 @@ def _on_moe_data_ready():
         LOG_CURRENT_EXCEPTION()
 
 
+def _on_scoreboard_toggled(event):
+    # A full-stats scoreboard view (Tab / personal missions / reserves / event stats) opened
+    # or closed -> track which are down and re-push so the overlay hides while any is open and
+    # reveals when the last closes. Read fail-soft: a missing/odd ctx can only DROP the key
+    # (reveal the overlay), never wedge it hidden.
+    try:
+        ctx = getattr(event, "ctx", None) or {}
+        key = getattr(event, "eventType", None)
+        if ctx.get("isDown"):
+            _open_overlays.add(key)
+        else:
+            _open_overlays.discard(key)
+        _schedule_refresh()
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+
+
 def _player_events_holder():
     from PlayerEvents import g_playerEvents
     return g_playerEvents
@@ -210,6 +243,28 @@ def install_all_listeners():
             _data_listener_armed = True
         except Exception:
             LOG_CURRENT_EXCEPTION()
+    _arm_overlay_listeners()
+
+
+def _arm_overlay_listeners():
+    """Subscribe the scoreboard hide/reveal handler to the full-stats g_eventBus events, ONCE.
+    These sit on the persistent g_eventBus (not the per-battle arena controllers), so re-arming
+    each mount is unnecessary and would only warn. Fail-soft: an unavailable event bus just
+    leaves the overlay always-visible (its prior behaviour)."""
+    global _overlay_listeners_armed
+    if _overlay_listeners_armed:
+        return
+    try:
+        from gui.shared import g_eventBus, EVENT_BUS_SCOPE
+        from gui.shared.events import GameEvent
+        events = (GameEvent.FULL_STATS, GameEvent.FULL_STATS_QUEST_PROGRESS,
+                  GameEvent.FULL_STATS_PERSONAL_RESERVES, GameEvent.EVENT_STATS)
+        for ev in events:
+            g_eventBus.addListener(ev, _on_scoreboard_toggled, scope=EVENT_BUS_SCOPE.BATTLE)
+        _overlay_listeners_armed = True
+        LOG_NOTE("[moe-battle] scoreboard hide listeners armed")
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
 
 
 def _schedule_refresh():
@@ -275,9 +330,11 @@ def push(rvm):
         snap = battle_adapter.build_battle_snapshot()
         _record_played_tank(snap)
         model = build_battle_model(snap)
-        visible = battle_bar_visible(snap.in_battle, snap.has_vehicle, snap.is_spectating)
-        LOG_NOTE("[moe-battle] push visible=%s spectating=%s cd=%d pct=%.1f delta=%.2f data=%s baseline=%s" % (
-            visible, snap.is_spectating, model.combined_damage, model.cur_percent,
+        overlay_open = bool(_open_overlays)
+        visible = battle_bar_visible(snap.in_battle, snap.has_vehicle, snap.is_spectating,
+                                     overlay_open=overlay_open)
+        LOG_NOTE("[moe-battle] push visible=%s spectating=%s scoreboard=%s cd=%d pct=%.1f delta=%.2f data=%s baseline=%s" % (
+            visible, snap.is_spectating, overlay_open, model.combined_damage, model.cur_percent,
             model.pct_delta, model.has_data, model.has_baseline))
         with rvm.transaction() as tx:
             tx.setVisible(visible)
