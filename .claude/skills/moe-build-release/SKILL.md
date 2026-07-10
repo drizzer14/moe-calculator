@@ -76,6 +76,9 @@ this skill is the concrete file list and command set. **Two Pythons:** package w
 
 ## Release state
 
-v0.1.0 assets are **built but not published**; the GitHub repo
-`drizzer14/moe-calculator` must be created by the user, and the installer self-update needs a
-real `vX.Y.Z` release carrying the `MoECalculator-Setup-<ver>.exe` asset before it works. Follow `wotmod-release` for the bump→tag→build→publish flow.
+**v0.1.0 and v0.2.0 are published** on `github.com/drizzer14/moe-calculator` (`origin/main`).
+The GitHub release carries the **tomato** variant (`MoECalculator-Setup-<ver>.exe` + bare
+`.wotmod`); the **offline** variant ships as `MoECalculator_<ver>.zip` uploaded manually to
+[wgmods.net/7745](https://wgmods.net/7745/). The installer self-update reads the GitHub Atom
+feed, so keep the `vX.Y.Z` tag + `MoECalculator-Setup-<ver>.exe` asset-name convention. Follow
+`wotmod-release` for the bump→tag→build→publish flow.

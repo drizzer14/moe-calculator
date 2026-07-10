@@ -15,7 +15,7 @@ features and the build each have their own project skill:
 
 ## Identity (facts)
 
-- **Mod id:** `com.14th_ua.moe_calculator` (`src/meta.xml` is the canonical version, currently **0.1.0**).
+- **Mod id:** `com.14th_ua.moe_calculator` (`src/meta.xml` is the canonical version, currently **0.2.0**).
 - **Client:** WoT **EU 2.3.0.1**. Runtime **Python 2.7** (BigWorld); tests on **Python 3.13**.
 - **Hard dep:** OpenWG GameFace ≥ 1.1.6 (`import openwg_gameface` raises if absent). No optional deps.
 - **MoE data source (TWO build variants):** per-tank combined-damage thresholds `{1,2,3,100}` keyed by intCD, chosen at package time by `build_config.py::MOE_DATA_SOURCE` via the `adapter/moe_data.py` router. **`tomato`** (GitHub, default) = fetch `https://tomato.gg/moe/EU` once/session on a worker thread (`adapter/moe_tomato.py`). **`offline`** (WGMods) = NO external API; estimate from the client's own dossier samples (`adapter/moe_offline.py` + `domain/moe_estimate.py`). Build offline with `build_wotmod.py --data-source offline`. See [[moe-build-release]].

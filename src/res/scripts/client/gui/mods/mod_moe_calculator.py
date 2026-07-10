@@ -18,7 +18,7 @@ design this scaffold demonstrates, and wotmod-build-deploy for packaging.
 from debug_utils import LOG_NOTE, LOG_CURRENT_EXCEPTION
 
 MOD_NAME = "14th_ua's MoE Calculator"
-MOD_VERSION = "0.1.0"
+MOD_VERSION = "0.2.0"
 
 
 # Candidate hangar sub-views in PRIORITY order: (name, module path, class). `params` is

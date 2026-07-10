@@ -29,7 +29,7 @@ from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_NOTE
 SERVER = "EU"                                   # this client is EU 2.3.0.1
 URL = "https://tomato.gg/moe/%s" % SERVER
 _TIMEOUT = 15.0
-_AGENT = ("Mozilla/5.0 (compatible; 14th_ua-MoE-Calculator/0.1.0; "
+_AGENT = ("Mozilla/5.0 (compatible; 14th_ua-MoE-Calculator/0.2.0; "
           "+https://github.com/drizzer14/moe-calculator)")
 _POLL_INTERVAL = 0.25                           # seconds between worker-done checks
 

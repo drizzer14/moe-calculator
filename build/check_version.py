@@ -41,8 +41,13 @@ import meta
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Directories not worth scanning (build output, VCS, vendored binaries, editor cfg).
+# Also skip internal, non-shipped docs: `.claude` skill definitions carry illustrative
+# version examples, and `TASKS` holds frozen historical planning notes that legitimately
+# reference the version they shipped under -- gating either would force us to falsify history
+# or churn example values every release. The gate covers SHIPPED references only (src/,
+# installer/, INSTALL.md, README.md, dist/INSTALL.txt).
 _SKIP_DIRS = {".git", "dist", "__pycache__", "node_modules", ".idea", ".vscode",
-              "vendor", "assets"}
+              "vendor", "assets", ".claude", "TASKS"}
 # Only these extensions hold version references.
 _SCAN_EXT = (".md", ".py", ".xml", ".iss", ".ps1", ".txt")
 
