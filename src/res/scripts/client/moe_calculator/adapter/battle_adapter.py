@@ -192,12 +192,20 @@ def build_battle_snapshot():
         # getVehicleDossier returns None in battle, so this reads (0, 0.0) here. Fall back to
         # the baseline snapshotted while the tank was in the garage (see baseline_cache).
         _marks, pre_percentile, pre_avg = engine_adapter._read_moe(int_cd)
+        # A real >0 in-battle read (rare) trusts itself; otherwise the baseline is trusted iff
+        # the garage read this tank this session -- including a genuine 0-career freshly-bought
+        # tank (baseline_cache.seen), which the >0 value cache alone can't record. Only a tank
+        # never opened in the garage (replay / relogin) stays untrusted -> BUG B dashes it.
+        baseline_known = ((pre_percentile or 0) > 0 or (pre_avg or 0) > 0
+                          or baseline_cache.seen(int_cd))
         if (pre_percentile or 0) <= 0 and (pre_avg or 0) <= 0:
             cached = baseline_cache.get(int_cd)
             if cached is not None:
                 pre_percentile, pre_avg = cached
                 LOG_NOTE("[moe-battle] baseline from garage cache: pct=%.2f avg=%d"
                          % (pre_percentile, pre_avg))
+            elif baseline_known:
+                LOG_NOTE("[moe-battle] genuine 0 baseline (tank seen in garage, 0 career)")
             else:
                 LOG_NOTE("[moe-battle] no baseline (tank not seen in garage this session)")
         thresholds = moe_data.get_thresholds(int_cd)
@@ -215,7 +223,8 @@ def build_battle_snapshot():
             thresholds=thresholds,
             has_vehicle=True,
             in_battle=_in_battle(),
-            is_spectating=_is_spectating())
+            is_spectating=_is_spectating(),
+            baseline_known=baseline_known)
     except Exception:
         LOG_CURRENT_EXCEPTION()
         return bt.BattleSnapshot(has_vehicle=False, in_battle=False)

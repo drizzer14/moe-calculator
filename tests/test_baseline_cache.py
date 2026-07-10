@@ -42,3 +42,40 @@ def test_coerces_types():
     baseline_cache.remember("1073", 73.67, 1850.9)
     # key normalized to int, percentile float, avg truncated to int
     assert baseline_cache.get(1073) == (73.67, 1850)
+
+
+# --- seen(): "was this tank read in the garage this session?" ----------------
+# Distinct from get(): a first-ever-battle tank has a GENUINE 0/0 career, so get()
+# stays None (no >0 value stored) but seen() must be True -- the garage DID read it.
+
+def test_seen_true_even_for_all_zero_read():
+    # Freshly-bought, 0-career tank viewed in the garage: value is not stored (get None)
+    # but the read happened, so the tank is marked seen.
+    baseline_cache.remember(1073, 0.0, 0)
+    assert baseline_cache.get(1073) is None
+    assert baseline_cache.seen(1073) is True
+
+
+def test_seen_true_for_real_baseline():
+    baseline_cache.remember(1073, 73.67, 1850)
+    assert baseline_cache.seen(1073) is True
+
+
+def test_seen_false_when_never_remembered():
+    assert baseline_cache.seen(9999) is False
+
+
+def test_seen_false_on_falsy_key():
+    baseline_cache.remember(0, 0.0, 0)
+    assert baseline_cache.seen(0) is False
+
+
+def test_seen_coerces_key_type():
+    baseline_cache.remember("1073", 0.0, 0)
+    assert baseline_cache.seen(1073) is True
+
+
+def test_clear_resets_seen():
+    baseline_cache.remember(1073, 0.0, 0)
+    baseline_cache.clear()
+    assert baseline_cache.seen(1073) is False

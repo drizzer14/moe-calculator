@@ -22,6 +22,11 @@ class BattleSnapshot(object):
     Pre-battle dossier baseline (career standing to project against; readable in battle):
     - `pre_avg_damage` : current moving-average combined damage (dossier movingAvgDamage).
     - `pre_percentile` : current damage rating 0.0..100.0 (dossier damageRating).
+    - `baseline_known` : whether the baseline is TRUSTED even when it is 0/0. True when the
+                         garage read this tank this session (so a genuine 0-career first-ever
+                         battle projects from a real 0); False on the replay / relogin path
+                         where the garage dossier was never read and 0 is a FALSE zero
+                         (BUG B -- dash the metrics). See adapter/baseline_cache.seen().
 
     Reference data + gating:
     - `thresholds`   : {1: dmg, 2: dmg, 3: dmg, 100: dmg} per-tank combined-damage
@@ -35,7 +40,8 @@ class BattleSnapshot(object):
     """
     def __init__(self, vehicle_int_cd=0, nation="", damage=0, assist=0, stun=0,
                  team_damage=0, pre_avg_damage=0, pre_percentile=0.0, thresholds=None,
-                 has_vehicle=True, in_battle=True, is_spectating=False):
+                 has_vehicle=True, in_battle=True, is_spectating=False,
+                 baseline_known=False):
         self.vehicle_int_cd = vehicle_int_cd
         self.nation = nation
         self.damage = damage
@@ -48,6 +54,7 @@ class BattleSnapshot(object):
         self.has_vehicle = has_vehicle
         self.in_battle = in_battle
         self.is_spectating = is_spectating
+        self.baseline_known = baseline_known
 
 
 class BattleMoEModel(object):

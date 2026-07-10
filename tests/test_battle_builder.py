@@ -154,14 +154,37 @@ def test_build_battle_model_has_baseline_true_with_career_standing():
 
 def test_build_battle_model_no_baseline_flags_empty_replay():
     # BUG B: replay / relogin straight into battle -> the garage dossier was never read, so
-    # the baseline comes back empty. The model must FLAG this (has_baseline False) so the
-    # overlay dashes out the collapsed proj/percent/delta instead of showing garbage. The live
-    # combined damage stays meaningful.
-    m = build_battle_model(_bsnap(pre_avg_damage=0, pre_percentile=0.0,
+    # the baseline comes back empty AND the tank was never marked seen (baseline_known False).
+    # The model must FLAG this (has_baseline False) so the overlay dashes out the collapsed
+    # proj/percent/delta instead of showing garbage. The live combined damage stays meaningful.
+    m = build_battle_model(_bsnap(pre_avg_damage=0, pre_percentile=0.0, baseline_known=False,
                                   damage=2000, assist=0, stun=0))
     assert m.has_baseline is False
     assert m.combined_damage == 2000            # live CD still correct + shown
     assert m.has_data is True                   # thresholds are fine; only the baseline is missing
+
+
+def test_build_battle_model_has_baseline_when_first_battle_zero_career():
+    # First-ever battle in a freshly-bought tank: pre_avg/pre_percentile are a GENUINE 0
+    # (the garage read the tank this session -> baseline_known True). 0 is the true baseline,
+    # so the projection is well-defined and must NOT dash: has_baseline True, and the live
+    # percent climbs from ~0 as damage accrues.
+    m = build_battle_model(_bsnap(pre_avg_damage=0, pre_percentile=0.0, baseline_known=True,
+                                  damage=2000, assist=0, stun=0))
+    assert m.has_baseline is True
+    assert m.has_data is True
+    # proj = ewma_project(0, cd) = k*cd > 0; cur_percent anchors on 0 and climbs.
+    assert m.proj_avg_damage > 0
+    assert m.cur_percent > 0.0
+    assert m.pct_delta > 0.0
+
+
+def test_build_battle_model_baseline_known_alone_is_enough():
+    # Even with no live damage yet, a known-genuine-0 baseline still counts as a baseline
+    # (the overlay shows a real 0.x% opening, not a dash).
+    m = build_battle_model(_bsnap(pre_avg_damage=0, pre_percentile=0.0, baseline_known=True,
+                                  damage=0, assist=0, stun=0))
+    assert m.has_baseline is True
 
 
 def test_build_battle_model_negative_delta():

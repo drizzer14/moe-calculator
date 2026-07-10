@@ -101,12 +101,16 @@ def build_battle_model(snapshot):
                          snapshot.team_damage)
     proj = ewma_project(snapshot.pre_avg_damage, cd)
 
-    # Whether we have a CAREER baseline to project from. Without it (replay / relogin straight
-    # into battle -- the garage dossier was never read; see baseline_cache + BUG B) the EWMA
-    # fold collapses (proj ~= k*cd) and cur_percent anchors on 0, so proj/percent/delta are all
-    # meaningless. The overlay dashes them out and shows only the live combined damage.
+    # Whether we have a CAREER baseline to project from. A >0 pre_avg/pre_percentile is an
+    # obvious yes; a GENUINE 0 baseline also counts when the garage read the tank this session
+    # (snapshot.baseline_known) -- e.g. the first-ever battle in a freshly-bought tank, where 0
+    # is the true career and the projection (proj = k*cd, cur_percent = interp(proj)) is well
+    # defined. Only a FALSE 0 -- replay / relogin straight into battle, the garage dossier never
+    # read (baseline_known False; see baseline_cache + BUG B) -- collapses the EWMA fold and
+    # anchors cur_percent on a bogus 0, so the overlay dashes proj/percent/delta out there.
     has_baseline = ((snapshot.pre_percentile or 0) > 0
-                    or (snapshot.pre_avg_damage or 0) > 0)
+                    or (snapshot.pre_avg_damage or 0) > 0
+                    or bool(getattr(snapshot, "baseline_known", False)))
 
     stops = _threshold_stops(thresholds)
     has_data = stops is not None

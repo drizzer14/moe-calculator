@@ -44,6 +44,28 @@ def test_snapshot_no_baseline_when_never_garaged(monkeypatch):
     snap = ba.build_battle_snapshot()
     assert snap.pre_percentile == 0.0
     assert snap.pre_avg_damage == 0
+    assert snap.baseline_known is False
+
+
+def test_snapshot_baseline_known_first_battle_zero_career(monkeypatch):
+    # First-ever battle in a freshly-bought tank: the garage DID read it this session
+    # (marking it seen with an all-zero career), so the baseline is genuinely 0 -- NOT the
+    # untrusted 0 of a replay. baseline_known must be True so the overlay projects from 0
+    # instead of dashing.
+    _patch_reads(monkeypatch)
+    baseline_cache.remember(1073, 0.0, 0)   # garage read of a 0-career tank
+    snap = ba.build_battle_snapshot()
+    assert snap.pre_percentile == 0.0       # genuine zero baseline
+    assert snap.pre_avg_damage == 0
+    assert snap.baseline_known is True
+
+
+def test_snapshot_baseline_known_with_cached_value(monkeypatch):
+    # Normal flow: a real >0 baseline is cached -> both value and seen-marker present.
+    _patch_reads(monkeypatch)
+    baseline_cache.remember(1073, 73.7, 1800)
+    snap = ba.build_battle_snapshot()
+    assert snap.baseline_known is True
 
 
 def test_snapshot_no_vehicle_hides(monkeypatch):
