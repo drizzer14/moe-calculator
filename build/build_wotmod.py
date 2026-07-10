@@ -2,13 +2,20 @@
 """
 Build a distributable .wotmod package from src/.
 
-  python build/build_wotmod.py
+  python build/build_wotmod.py                     # GitHub / dev build (tomato.gg source)
+  python build/build_wotmod.py --data-source offline   # WGMods build (offline estimator)
 
 What it does:
   1. Reads <id> and <version> from src/meta.xml.
-  2. Compiles every .py under src/res/ to .pyc bytecode.
+  2. Compiles every .py under src/res/ to .pyc bytecode. The build-variant config module
+     (moe_calculator/build_config.py) is compiled from a SUBSTITUTED copy so its
+     MOE_DATA_SOURCE matches --data-source (default "tomato") -- the repo file is untouched.
   3. Zips meta.xml + res/ (with .pyc, NOT .py) into dist/<id>_<version>.wotmod
      using ZIP_STORED (no compression) — WoT rejects compressed archives.
+
+The two variants share the same output filename, so build sequentially per channel: for
+WGMods, `--data-source offline` then build/build_moe_zip.py; for GitHub, the default build
+then installer/build_installer.ps1.
 
 IMPORTANT: run this with **Python 2.7.18**. The game executes the .pyc, and
 bytecode is tied to the Python version (magic number). Compiling under Python 3
@@ -18,9 +25,11 @@ portable across macOS/Windows/Linux — only the Python *version* matters.
 from __future__ import print_function
 
 import os
+import re
 import sys
 import shutil
 import zipfile
+import tempfile
 import py_compile
 
 import meta
@@ -30,6 +39,13 @@ SRC = os.path.join(ROOT, "src")
 RES = os.path.join(SRC, "res")
 META = os.path.join(SRC, "meta.xml")
 DIST = os.path.join(ROOT, "dist")
+
+# The build-variant config module whose MOE_DATA_SOURCE constant selects the MoE threshold
+# provider. build packages a SUBSTITUTED copy so the WGMods build ships "offline" without
+# ever mutating the repo file. See moe_calculator/build_config.py.
+BUILD_CONFIG = os.path.join(RES, "scripts", "client", "moe_calculator", "build_config.py")
+_DATA_SOURCE_RX = re.compile(r'MOE_DATA_SOURCE\s*=\s*"[^"]*"')
+DATA_SOURCES = ("tomato", "offline")
 
 # Fixed zip-entry timestamp (the earliest a zip can represent) so identical
 # source produces a byte-identical .wotmod -- lets a release verify diff/checksum
@@ -59,7 +75,30 @@ def _normalize_pyc(pyc):
         fh.write(b"\x00\x00\x00\x00")
 
 
-def _compile_tree(src_root, out_root):
+def _compile_py(src_file, pyc, data_source):
+    """Compile one .py -> .pyc. For the build-variant config module, compile a SUBSTITUTED
+    temp copy (MOE_DATA_SOURCE rewritten to `data_source`) instead of the repo file, so the
+    packaged bytecode carries the chosen source without mutating the working tree."""
+    if os.path.abspath(src_file) == os.path.abspath(BUILD_CONFIG):
+        with open(src_file, "rb") as fh:
+            text = fh.read().decode("utf-8")
+        text, n = _DATA_SOURCE_RX.subn('MOE_DATA_SOURCE = "%s"' % data_source, text)
+        if n != 1:
+            raise SystemExit("ERROR: could not substitute MOE_DATA_SOURCE in {0} "
+                             "(matched {1} times).".format(BUILD_CONFIG, n))
+        tmp = tempfile.NamedTemporaryFile(suffix=".py", delete=False)
+        try:
+            tmp.write(text.encode("utf-8"))
+            tmp.close()
+            py_compile.compile(tmp.name, cfile=pyc, doraise=True)
+        finally:
+            os.remove(tmp.name)
+    else:
+        py_compile.compile(src_file, cfile=pyc, doraise=True)
+    _normalize_pyc(pyc)
+
+
+def _compile_tree(src_root, out_root, data_source):
     """Copy res/ to out_root, compiling .py -> .pyc and dropping the .py."""
     for dirpath, dirs, files in os.walk(src_root):
         # Never ship dev/build artifacts: Python 3 __pycache__ from pytest, etc.
@@ -72,16 +111,21 @@ def _compile_tree(src_root, out_root):
             src_file = os.path.join(dirpath, name)
             if name.endswith(".py"):
                 pyc = os.path.join(target_dir, name + "c")  # foo.py -> foo.pyc
-                py_compile.compile(src_file, cfile=pyc, doraise=True)
-                _normalize_pyc(pyc)
+                _compile_py(src_file, pyc, data_source)
             elif name.endswith(".pyc"):
                 continue  # skip stray/foreign bytecode; we compile fresh from .py
             else:
                 shutil.copy2(src_file, os.path.join(target_dir, name))
 
 
-def main():
+def main(data_source="tomato"):
+    """Build the .wotmod. `data_source` selects the MoE threshold provider baked into
+    build_config.py: "tomato" (default; GitHub / dev / deploy) or "offline" (WGMods, no
+    external API). deploy_wotmod calls main() with the default."""
     _check_python()
+    if data_source not in DATA_SOURCES:
+        sys.exit("ERROR: --data-source must be one of {0} (got {1!r}).".format(
+            DATA_SOURCES, data_source))
     mod_id, version = meta.read_meta()
 
     build_dir = os.path.join(DIST, "_build")
@@ -91,8 +135,8 @@ def main():
 
     # meta.xml at archive root
     shutil.copy2(META, os.path.join(build_dir, "meta.xml"))
-    # compiled res/ tree
-    _compile_tree(RES, os.path.join(build_dir, "res"))
+    # compiled res/ tree (build_config.py's MOE_DATA_SOURCE substituted to `data_source`)
+    _compile_tree(RES, os.path.join(build_dir, "res"), data_source)
 
     if not os.path.isdir(DIST):
         os.makedirs(DIST)
@@ -123,8 +167,19 @@ def main():
             zf.writestr(info, data)
 
     shutil.rmtree(build_dir)
-    print("Built: {0}".format(out_path))
+    print("Built: {0} [data-source={1}]".format(out_path, data_source))
+
+
+def _parse_args(argv):
+    """Minimal --data-source parse (keeps the no-arg main() callable from deploy_wotmod)."""
+    data_source = "tomato"
+    for i, arg in enumerate(argv):
+        if arg == "--data-source" and i + 1 < len(argv):
+            data_source = argv[i + 1]
+        elif arg.startswith("--data-source="):
+            data_source = arg.split("=", 1)[1]
+    return data_source
 
 
 if __name__ == "__main__":
-    main()
+    main(_parse_args(sys.argv[1:]))

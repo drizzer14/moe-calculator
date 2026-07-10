@@ -37,6 +37,9 @@ def test_build_snapshot_happy_path_and_remembers_baseline(monkeypatch):
     monkeypatch.setattr(ea, "_read_moe", lambda cd: (2, 73.7, 1800))
     monkeypatch.setattr(ea.moe_data, "get_thresholds",
                         lambda cd: {1: 1, 2: 2, 3: 3, 100: 4})
+    recorded = []
+    monkeypatch.setattr(ea.moe_data, "record_sample",
+                        lambda cd, pct, dmg: recorded.append((cd, pct, dmg)))
     snap = ea.build_snapshot()
     assert snap.has_vehicle is True
     assert snap.vehicle_int_cd == 1073
@@ -47,6 +50,8 @@ def test_build_snapshot_happy_path_and_remembers_baseline(monkeypatch):
     assert snap.thresholds == {1: 1, 2: 2, 3: 3, 100: 4}
     # The career baseline is snapshotted for the in-battle overlay (garage -> battle bridge).
     assert baseline_cache.get(1073) == (73.7, 1800)
+    # The offline estimator is fed one (avg_damage, percentile) sample from this dossier read.
+    assert recorded == [(1073, 73.7, 1800)]
 
 
 def test_build_snapshot_tail_guard_degrades_on_raise(monkeypatch):

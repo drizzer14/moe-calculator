@@ -112,8 +112,8 @@ def _on_settings_changed(diff):
 
 
 def _on_moe_data_ready():
-    # The external thresholds table finished loading (fired on the main thread by moe_data's
-    # poll). Re-push so the overlay (hidden while hasData is false) reveals with real numbers.
+    # The MoE-data source signalled ready (tomato: main-thread poll; offline: immediate).
+    # Re-push so the overlay (hidden while hasData is false) reveals with numbers.
     try:
         LOG_NOTE("[moe-battle] table ready -> refresh")
         refresh()

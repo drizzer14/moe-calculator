@@ -138,8 +138,8 @@ def _on_sync_completed(*args, **kwargs):
 
 
 def _on_moe_data_ready():
-    # The external thresholds table finished loading (fired on the main thread by
-    # moe_data's poll). Re-push so the per-mark damage labels appear.
+    # The MoE-data source signalled ready (tomato: fetch completed on the main-thread poll;
+    # offline: fires immediately, synchronous). Re-push so the per-mark damage labels appear.
     try:
         LOG_NOTE("[moe] table ready -> refresh")
         refresh()
@@ -334,8 +334,8 @@ def attach(host_vm):
         rvm = MoEVM()
         host_vm._addViewModelProperty(DATA_PROP, rvm)
         _active = (host_vm, rvm)
-        # Kick the one-time external-thresholds fetch (idempotent); the ready hook
-        # (armed in install_all_listeners) re-pushes when it completes.
+        # Kick the MoE-data source (idempotent): tomato starts its one-time fetch; offline
+        # loads its on-disk sample store. The ready hook re-pushes when data is available.
         moe_data.start()
         return rvm
     except Exception:

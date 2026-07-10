@@ -2,6 +2,13 @@
 
 _Submitted: repo-wide bug hunt (2026-07-09) · Status: PARTIALLY SHIPPED (2026-07-09, 76fa5c3)_
 
+> **UPDATE (offline-MoE variant):** the tomato fetch code (`_RECORD_RX`, `_FetchThread`,
+> `_AGENT`, `add_ready_listener`, the poll loop) moved verbatim from `adapter/moe_data.py`
+> into **`adapter/moe_tomato.py`** (`moe_data.py` is now the source router). All `moe_data.py:<line>`
+> refs below now point at `moe_tomato.py`. These items are still OPEN (the tomato provider is
+> retained for the GitHub release); the WGMods `offline` provider sidesteps `_RECORD_RX`/`_AGENT`
+> entirely (no fetch, no regex).
+
 > **Shipped:** doc/markup drift (position:fixed comment, percent-clamp docstring, inert
 > `defer`/`crossorigin`); micro (`markIcon` clamp reuse); `moe_data.add_ready_listener` fires
 > immediately if already loaded. **Deliberately NOT shipped (see reasons below / handoff):**

@@ -18,7 +18,7 @@ features and the build each have their own project skill:
 - **Mod id:** `com.14th_ua.moe_calculator` (`src/meta.xml` is the canonical version, currently **0.1.0**).
 - **Client:** WoT **EU 2.3.0.1**. Runtime **Python 2.7** (BigWorld); tests on **Python 3.13**.
 - **Hard dep:** OpenWG GameFace ≥ 1.1.6 (`import openwg_gameface` raises if absent). No optional deps.
-- **MoE data source:** `https://tomato.gg/moe/EU` — per-tank combined-damage thresholds `{1,2,3,100}` keyed by intCD (Tiger I id 1073). Fetched once/session on a worker thread in `adapter/moe_data.py`.
+- **MoE data source (TWO build variants):** per-tank combined-damage thresholds `{1,2,3,100}` keyed by intCD, chosen at package time by `build_config.py::MOE_DATA_SOURCE` via the `adapter/moe_data.py` router. **`tomato`** (GitHub, default) = fetch `https://tomato.gg/moe/EU` once/session on a worker thread (`adapter/moe_tomato.py`). **`offline`** (WGMods) = NO external API; estimate from the client's own dossier samples (`adapter/moe_offline.py` + `domain/moe_estimate.py`). Build offline with `build_wotmod.py --data-source offline`. See [[moe-build-release]].
 
 ## The tree
 
@@ -26,16 +26,18 @@ features and the build each have their own project skill:
 src/res/scripts/client/
   gui/mods/mod_moe_calculator.py     entry: _install() garage + _install_battle() overlay
   moe_calculator/
+    build_config.py         MOE_DATA_SOURCE variant flag (build overwrites: tomato|offline)
     domain/     engine-free, pytest-able (NO game imports)
-      constants.py        wire contract: MARK_PERCENTS=(65,85,95), EWMA, battle anchors
+      constants.py        wire contract: MARK_PERCENTS=(65,85,95), GOALPOST_PERCENTILE, EWMA, anchors
       types.py builder.py                garage data + build_model
       battle_types.py battle_builder.py  battle data + CD/EWMA/percent math
       positioning.py                     overlay anchor + damage-log-collapse predicate
-      baseline_cache.py                  garage→battle career-baseline bridge
+      moe_estimate.py                    offline threshold estimator (inv-CDF + OLS + prior)
     adapter/    the ONLY read-side layer touching live game symbols (fail-soft via _safe)
       engine_adapter.py   garage dossier read      battle_adapter.py  in-battle efficiency read
-      moe_data.py         tomato.gg fetch/parse     format.py          pure formatters
-      i18n.py             localized label bundle
+      moe_data.py         source ROUTER            moe_tomato.py      tomato.gg fetch/parse
+      moe_offline.py      sample store + estimate  format.py          pure formatters
+      baseline_cache.py   garage→battle baseline   i18n.py            localized label bundle
     bridge/     marshals model → Wulf ViewModels (PC-only)
       gameface_bridge.py  garage inject+push        battle_bridge.py   battle lifecycle+push
       battle_view.py      registered window host    view_models.py     MoEVM/MarkTickVM/BattleMoEVM
@@ -47,10 +49,11 @@ src/res/mods/configs/res_map/MoEBattleView.json    registers the in-battle view
 
 ## Shared (cross-feature) modules
 
-`domain/constants.py` (mark percents, EWMA, anchors), `adapter/moe_data.py` (threshold
-table), `adapter/format.py` (`thousands`/`percent`/`signed_percent`/`mark_icon_url`),
-`adapter/i18n.py` (label bundle), `domain/baseline_cache.py` (career baseline keyed by
-intCD, bridging garage read → battle read), `_compat.py`. Everything else is feature-specific.
+`domain/constants.py` (mark percents, EWMA, anchors), `adapter/moe_data.py` (threshold source
+router → `moe_tomato`/`moe_offline`), `adapter/format.py` (`thousands`/`percent`/
+`signed_percent`/`mark_icon_url`), `adapter/i18n.py` (label bundle), `adapter/baseline_cache.py`
+(career baseline keyed by intCD, bridging garage read → battle read), `_compat.py`. Everything
+else is feature-specific.
 
 ## Dev quickref
 

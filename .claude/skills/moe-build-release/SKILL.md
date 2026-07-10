@@ -31,12 +31,18 @@ this skill is the concrete file list and command set. **Two Pythons:** package w
 - **`build_wotmod.py`** — **Python 2.7 only** (asserts). Reads `meta.xml`, compiles `.py`→`.pyc`
   (drops `.py`, skips `__pycache__`), zips `meta.xml` + `res/` as **`ZIP_STORED`** →
   `dist/com.14th_ua.moe_calculator_<version>.wotmod`. Non-`.py` files (fonts/PNG/JSON) are copied verbatim.
+  **`--data-source {tomato,offline}`** (default `tomato`) selects the MoE threshold variant by
+  compiling a substituted `moe_calculator/build_config.py` (repo file untouched): `tomato` =
+  tomato.gg fetch (GitHub); `offline` = no-API estimator (WGMods, labels marked `~`). Both
+  variants share the output filename, so build **sequentially per channel**.
 - **`deploy_wotmod.py`** — Python 2.7. Cleans old `…_[0-9]*.wotmod` from `mods/<ver>/` + loose
   `res_mods` leftovers, calls `build_wotmod.main()`, copies in. Reads `deploy.local.json` if no args.
   `--clean-overlay` removes the hot-reload overlay. **Needs `WorldOfTanks.exe` closed** (`wgc` ok).
 - **`build_moe_zip.py`** — any Python. Builds `dist/MoECalculator_<version>.zip` = bilingual
   `readme.txt` (from `installer/readme.moe.txt`, `{VERSION}` substituted, CRLF) + the mod `.wotmod`
   + all `installer/vendor/*.wotmod` under `mods/2.3.0.1/`. Manual upload to wgmods.net. Holds `CLIENT_VERSION="2.3.0.1"`.
+  **WGMods = the `offline` variant:** first `build_wotmod.py --data-source offline`, THEN this
+  (it packages whatever `.wotmod` is in `dist/`). GitHub installer = the default `tomato` build.
 - **`check_version.py`** — the version gate above. **`clean_dist.py`** — prunes non-current release artifacts from `dist/` (`--dry-run`).
 
 ## installer/

@@ -4,6 +4,7 @@
   python build/deploy_wotmod.py "D:/Games/World_of_Tanks_EU" 2.3.0.1
   python build/deploy_wotmod.py            # uses deploy.local.json
   python build/deploy_wotmod.py --clean-overlay   # also remove the gameface overlay
+  python build/deploy_wotmod.py --data-source offline   # deploy the WGMods (offline) variant
 
 WoT 2.x loads mods ONLY from .wotmod packages in mods/<version>/. Loose files in
 res_mods/<version>/ outrank .wotmod, so a stale loose copy SHADOWS the packaged
@@ -103,7 +104,14 @@ def _handle_overlay(res_mods_dir, clean_overlay):
 
 def main():
     clean_overlay = "--clean-overlay" in sys.argv[1:]
-    argv = [a for a in sys.argv if a != "--clean-overlay"]
+    data_source = build_wotmod._parse_args(sys.argv[1:])  # --data-source {tomato,offline}
+    argv = [a for a in sys.argv
+            if a != "--clean-overlay" and a != "--data-source" and not a.startswith("--data-source=")]
+    # Drop the value token that followed a bare "--data-source" so it isn't taken as wot_path/version.
+    if "--data-source" in sys.argv:
+        i = sys.argv.index("--data-source")
+        if i + 1 < len(sys.argv) and sys.argv[i + 1] in build_wotmod.DATA_SOURCES:
+            argv = [a for a in argv if a != sys.argv[i + 1]]
     wot_path, version = _resolve_args(argv)
     mods_dir = os.path.join(wot_path, "mods", version)
     res_mods_dir = os.path.join(wot_path, "res_mods", version)
@@ -114,11 +122,11 @@ def main():
     mod_id, mod_version = meta.read_meta()
     _clean(mods_dir, res_mods_dir, mod_id)
 
-    build_wotmod.main()  # builds dist/<id>_<version>.wotmod
+    build_wotmod.main(data_source)  # builds dist/<id>_<version>.wotmod (variant per --data-source)
 
     built = os.path.join(ROOT, "dist", "{0}_{1}.wotmod".format(mod_id, mod_version))
     shutil.copy2(built, mods_dir)
-    print("deployed:", os.path.join(mods_dir, os.path.basename(built)))
+    print("deployed [%s]:" % data_source, os.path.join(mods_dir, os.path.basename(built)))
     _handle_overlay(res_mods_dir, clean_overlay)
     print("Restart the WoT client to load changes.")
 

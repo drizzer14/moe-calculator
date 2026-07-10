@@ -7,7 +7,9 @@ blanking the whole bar. Symbols verified against the EU 2.3 decompiled client:
 - vehicle dossier TOTAL block: MarkOnGunAchievement.getValue()/getDamageRating() and
   the movingAvgDamage record (gui/shared/gui_items/dossier/achievements/mark_on_gun.py;
   read pattern from gui/impl/lobby/tooltips/carousel_vehicle_tooltip.py).
-- the 65/85/95% damage thresholds come from adapter/moe_data (external table).
+- the 65/85/95% damage thresholds come from adapter/moe_data (the source router: tomato.gg
+  table on the GitHub build, or an offline estimator fed by the (avg_damage, percentile)
+  samples this adapter records on the WGMods build).
 """
 from CurrentVehicle import g_currentVehicle
 
@@ -32,6 +34,10 @@ def build_snapshot():
         # Snapshot the career baseline for the in-battle overlay -- the dossier this reads is
         # unavailable in battle, so battle_adapter falls back to this cache (see baseline_cache).
         baseline_cache.remember(int_cd, percentile, avg_damage)
+        # Feed the offline threshold estimator one (avg_damage, percentile) sample -- this is
+        # the ONLY place with a live dossier. No-op under the tomato source; guarded + deduped
+        # inside record_sample, so redundant garage refreshes don't grow the store.
+        moe_data.record_sample(int_cd, percentile, avg_damage)
         thresholds = moe_data.get_thresholds(int_cd)
 
         return t.MoESnapshot(

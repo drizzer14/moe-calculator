@@ -125,8 +125,8 @@ function renderTicks(ticksEl, ticks) {
         notch.className = "moe-tick-notch";
         el.appendChild(notch);
 
-        // Damage requirement BELOW the mark (blank when unknown -> external table
-        // not loaded yet / vehicle absent from it).
+        // Damage requirement BELOW the mark (blank when unknown -> table not loaded yet /
+        // vehicle absent / estimator has no sample).
         const req = document.createElement("div");
         req.className = "moe-tick-req";
         req.textContent = (tk.damageRequired > 0) ? thousands(tk.damageRequired) : "";

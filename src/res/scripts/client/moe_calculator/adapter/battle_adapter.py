@@ -16,9 +16,10 @@ branch 2.3; see the wotmod-debug-repl harness skill for the clone location):
     ['vehicleType'].type.compactDescr = intCD (the standard arena vehicle-info shape).
 
 Still confirm live (behaviour, not symbol names): ARENA_PERIOD gating and that a played
-tank has thresholds. The dossier baseline (pre_avg / pre_percentile) and the tomato.gg
-thresholds are the SAME reads the garage path uses -- we reuse engine_adapter._read_moe
-and moe_data.
+tank has thresholds. The dossier baseline (pre_avg / pre_percentile) and the MoE thresholds
+are the SAME reads the garage path uses -- we reuse engine_adapter._read_moe and the moe_data
+router (tomato table or offline estimate, per build). Battle never RECORDS a sample (the
+dossier is unreadable here); it only reads the thresholds the garage path already fed.
 """
 import BigWorld
 

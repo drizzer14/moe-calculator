@@ -67,6 +67,20 @@ automatically.
 - **After a game update**, move the `.wotmod` to the new `mods\<version>\` folder. A new
   client version may need a rebuilt mod — check the Releases page.
 
+## MoE data source (two build variants)
+
+Wargaming doesn't publish the per-tank mark thresholds (the combined damage each mark needs),
+so the two download channels obtain them differently:
+
+- **GitHub release** (the installer / manual `.wotmod` above) — fetches the up-to-date per-tank
+  thresholds from **tomato.gg** once per session.
+- **WGMods release** ([wgmods.net](https://wgmods.net)) — makes **no external requests**. It
+  estimates each tank's thresholds from your own in-game MoE data and refines them as you play,
+  so the mark numbers begin as estimates and sharpen with more battles.
+
+Either way your current percentage, average combined damage, and the bar fill come straight
+from the game client and are always exact — only the per-mark target numbers differ.
+
 ## Modpacks & license
 
 Free to use, redistribute, and include in modpacks as long as it stays free and credits the
@@ -143,6 +157,20 @@ Building, deploying, testing, and the repo layout are documented in
   Ангарі, тож там вона не з'явиться. У звичайному Ангарі вона повертається.
 - **Після оновлення гри** перемістіть `.wotmod` у нову папку `mods\<версія>\`. Нова версія
   клієнта може потребувати перезібраного мода — перевіряйте сторінку релізів.
+
+## Джерело даних класності (два варіанти збірки)
+
+Wargaming не публікує пороги знаків для кожної техніки (комбіновану шкоду, потрібну для знака),
+тож два канали завантаження отримують їх по-різному:
+
+- **Реліз на GitHub** (інсталятор / ручний `.wotmod` вище) — раз за сесію завантажує актуальні
+  пороги для кожної техніки з **tomato.gg**.
+- **Реліз на WGMods** ([wgmods.net](https://wgmods.net)) — **не робить зовнішніх запитів**. Він
+  оцінює пороги кожної техніки з ваших власних ігрових даних класності й уточнює їх у міру гри,
+  тож числа знаків спершу є оцінками та стають точнішими з боями.
+
+У будь-якому разі ваш поточний відсоток, середня комбінована шкода й заповнення смуги беруться
+безпосередньо з клієнта гри й завжди точні — різняться лише цільові числа для кожного знака.
 
 ## Модпаки та ліцензія
 

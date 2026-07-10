@@ -16,6 +16,12 @@ MARK_PERCENTS = (65, 85, 95)
 # Mark counts, parallel to MARK_PERCENTS.
 MARK_COUNTS = (1, 2, 3)
 
+# The percentile used for the bar's right-edge "goalpost" (threshold key 100). The true
+# 100th percentile is +infinity under any continuous distribution, so the offline estimator
+# reads the goalpost combined-damage off a high-but-finite percentile instead. tomato.gg
+# publishes a literal "100" column; the offline estimator maps key 100 to this percentile.
+GOALPOST_PERCENTILE = 99
+
 # The full percentile axis the bar spans.
 AXIS_MIN = 0
 AXIS_MAX = 100

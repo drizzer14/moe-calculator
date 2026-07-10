@@ -43,29 +43,37 @@ only for what is specific to THIS mod.
     `gui/Scaleform/daapi/view/lobby/hangar/carousels/basic/tank_carousel.py` +
     `account_helpers/settings_core/options.py`.
 
-- **MoE damage thresholds (NOT available client-side) — the runtime data source:**
+- **MoE damage thresholds (NOT available client-side) — the data source:**
   The 65/85/95% combined-damage thresholds are computed server-side and never sent to the
-  client, so they are **fetched live at runtime** and cached.
-  - **Primary source (verified working, unauthenticated):**
-    `https://tomato.gg/moe/<SERVER>` where `<SERVER>` ∈ `EU` / `NA` / `ASIA`. The page is
-    App-Router SSR; the full per-tank table (~768 tanks) is embedded in the HTML flight
-    payload as JSON records of the shape:
-    `{"65":1291,"85":1858,"95":2287,"100":2641,"id":1073, ...diffs/percents...}`
-    where `"65"/"85"/"95"` are the 1/2/3-mark combined-damage requirements, `"100"` is the
-    100% mark, and `"id"` is the WG tank id (e.g. 1073 = Tiger I). Parse by extracting all
-    records matching that field pattern; key by `id`. Use `EU` for this client.
-    - **Fetch discipline:** one request per session (≈640 KB), cache in memory + on disk with
-      a TTL (e.g. 24 h); identify the mod in the User-Agent; degrade gracefully (blank the
-      per-mark labels) on any network/parse failure. Verify in-client that tomato's `id`
-      equals the client `intCD` (Tiger I intCD should read 1073); adjust the key map if not.
-  - **Fallbacks:** tomato.gg authenticated API (`api.tomato.gg`, `x-api-key`, 60 req/min) —
-    bulk MoE endpoint undocumented; or modxvm `https://static.modxvm.com/wn8-data-exp/json/wn8exp.json`
-    (unauth, bulk, `IDNum` = tank id) but that is WN8 **expected damage**, a rough proxy, NOT
-    real MoE percentile thresholds — label clearly as an estimate if ever used.
-  - The base URL + server are centralized in `adapter/moe_data.py` so the source can be
-    swapped without touching the rest of the mod.
-    NB: the `me.poliroid.tomatogg` .wotmod is an updater-stub package (downloads its logic +
-    data at runtime, no in-package URL) — not a usable static source; tomato.gg's SSR page is.
+  client. Neither the official WG public web API nor the game client exposes the *population*
+  thresholds — WG returns only the player's OWN result (dossier `damageRating` = their achieved
+  percentile, `movingAvgDamage` = their EWMA combined damage). The mod ships **two build
+  variants**, selected at package time by `moe_calculator/build_config.py::MOE_DATA_SOURCE`
+  (see `adapter/moe_data.py`, the source router):
+
+  - **`offline` (WGMods release) — no external API.** `adapter/moe_offline.py` ESTIMATES each
+    tank's thresholds from the client's own dossier. Every garage read is one point
+    `(movingAvgDamage, damageRating)` on that tank's combined-damage→percentile curve; the
+    samples accumulate per tank (persisted under the prefs dir: `mods_data/14th_ua_moe/
+    moe_samples.json`) and feed `domain/moe_estimate.py`, which assumes a ~normal population
+    (`d = mu + sigma·Φ⁻¹(p)`), fits `(mu, sigma)` by OLS over ≥2 percentile-spread samples,
+    and reads off the 65/85/95/99 targets. A single sample still yields an estimate via a baked
+    universal prior (`UNIVERSAL_CV`, derived once at dev time by `tools/dev/derive_moe_prior.py`
+    — median σ/µ over ~760 EU tanks ≈ 0.808; normal-fit residual at the 85th ≈ 1.4%). Results
+    are ESTIMATES; caveats: weakest in the tails / when extrapolating far from the player's
+    current standing; a never-played tank shows no labels.
+
+  - **`tomato` (GitHub release, default) — crowd-sourced exact values.** `adapter/moe_tomato.py`
+    fetches `https://tomato.gg/moe/<SERVER>` (`EU` here). App-Router SSR; the per-tank table
+    (~768 tanks) is embedded in the HTML flight payload as JSON records
+    `{"65":1291,"85":1858,"95":2287,"100":2641,"id":1073, ...}` (`"65/85/95"` = 1/2/3-mark
+    requirements, `"100"` = the 100% goalpost, `"id"` = WG tank id == client `intCD`). One
+    request per session (≈640 KB) on a worker thread; degrades gracefully (blank per-mark
+    labels) on any network/parse failure. NB: the `me.poliroid.tomatogg` .wotmod is an
+    updater-stub (no in-package URL) — not a usable static source; tomato's SSR page is.
+
+  - The fill / current % / current avg damage never depended on the table (they read
+    `damageRating`/`movingAvgDamage` directly), so they stay exactly official in both variants.
 
 - **Modes / states** — a single MoE bar. Hidden when off the plain garage (reuse the
   sibling's `hangar/{root}` visible-state check) or while a tank-setup overlay is open.
