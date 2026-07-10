@@ -27,6 +27,21 @@ GOALPOST_PERCENTILE = 99
 AXIS_MIN = 0
 AXIS_MAX = 100
 
+# --- fetch-list working set --------------------------------------------------
+# The persistent list of owned tank ids we maintain thresholds for is capped at this size
+# (also the WG API's tank_id-per-request cap, so the whole list fits one batch fetch).
+FETCH_LIST_CAP = 100
+
+# A tank drops out of the fetch list if it hasn't been played within this window (the
+# session-open purge). Measured against the vehicle's last-battle timestamp; a freshly bought
+# tank is stamped with the purchase time so it survives ~30 days even if never played.
+STALE_WINDOW_SECONDS = 30 * 24 * 3600
+
+# Threshold data is served without refetching while now < updated_at + this (the WG
+# distribution's refresh cadence). Single source shared by moe_wgapi.fresh_table (cache-adopt
+# gate) and fetch_list.needs_refetch (the "don't refetch multiple sessions/day" throttle).
+REVALIDATE_SECONDS = 24 * 3600
+
 # In-battle projected-rating (EWMA) coefficient. WG's Marks rating is a moving average
 # over "~50-100 battles"; we model it as an EWMA newAvg = prevAvg + k*(CD - prevAvg) with
 # k = 2/(N+1), N=100 (k ~= 0.0198). N/k are community-reverse-engineered, NOT WG-confirmed

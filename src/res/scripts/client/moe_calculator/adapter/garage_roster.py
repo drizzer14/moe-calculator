@@ -1,16 +1,19 @@
 # -*- coding: utf-8 -*-
-"""Read the player's garage roster for the WG-API threshold provider.
+"""Read the player's garage roster for the WG-API threshold provider + fetch list.
 
-`moe_wgapi` fetches thresholds for the *selected* vehicle first, then warms the cache for the
-100 most-recently-played owned vehicles. This module supplies both reads:
+`moe_wgapi` maintains a persistent fetch list keyed off the garage roster. This module supplies
+every engine read it needs:
   - selected_int_cd()      : the currently-selected vehicle's intCD (== WG tank_id).
+  - owned_int_cds()        : ALL in-inventory (garage) intCDs, uncapped (the membership base +
+                             the buy/sell reconciliation snapshot -- moe_wgapi diffs it).
+  - recency_map(int_cds)   : {intCD: last-battle epoch} for the given ids.
   - recent_int_cds(limit)  : owned intCDs, most-recently-played first, capped at `limit`.
 
 The recency key is the vehicle dossier's TOTAL last-battle timestamp
 (getGlobalStats().getLastBattleTime(), epoch seconds, 0 if never played) -- a purely local
 read from the already-synced items cache, no per-vehicle network round-trip. The engine
-symbols are imported lazily and every read is fail-soft (None / []), so an unsynced cache (e.g.
-in a replay, where getVehicles() returns 0) degrades to "no roster" instead of raising.
+symbols are imported lazily and every read is fail-soft (None / [] / {}), so an unsynced cache
+(e.g. in a replay, where getVehicles() returns 0) degrades to "no roster" instead of raising.
 
 rank_by_recency() is pure (no engine imports) and unit-tested; the engine reads are exercised
 in-client.
@@ -41,25 +44,45 @@ def selected_int_cd():
         return None
 
 
-def recent_int_cds(limit=100):
-    """Owned (in-inventory) intCDs, most-recently-played first, capped at `limit`.
-
-    Returns [] when the items cache isn't synced yet (getVehicles() -> empty) or on any read
-    failure -- the caller retries on the next garage refresh / onSyncCompleted."""
+def owned_int_cds():
+    """ALL in-inventory (garage) intCDs, uncapped and unordered. The membership base for the
+    fetch list -- only tanks in the garage ever count. Returns [] when the items cache isn't
+    synced yet (getVehicles() -> empty) or on any read failure -- the caller retries."""
     try:
         from helpers import dependency
         from skeletons.gui.shared import IItemsCache
         from gui.shared.utils.requesters import REQ_CRITERIA
         items = dependency.instance(IItemsCache).items
         vehicles = items.getVehicles(REQ_CRITERIA.INVENTORY)  # {intCD: Vehicle}
-        int_cds = list(vehicles.keys())
-        if not int_cds:
-            return []
+        return list(vehicles.keys())
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+        return []
+
+
+def recency_map(int_cds):
+    """{intCD: last-battle epoch seconds} for the given ids (missing/never-played -> 0). The
+    single dossier read reused by bootstrap, eviction, and the stale purge. Fail-soft -> {}."""
+    try:
+        from helpers import dependency
+        from skeletons.gui.shared import IItemsCache
+        items = dependency.instance(IItemsCache).items
         recency = {}
         for cd in int_cds:
             recency[cd] = _safe_int(
                 lambda: items.getVehicleDossier(cd).getGlobalStats().getLastBattleTime(), 0)
-        return rank_by_recency(int_cds, recency, limit)
+        return recency
     except Exception:
         LOG_CURRENT_EXCEPTION()
+        return {}
+
+
+def recent_int_cds(limit=100):
+    """Owned (in-inventory) intCDs, most-recently-played first, capped at `limit`.
+
+    Returns [] when the items cache isn't synced yet (getVehicles() -> empty) or on any read
+    failure -- the caller retries on the next garage refresh / onSyncCompleted."""
+    int_cds = owned_int_cds()
+    if not int_cds:
         return []
+    return rank_by_recency(int_cds, recency_map(int_cds), limit)

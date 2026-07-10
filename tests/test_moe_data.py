@@ -37,3 +37,38 @@ def test_needs_estimate_delegates(monkeypatch):
     monkeypatch.setattr(moe_data.moe_wgapi, "needs_estimate", lambda cd: cd == 42)
     assert moe_data.needs_estimate(42) is True
     assert moe_data.needs_estimate(7) is False
+
+
+def test_reconcile_ownership_delegates(monkeypatch):
+    calls = []
+    monkeypatch.setattr(moe_data.moe_wgapi, "reconcile_ownership", lambda: calls.append("x"))
+    moe_data.reconcile_ownership()
+    assert calls == ["x"]
+
+
+def test_on_vehicle_bought_delegates(monkeypatch):
+    calls = []
+    monkeypatch.setattr(moe_data.moe_wgapi, "on_vehicle_bought", lambda cd: calls.append(cd))
+    moe_data.on_vehicle_bought(1073)
+    assert calls == [1073]
+
+
+def test_on_vehicle_sold_delegates(monkeypatch):
+    calls = []
+    monkeypatch.setattr(moe_data.moe_wgapi, "on_vehicle_sold", lambda cd: calls.append(cd))
+    moe_data.on_vehicle_sold(1073)
+    assert calls == [1073]
+
+
+def test_on_vehicle_selected_delegates(monkeypatch):
+    calls = []
+    monkeypatch.setattr(moe_data.moe_wgapi, "on_vehicle_selected", lambda cd: calls.append(cd))
+    moe_data.on_vehicle_selected(1073)
+    assert calls == [1073]
+
+
+def test_on_battle_played_delegates(monkeypatch):
+    calls = []
+    monkeypatch.setattr(moe_data.moe_wgapi, "on_battle_played", lambda cd: calls.append(cd))
+    moe_data.on_battle_played(1073)
+    assert calls == [1073]

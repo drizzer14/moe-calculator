@@ -29,6 +29,7 @@ from skeletons.gui.shared import IItemsCache
 from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_NOTE
 from moe_calculator.adapter import engine_adapter
 from moe_calculator.adapter import moe_data
+from moe_calculator.adapter import garage_roster
 from moe_calculator.adapter import format as fmt
 from moe_calculator.adapter import i18n
 from moe_calculator.domain.builder import build_model, bar_visible
@@ -90,6 +91,12 @@ _data_listener_armed = False
 # the result MUST be stored back onto the attribute or the subscription is silently lost.
 
 def _on_vehicle_changed(*args, **kwargs):
+    # Tank selection changed -> record the selection in the fetch list's temp set (its threshold
+    # fetch is covered by get_thresholds() in the push below), then re-push.
+    try:
+        moe_data.on_vehicle_selected(garage_roster.selected_int_cd())
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
     try:
         refresh()
     except Exception:
@@ -129,8 +136,14 @@ def _on_settings_changed(diff):
 
 
 def _on_sync_completed(*args, **kwargs):
-    # IItemsCache.onSyncCompleted(updateReason, invalidItems). Coalesce onto the next tick
-    # so a burst collapses to one push and CurrentVehicle has rebuilt its item.
+    # IItemsCache.onSyncCompleted(updateReason, invalidItems). Reconcile the fetch list against
+    # the garage (buys/sells fall out as owned-set diffs -- the resync reason/payload is
+    # unreliable across client versions, so we don't decode it). Then coalesce a refresh onto
+    # the next tick so a burst collapses to one push and CurrentVehicle has rebuilt its item.
+    try:
+        moe_data.reconcile_ownership()
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
     try:
         _schedule_refresh()
     except Exception:
@@ -171,11 +184,13 @@ def _settings_holder():
 
 
 # (label, holder-getter, event-attribute, handler) -- what the bar listens to.
-#   vehicle  : vehicle-selection changes
+#   vehicle  : vehicle-selection changes (+ fetch-list temp tracking)
 #   loadout  : tank-setup (ammo) overlay open/close -> hide/show the bar
 #   lobby    : garage <-> other lobby views -> hide off the plain garage
-#   stats    : items-cache syncs (marks/rating updated after a battle sync)
+#   stats    : items-cache syncs (marks/rating after a battle sync; buy/sell -> fetch-list reconcile)
 #   settings : carousel row-count / size changes -> re-push the bottom offset
+# (Battle-played promotion lives in battle_bridge, off the persistent PlayerEvents lifecycle --
+#  the garage-side onResultPosted subscription is torn down with the hangar during the battle.)
 _LISTENERS = (
     ("vehicle", _vehicle_holder, "onChanged", _on_vehicle_changed),
     ("loadout", _loadout_holder, "onInteractorUpdated", _on_interactor_updated),

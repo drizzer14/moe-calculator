@@ -28,14 +28,24 @@ _refresh_pending = False
 # overlay re-pushes and reveals once the per-tank thresholds finish loading).
 _data_listener_armed = False
 
+# Whether we've promoted the played tank into the permanent fetch list this battle. Reset on
+# each battle mount; set once we can read the player's OWN vehicle (see push). Recording here
+# -- off the persistent PlayerEvents lifecycle, where the played vehicle is known -- is far more
+# reliable than the garage-side onResultPosted, whose subscription is torn down with the hangar
+# during the battle and re-armed only after the result has already posted.
+_battle_recorded = False
+
 
 # --- engine event subscriptions ---------------------------------------------
 # Handlers are module-level (stable identity) so the membership-checked _arm is idempotent.
 
 def _on_mount_refresh(*args, **kwargs):
     # Avatar ready -> we're in a battle: open the overlay window, (re)arm the efficiency
-    # listener, kick the thresholds loader, and push the initial model.
+    # listener, kick the thresholds loader, and push the initial model. Reset the played-tank
+    # record so this battle promotes its vehicle exactly once (see push).
+    global _battle_recorded
     try:
+        _battle_recorded = False
         battle_view.open_window()
         install_all_listeners()
         moe_data.start()  # idempotent; the garage path may already have kicked it
@@ -228,6 +238,24 @@ def _do_scheduled_refresh():
         LOG_CURRENT_EXCEPTION()
 
 
+# --- fetch-list promotion ----------------------------------------------------
+
+def _record_played_tank(snap):
+    """Promote the tank this battle is being fought in from the fetch list's temp set to the
+    permanent list -- once per battle, as soon as we can read the player's OWN vehicle. Skips
+    while spectating (a dead player observing a teammate: getControllingVehicleID would be the
+    ally's tank, not ours). Guarded -- a promotion failure must never break the overlay push."""
+    global _battle_recorded
+    if _battle_recorded:
+        return
+    try:
+        if snap.has_vehicle and not snap.is_spectating and snap.vehicle_int_cd:
+            moe_data.on_battle_played(snap.vehicle_int_cd)
+            _battle_recorded = True
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+
+
 # --- push --------------------------------------------------------------------
 
 def refresh():
@@ -245,6 +273,7 @@ def push(rvm):
         return
     try:
         snap = battle_adapter.build_battle_snapshot()
+        _record_played_tank(snap)
         model = build_battle_model(snap)
         visible = battle_bar_visible(snap.in_battle, snap.has_vehicle, snap.is_spectating)
         LOG_NOTE("[moe-battle] push visible=%s spectating=%s cd=%d pct=%.1f delta=%.2f data=%s baseline=%s" % (

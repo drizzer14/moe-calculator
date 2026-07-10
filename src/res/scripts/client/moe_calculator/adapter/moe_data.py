@@ -31,3 +31,25 @@ def needs_estimate(int_cd):
     """True when the WG request for this tank completed without data (errored / no data), so the
     caller should fall back to the offline estimator rather than wait for a pending fetch."""
     return moe_wgapi.needs_estimate(int_cd)
+
+
+# --- fetch-list mutators (driven by the garage bridge's buy/sell/select/battle events) ---
+
+def reconcile_ownership():
+    return moe_wgapi.reconcile_ownership()
+
+
+def on_vehicle_bought(int_cd):
+    return moe_wgapi.on_vehicle_bought(int_cd)
+
+
+def on_vehicle_sold(int_cd):
+    return moe_wgapi.on_vehicle_sold(int_cd)
+
+
+def on_vehicle_selected(int_cd):
+    return moe_wgapi.on_vehicle_selected(int_cd)
+
+
+def on_battle_played(int_cd):
+    return moe_wgapi.on_battle_played(int_cd)

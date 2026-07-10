@@ -103,6 +103,38 @@ def test_fresh_table_junk_is_empty():
     assert moe_wgapi.fresh_table({}, _UPD, "eu") == {}
 
 
+# --- valid_list (persistent fetch-list envelope; no time window) -------------
+
+def _list_blob(region="eu", ids=None):
+    return {"version": moe_wgapi._LIST_VERSION, "region": region,
+            "ids": ids if ids is not None else {"69153": 1700000000, "1": 1699999999}}
+
+
+def test_valid_list_adopts_and_coerces_ints():
+    assert moe_wgapi.valid_list(_list_blob(), "eu") == {69153: 1700000000, 1: 1699999999}
+
+
+def test_valid_list_version_mismatch_is_empty():
+    blob = _list_blob()
+    blob["version"] = moe_wgapi._LIST_VERSION + 99
+    assert moe_wgapi.valid_list(blob, "eu") == {}
+
+
+def test_valid_list_other_region_is_empty():
+    assert moe_wgapi.valid_list(_list_blob(region="na"), "eu") == {}
+
+
+def test_valid_list_junk_is_empty():
+    assert moe_wgapi.valid_list(None, "eu") == {}
+    assert moe_wgapi.valid_list({}, "eu") == {}
+    assert moe_wgapi.valid_list(_list_blob(ids={}), "eu") == {}
+
+
+def test_valid_list_drops_unparseable_rows():
+    blob = _list_blob(ids={"42": 1700000000, "bad": "x", "7": "nope"})
+    assert moe_wgapi.valid_list(blob, "eu") == {42: 1700000000}
+
+
 # --- rank_by_recency ---------------------------------------------------------
 
 def test_rank_by_recency_orders_most_recent_first():
@@ -123,3 +155,35 @@ def test_rank_by_recency_never_played_sorts_last_deterministically():
 
 def test_rank_by_recency_empty():
     assert garage_roster.rank_by_recency([], {}) == []
+
+
+# --- reconcile_ownership (buy/sell as an owned-set diff) ----------------------
+# Not pure (module state + engine read), but driven entirely via monkeypatched seams -- no game
+# engine -- like the other adapter tests. Guards the crux buy/sell detection.
+
+def test_reconcile_ownership_seeds_then_diffs(monkeypatch):
+    owned = {1, 2, 3}
+    monkeypatch.setattr(moe_wgapi.garage_roster, "owned_int_cds", lambda: list(owned))
+    bought, sold = [], []
+    monkeypatch.setattr(moe_wgapi, "on_vehicle_bought", lambda cd: bought.append(cd))
+    monkeypatch.setattr(moe_wgapi, "on_vehicle_sold", lambda cd: sold.append(cd))
+    monkeypatch.setattr(moe_wgapi, "_owned", None)
+
+    moe_wgapi.reconcile_ownership()            # first call only seeds the baseline
+    assert bought == [] and sold == []
+
+    owned.clear(); owned.update({2, 3, 4})     # buy 4, sell 1
+    moe_wgapi.reconcile_ownership()
+    assert bought == [4]
+    assert sold == [1]
+
+
+def test_reconcile_ownership_empty_is_noop(monkeypatch):
+    monkeypatch.setattr(moe_wgapi.garage_roster, "owned_int_cds", lambda: [])
+    monkeypatch.setattr(moe_wgapi, "_owned", None)
+    calls = []
+    monkeypatch.setattr(moe_wgapi, "on_vehicle_bought", lambda cd: calls.append(cd))
+    monkeypatch.setattr(moe_wgapi, "on_vehicle_sold", lambda cd: calls.append(cd))
+    moe_wgapi.reconcile_ownership()            # unsynced roster -> no seed, no diff
+    assert moe_wgapi._owned is None
+    assert calls == []
