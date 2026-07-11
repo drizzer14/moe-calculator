@@ -44,6 +44,14 @@ def test_fill_is_current_percentile_clamped():
     assert build_model(_snap(cur_percentile=-5.0)).fill == 0.0
 
 
+def test_nan_percentile_clamps_to_zero_not_propagated():
+    # A NaN cur_percentile (e.g. a bad dossier read) must be clamped, not passed through to the
+    # widget: NaN compares False against the bounds, so the naive clamp would leak it.
+    m = build_model(_snap(cur_percentile=float("nan")))
+    assert m.fill == 0.0
+    assert m.cur_percentile == 0.0
+
+
 def test_missing_thresholds_degrade_gracefully():
     m = build_model(_snap(thresholds={}))
     # still three ticks with reached state + current readout, just no damage labels

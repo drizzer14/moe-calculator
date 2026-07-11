@@ -37,8 +37,20 @@ def efficiency_panel_wide(flags, values, threshold):
     `flags` from battle_adapter.read_damage_log_summary_flags(), `values` from
     read_efficiency_totals(). Each flag is bool()-coerced (getSetting's 0/1/None) and each
     value guarded against None. The fail-soft reads default flags to ticked / values to 0, so a
-    bad read never wrongly triggers the shift on a disabled/zero total."""
-    return any(bool(f) and (v or 0) > threshold for f, v in zip(flags, values))
+    bad read never wrongly triggers the shift on a disabled/zero total.
+
+    Length is reconciled explicitly rather than `zip`-truncated: a short `values` tuple (from a
+    fail-soft adapter read) would otherwise silently drop a column, so a 5-digit total in the
+    dropped column would be missed and the overlay could collide with WG's widened panel. Missing
+    flags default to ticked (the same fail-soft default as an unreadable flag); missing values to 0."""
+    flags = tuple(flags or ())
+    values = tuple(values or ())
+    for i in range(max(len(flags), len(values))):
+        enabled = bool(flags[i]) if i < len(flags) else True
+        value = values[i] if i < len(values) else 0
+        if enabled and (value or 0) > threshold:
+            return True
+    return False
 
 
 def anchor_top_left(max_x, max_y, x_from_left, y_from_bottom):

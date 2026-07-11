@@ -23,6 +23,7 @@ weakest in the tails, and extrapolating far above the player's current standing 
 import math
 
 from moe_calculator.domain.constants import MARK_PERCENTS, MARK_COUNTS, GOALPOST_PERCENTILE
+from moe_calculator.domain.rounding import iround_half_away
 
 # Minimum distinct samples needed for a per-tank least-squares fit; below this we use the
 # single-sample prior.
@@ -43,6 +44,15 @@ _P_EPS = 1e-9
 # Below this the single-sample prior denominator (1 + CV*z0) collapses (percentile so low the
 # normal extrapolation to the marks is meaningless) -- refuse rather than emit nonsense.
 _DENOM_EPS = 1e-3
+# Upper plausibility bound for the single-sample prior: the fitted mu = d0/(1 + CV*z0) blows up
+# as the denominator shrinks toward zero (a low-percentile sample, z0 << 0), so a percentile
+# just above the singularity (p0 ~ 0.108) yields mu -- and thus 5-figure mark thresholds -- that
+# stay positive and strictly ascending, sailing past the `_targets` sanity gate. `_DENOM_EPS`
+# only refuses the exact collapse. This ceiling refuses any prior whose mu exceeds a generous
+# multiple of the player's own sample damage: a genuine estimate near the sane band (p0 ~ 0.20)
+# sits at mu ~ 3*d0; the blow-up band (p0 in (0.108, 0.14)) is mu > 7.8*d0. Refusing (-> {})
+# degrades the widget to no per-mark labels, which is safer than displaying a wrong number.
+PRIOR_MAX_MU_MULTIPLE = 6.0
 
 
 def _clamp_p(p):
@@ -149,6 +159,10 @@ def _prior_mu_sigma(pts):
     mu = d0 / denom
     if mu <= 0.0:
         return None
+    # Guard the near-singularity blow-up: a low-percentile sample drives denom toward zero and
+    # mu (hence every mark threshold) to an absurd multiple of the sample damage. Refuse it.
+    if mu > PRIOR_MAX_MU_MULTIPLE * d0:
+        return None
     return (mu, UNIVERSAL_CV * mu)
 
 
@@ -159,8 +173,8 @@ def _targets(mu, sigma):
         return None
     out = {}
     for percent, count in zip(MARK_PERCENTS, MARK_COUNTS):
-        out[count] = int(round(mu + sigma * inv_norm_cdf(percent / 100.0)))
-    out[100] = int(round(mu + sigma * inv_norm_cdf(GOALPOST_PERCENTILE / 100.0)))
+        out[count] = iround_half_away(mu + sigma * inv_norm_cdf(percent / 100.0))
+    out[100] = iround_half_away(mu + sigma * inv_norm_cdf(GOALPOST_PERCENTILE / 100.0))
     ordered = [out[1], out[2], out[3], out[100]]
     prev = 0
     for v in ordered:

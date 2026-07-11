@@ -15,7 +15,7 @@ from frameworks.wulf import ViewModel, Array
 
 
 class MarkTickVM(ViewModel):
-    def __init__(self, properties=5, commands=0):
+    def __init__(self, properties=4, commands=0):
         super(MarkTickVM, self).__init__(properties=properties, commands=commands)
 
     def _initialize(self):
@@ -24,7 +24,8 @@ class MarkTickVM(ViewModel):
         self._addNumberProperty("markCount", 0)        # 1  1/2/3
         self._addNumberProperty("damageRequired", 0)   # 2  combined dmg for this mark (0 = unknown)
         self._addBoolProperty("reached", False)        # 3  player already holds this mark
-        self._addStringProperty("icon", "")            # 4  nation mark art url ("" = generic)
+        # NOTE: no per-tick `icon` property -- the widget draws a flat, nation-agnostic glyph
+        # (MoECalculator.js FLAT_MARK) for every tick, so the old nation-art URL was dead.
 
     def setPercent(self, v):
         self._setNumber(0, v)
@@ -37,9 +38,6 @@ class MarkTickVM(ViewModel):
 
     def setReached(self, v):
         self._setBool(3, v)
-
-    def setIcon(self, v):
-        self._setString(4, v)
 
 
 class MoEVM(ViewModel):

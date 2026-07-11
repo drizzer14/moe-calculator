@@ -1,10 +1,13 @@
 // 14th_ua's MoE Calculator -- in-battle overlay. This JS is the front-end of a
 // STANDALONE OpenWG-registered Gameface view (MoEBattleView.html, registered via
 // mods/configs/res_map/MoEBattleView.json) that the Python side opens as a
-// full-screen, input-transparent top-layer window OVER the battle HUD
-// (bridge/battle_view.py). The battle HUD has no shared full-screen Gameface
-// document to inject a position:fixed overlay into (each WG battle Gameface view is
-// composited by Flash at its own placeId), so we host our own window instead.
+// CONTENT-SIZED (NOT full-screen), input-transparent top-layer window OVER the battle
+// HUD (bridge/battle_view.py -- WINDOW_FULLSCREEN was dropped so the window hugs the
+// overlay and can't hit-test across the whole HUD; do NOT re-add full-screen sizing or
+// width:100%, it reintroduces the Ctrl+click/hover input-steal). The battle HUD has no
+// shared full-screen Gameface document to inject a position:fixed overlay into (each WG
+// battle Gameface view is composited by Flash at its own placeId), so we host our own
+// window instead.
 //
 // Because this is a registered view, OUR data model (BattleMoEVM) IS the view's own
 // root ViewModel -- we read it with a root ModelObserver() (no feature name) and read

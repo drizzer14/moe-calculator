@@ -5,9 +5,7 @@ These carry NO game-engine imports so they can be unit-tested on plain inputs
 (Python 3, no client). Everything here is best-effort and side-effect-free.
 2/3-compatible.
 """
-
-# Mark-art resource sizes shipped by the client (see MarkOnGunAchievement.getIcons).
-MARK_ICON_SIZE = "95x85"
+from moe_calculator.domain.rounding import round_half_away, iround_half_away
 
 
 def thousands(n):
@@ -38,7 +36,7 @@ def percent(p, decimals=1):
     if p <= 0:
         return "0%"
     if decimals <= 0:
-        return "%d%%" % int(round(p))
+        return "%d%%" % iround_half_away(p)
     return ("%.*f%%" % (decimals, p))
 
 
@@ -51,28 +49,10 @@ def signed_percent(p, decimals=1):
         p = float(p or 0.0)
     except (TypeError, ValueError):
         return "0%"
-    if round(p, decimals if decimals > 0 else 0) == 0:
+    if round_half_away(p, decimals if decimals > 0 else 0) == 0:
         return "0%"
     sign = "+" if p > 0 else "-"
     mag = abs(p)
     if decimals <= 0:
-        return "%s%d%%" % (sign, int(round(mag)))
+        return "%s%d%%" % (sign, iround_half_away(mag))
     return "%s%.*f%%" % (sign, decimals, mag)
-
-
-def mark_icon_url(nation, mark_count, size=MARK_ICON_SIZE):
-    """Nation MoE art URL for a given mark count (1/2/3), mirroring the client's
-    MarkOnGunAchievement.__getIconPath template:
-      gui/maps/icons/marksOnGun/<size>/<nation>_<count>_<mark|marks>.png
-    Suffix is 'mark' for 1, 'marks' for 2-3. Returns '' when nation is unknown, so
-    the widget can fall back to a generic glyph."""
-    if not nation:
-        return ""
-    try:
-        count = int(mark_count)
-    except (TypeError, ValueError):
-        return ""
-    if count < 1:
-        count = 1
-    ctx = "mark" if count < 2 else "marks"
-    return "img://gui/maps/icons/marksOnGun/%s/%s_%d_%s.png" % (size, nation, count, ctx)

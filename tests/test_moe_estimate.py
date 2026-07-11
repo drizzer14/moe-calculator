@@ -101,3 +101,21 @@ def test_thresholds_empty_when_slope_non_increasing():
 def test_thresholds_prior_refused_for_very_low_percentile():
     # A percentile so low the normal extrapolation to the marks collapses -> {} (no nonsense).
     assert me.thresholds_from_samples([(300, 0.02)]) == {}
+
+
+@pytest.mark.parametrize("p", [0.11, 0.12, 0.13, 0.14])
+def test_thresholds_prior_refused_in_blowup_band(p):
+    # The prior singularity band (p0 in ~(0.108, 0.14)): mu = d0/(1 + CV*z0) blows up as the
+    # denominator shrinks, producing 5-figure "required" damage that is still positive and
+    # ascending. The plausibility ceiling must refuse it -> {} rather than display nonsense.
+    out = me.thresholds_from_samples([(400, p)])
+    assert out == {}, "expected refusal, got %r" % (out,)
+
+
+def test_thresholds_prior_sane_just_above_blowup_band():
+    # Just above the band (p0 ~ 0.20) the prior is back to a sane range (out[1] ~ 1600 for
+    # d0=400): must still produce a bounded, ascending estimate -- the ceiling must not over-reject.
+    out = me.thresholds_from_samples([(400, 0.20)])
+    assert set(out.keys()) == {1, 2, 3, 100}
+    assert out[1] < out[2] < out[3] < out[100]
+    assert out[100] <= me.PRIOR_MAX_MU_MULTIPLE * 400 * 3  # comfortably bounded, not 5-figure

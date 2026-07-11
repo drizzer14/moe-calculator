@@ -175,3 +175,12 @@ def test_shift_never_applies_in_the_raised_state():
     # draw the totals, so nothing can widen and the shift must not fire. efficiency_panel_wide is
     # the gate _place uses; with every flag off it is False regardless of how huge the values are.
     assert efficiency_panel_wide(_ALL_OFF, (99999, 99999, 99999, 99999), _T) is False
+
+
+def test_wide_does_not_truncate_on_short_values_tuple():
+    # A fail-soft adapter read that returns FEWER values than flags must not silently drop the
+    # trailing column via zip-truncation: a 5-digit total there would be missed and the overlay
+    # would collide with the widened panel. The missing value defaults to 0 (no false shift)...
+    assert efficiency_panel_wide(_ALL_ON, (0, 0, 0), _T) is False
+    # ...and a short FLAGS tuple with a wide value present still fires (missing flag = ticked).
+    assert efficiency_panel_wide((True,), (0, 0, 0, 12000), _T) is True

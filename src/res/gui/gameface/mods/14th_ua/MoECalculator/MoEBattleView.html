@@ -9,11 +9,14 @@
         <link rel="stylesheet" href="MoEBattle.css" />
     </head>
     <body>
-        <!-- Registered OpenWG Gameface view opened as a full-screen, input-transparent
-             top-layer window over the battle HUD (see bridge/battle_view.py). The overlay
-             root (#moe-battle-root) is created + populated by MoEBattle.js, which reads
-             this view's own root ViewModel (BattleMoEVM) via ModelObserver(). The body is
-             intentionally empty so the JS builds the full readout markup itself. -->
+        <!-- Registered OpenWG Gameface view opened as a CONTENT-SIZED (NOT full-screen),
+             input-transparent top-layer window over the battle HUD (see bridge/battle_view.py:
+             WINDOW_FULLSCREEN was deliberately dropped so the window bounds hug the overlay and
+             cannot hit-test across the whole HUD -- do NOT re-add full-screen sizing / width:100%,
+             it reintroduces the Ctrl+click/hover input-steal). The overlay root (#moe-battle-root)
+             is created + populated by MoEBattle.js, which reads this view's own root ViewModel
+             (BattleMoEVM) via ModelObserver(). The body is intentionally empty so the JS builds
+             the full readout markup itself. -->
         <script type="module" src="MoEBattle.js"></script>
     </body>
 </html>

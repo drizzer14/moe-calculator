@@ -13,6 +13,10 @@ from moe_calculator.domain.constants import MARK_PERCENTS, MARK_COUNTS, AXIS_MIN
 
 
 def _clamp(value, lo, hi):
+    # NaN compares False against everything, so the bare comparisons below would pass it
+    # through unclamped and propagate NaN to the widget. Treat NaN as the low bound.
+    if value != value:
+        return lo
     return lo if value < lo else hi if value > hi else value
 
 

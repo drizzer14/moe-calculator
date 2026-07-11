@@ -13,9 +13,14 @@ metric 1 can over-count when a tank earns both spot AND track assist (merged liv
 """
 from moe_calculator.domain import battle_types as bt
 from moe_calculator.domain.constants import EWMA_K, MARK_PERCENTS
+from moe_calculator.domain.rounding import iround_half_away
 
 
 def _clamp(value, lo, hi):
+    # NaN compares False against everything, so the bare comparisons below would pass it
+    # through unclamped and propagate NaN to the widget. Treat NaN as the low bound.
+    if value != value:
+        return lo
     return lo if value < lo else hi if value > hi else value
 
 
@@ -90,7 +95,7 @@ def ewma_project(prev_avg, cd, k=EWMA_K):
     as real damage accrues. `combined_damage()` clamps cd to >= 0 upstream, so the fold
     never drags below prev*(1-k)."""
     prev = float(prev_avg or 0.0)
-    return int(round(prev + k * (float(cd or 0) - prev)))
+    return iround_half_away(prev + k * (float(cd or 0) - prev))
 
 
 def build_battle_model(snapshot):

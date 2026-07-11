@@ -24,9 +24,9 @@ Fetch behavior -- a persistent, capped (100) working set of OWNED tank ids ("the
     drop ids no longer in the garage and purge tanks not played in the last 7 days. Then fetch
     the whole list in one batch (>=100 ids fit one request).
   * Buy adds a tank (stamped recency = now, so an unplayed purchase survives ~7 days); sell
-    removes it; selecting adds it to a session-only TEMP set (fetched, not yet committed);
-    playing a battle in it promotes it to the permanent list. Adds past the 100-cap evict the
-    least-recently-played member.
+    removes it. Selecting a tank does NOT add it to the persistent list -- its thresholds are
+    fetched lazily on demand (get_thresholds); only PLAYING a battle in it (on_battle_played)
+    commits it to the permanent list. Adds past the 100-cap evict the least-recently-played member.
   * On selection: get_thresholds() lazily fetches a single tank iff it's not already cached.
   * Results are cached in memory AND persisted, revalidated two ways: (a) a time throttle -- the
     cache is served while now < OUR last-fetch time + 1 day (WG refreshes the distribution daily
@@ -77,6 +77,14 @@ _AGENT = ("Mozilla/5.0 (compatible; 14th_ua-MoE-Calculator; "
           "+https://github.com/drizzer14/moe-calculator)")
 _POLL_INTERVAL = 0.25                                # seconds between worker-done checks
 _MAX_IDS_PER_REQUEST = 100                           # WG API cap on tank_id per call
+# Transient-failure retry policy. A request that DIDN'T get an authoritative answer (network
+# blip, WG rate-limit / error envelope) is retried up to this many times with the backoff below
+# before the chunk is given up (its tanks fall back to the offline estimator for the session).
+# This is the fix for "one blip on the session-open batch dooms the whole roster to the estimator
+# until client restart": we no longer mark a tank `_seen` (permanently no-refetch) on a transient
+# failure -- only on a genuine authoritative "no data" or after the retries are exhausted.
+_MAX_FETCH_RETRIES = 3
+_RETRY_BACKOFF_SECONDS = (2.0, 5.0, 15.0)            # backoff before retry attempt 1, 2, 3
 _STORE_VERSION = 3                                   # on-disk cache envelope version (v3 adds fetched_at)
 _LIST_VERSION = 1                                    # on-disk fetch-list envelope version
 # Cache-freshness time throttle: while now < our last-fetch time + this, the cache is served
@@ -92,7 +100,6 @@ _fetched_at = 0        # OUR wall-clock (epoch s) at the newest fetch/adopted ca
 _loaded = False        # something is showable (a fetch completed, or the cache adopted)
 _started = False       # start() has run (caches loaded + fast-paint enqueued)
 _want = {}             # int_cd -> recency epoch: the persistent fetch list (owned tanks only)
-_temp = set()          # int_cds selected-but-not-yet-played this session (in-memory only)
 _owned = None          # last-known owned intCD set; None until first observed (buy/sell diff)
 _list_ready = False    # the session-open bootstrap/purge of _want has run
 _ready_listeners = []  # no-arg callbacks fired on the main thread after each fetch round
@@ -269,14 +276,22 @@ def is_loaded():
 
 def needs_estimate(int_cd):
     """True when a fetch for this tank has COMPLETED but yielded no thresholds -- i.e. the WG
-    request errored or the API returned no data for it, so waiting won't help and the caller
-    should fall back to the offline estimator. False while a fetch is still pending (the caller
-    should wait) or when the tank is already cached."""
+    request returned no data for it (or the retries were exhausted), so waiting won't help and the
+    caller should fall back to the offline estimator. False while a fetch is still pending or
+    retrying (the caller should wait) or when the tank is already cached.
+
+    With NO application_id configured (an unbuilt/source checkout, or a build with no .env) there
+    is no source at all and no fetch is ever issued -- so the estimator is the only path and we
+    say so immediately rather than leaving the caller waiting on a fetch that will never happen."""
     try:
         cd = int(int_cd or 0)
     except (TypeError, ValueError):
         return False
-    return bool(cd) and cd in _seen and cd not in _table
+    if not cd:
+        return False
+    if not APP_ID:
+        return True
+    return cd in _seen and cd not in _table
 
 
 # --- fetch-list mutators (called by the bridge on buy/sell/select/battle) -----
@@ -335,22 +350,18 @@ def on_vehicle_sold(int_cd):
             kept = fetch_list.remove_id(list(_want.keys()), cd)
             _want = dict((c, _want[c]) for c in kept)
             _save_list()
-        _temp.discard(cd)
         LOG_NOTE("[moe] sold %d -> list=%d" % (cd, len(_want)))
     except Exception:
         LOG_CURRENT_EXCEPTION()
 
 
 def on_vehicle_selected(int_cd):
-    """A vehicle was selected in the garage -> track it in the session-only temp set (unless it
-    is already permanent). The threshold fetch itself is covered by get_thresholds() on the
-    push that follows selection, so this only records the not-yet-committed selection. Guarded."""
-    try:
-        cd = int(int_cd or 0)
-        if cd and cd not in _want:
-            _temp.add(cd)
-    except Exception:
-        LOG_CURRENT_EXCEPTION()
+    """A vehicle was selected in the garage. Selection deliberately does NOT touch the persistent
+    fetch list -- a tank is committed only by buying it or playing a battle in it; merely browsing
+    the carousel must not pollute the list. The threshold fetch is covered by get_thresholds() on
+    the push that follows selection, so this needs no bookkeeping today. Kept as a wired seam (the
+    bridge calls it on every selection) in case per-selection behavior is added later."""
+    return
 
 
 def on_battle_played(int_cd):
@@ -375,7 +386,6 @@ def _promote(cd):
     ids, evicted = fetch_list.add_with_eviction(
         list(_want.keys()), _want, cd, constants.FETCH_LIST_CAP)
     _want = dict((c, now if c == cd else _want.get(c, 0)) for c in ids)
-    _temp.discard(cd)
     _save_list()
     _enqueue([cd])
     return evicted
@@ -427,7 +437,11 @@ def _ensure_list_ready():
 
 def _enqueue(tank_ids):
     """Queue fetch job(s) for tank_ids, skipping any already cached / in-flight / seen, chunked
-    to the API's 100-id cap. Starts the pump."""
+    to the API's 100-id cap. Starts the pump. No-op when no application_id is configured (an
+    unbuilt/source checkout): there is no source, so skip the doomed HTTP round-trip entirely and
+    let needs_estimate() route straight to the offline estimator."""
+    if not APP_ID:
+        return
     ids = []
     for cd in tank_ids:
         if cd and cd not in _table and cd not in _inflight and cd not in _seen:
@@ -437,7 +451,7 @@ def _enqueue(tank_ids):
     for i in range(0, len(ids), _MAX_IDS_PER_REQUEST):
         chunk = ids[i:i + _MAX_IDS_PER_REQUEST]
         _inflight.update(chunk)
-        _queue.append(chunk)
+        _queue.append((chunk, 0))       # (chunk, attempt); attempt grows on transient-failure retry
     _pump()
 
 
@@ -446,34 +460,53 @@ def _pump():
     global _busy, _thread
     if _busy or not _queue or _FetchThread is None:
         return
+    chunk, attempt = _queue.pop(0)
     try:
-        chunk = _queue.pop(0)
         _busy = True
         _thread = _FetchThread(_build_url(chunk))
         _thread.chunk = chunk
+        _thread.attempt = attempt
         _thread.start()
         _schedule_poll()
     except Exception:
+        # The chunk is already popped off the queue; drop its ids from _inflight so they are not
+        # orphaned there forever (an orphaned id can never be re-queued: _enqueue skips _inflight
+        # ids and get_thresholds defers to it). Left OUT of _seen, so a later trigger can retry.
         _busy = False
+        _thread = None
+        for cd in chunk:
+            _inflight.discard(cd)
         LOG_CURRENT_EXCEPTION()
 
 
 def _poll():
     """Main-thread poll: when the current worker finishes, adopt its parsed rows, persist, fire
-    ready listeners, and start the next queued job."""
+    ready listeners, and start the next queued job.
+
+    Crucially, a chunk's ids are marked `_seen` (permanently no-refetch this session) ONLY when
+    the request got an AUTHORITATIVE answer (`ok`: a well-formed WG 'ok' envelope): then a tank
+    absent from the returned distribution genuinely has no MoE data and the estimator fallback is
+    correct. A TRANSIENT failure (network blip, rate-limit / error envelope) is NOT authoritative,
+    so its ids are retried (bounded, with backoff) and left OUT of `_seen` until the retries are
+    exhausted -- one blip no longer dooms the whole roster to the estimator for the session."""
     global _loaded, _busy, _thread, _poll_cb, _updated_at, _fetched_at
     _poll_cb = None
+    chunk = []
     try:
         thread = _thread
         if thread is not None and thread.is_alive():
             _schedule_poll()
             return
         chunk = getattr(thread, "chunk", []) if thread is not None else []
+        attempt = getattr(thread, "attempt", 0) if thread is not None else 0
         result = getattr(thread, "result", None) if thread is not None else None
         upd = getattr(thread, "updated_at", None) if thread is not None else None
         error = getattr(thread, "error", None) if thread is not None else None
+        ok = bool(getattr(thread, "ok", False)) if thread is not None else False
         if error:
             LOG_NOTE("[moe] wgapi fetch worker failed:\n%s" % error)
+        _busy = False
+        _thread = None
         stale = False
         if result:
             # A fetch that reveals a NEW WG `updated_at` means the distribution refreshed and
@@ -487,16 +520,37 @@ def _poll():
             _table.update(result)  # the just-fetched rows are current under the new updated_at
             if upd:
                 _updated_at = upd
-            _fetched_at = _now_epoch()  # freshness is anchored to OUR fetch time, not WG's updated_at
+            # Freshness is anchored to OUR fetch time, not WG's updated_at. It is stored PER FILE
+            # (one _fetched_at for the whole _table), not per row: any fetch re-stamps the window
+            # for every cached tank, so a lazy single-tank fetch at T+20h resets the 24h clock on
+            # rows cached at T. Accepted by design -- the updated_at-change trigger above is the
+            # primary invalidation (a genuine WG refresh drops the whole cache), and the 1-day
+            # window is only the fallback; the residual per-tank staleness is bounded by WG's own
+            # accepted 1-2 day publish lag. Revisit with per-row fetched_at only if that lag bites.
+            _fetched_at = _now_epoch()
             _save_cache()
-        for cd in chunk:
-            _inflight.discard(cd)
-            _seen.add(cd)
+        if ok:
+            # Authoritative response: tanks in `result` are now cached; tanks absent from it truly
+            # have no WG data -> mark seen so the caller degrades to the estimator (no pointless refetch).
+            for cd in chunk:
+                _inflight.discard(cd)
+                _seen.add(cd)
+        elif attempt < _MAX_FETCH_RETRIES:
+            # Transient failure: keep the ids in _inflight (so nothing double-enqueues) and retry
+            # after a backoff. NOT marked _seen -> recoverable.
+            _schedule_retry(chunk, attempt + 1)
+        else:
+            # Retries exhausted (sustained outage): give up and degrade to the estimator for the
+            # session, matching the graceful fallback -- but only after N spaced attempts, not one.
+            for cd in chunk:
+                _inflight.discard(cd)
+                _seen.add(cd)
+            if chunk:
+                LOG_NOTE("[moe] wgapi gave up on %d tanks after %d attempts -> estimator this session"
+                         % (len(chunk), _MAX_FETCH_RETRIES))
         _loaded = True
-        _busy = False
-        _thread = None
-        LOG_NOTE("[moe] wgapi fetch done: +%d tanks (%d cached)"
-                 % (len(result or {}), len(_table)))
+        LOG_NOTE("[moe] wgapi fetch done: +%d tanks (%d cached, ok=%s)"
+                 % (len(result or {}), len(_table), ok))
         _notify_ready()
         if stale:
             # _table/_seen were cleared above (the current chunk re-added), so this re-fetches
@@ -504,10 +558,53 @@ def _poll():
             _enqueue(list(_want.keys()))
         _pump()
     except Exception:
+        # Never leak the popped chunk's ids into _inflight (they'd be orphaned) and never stall the
+        # queue: drop them, keep pumping. Left OUT of _seen so a later trigger can still retry.
         _busy = False
         _thread = None
         _loaded = True
+        for cd in chunk:
+            _inflight.discard(cd)
         LOG_CURRENT_EXCEPTION()
+        _pump()
+
+
+def _response_ok(text):
+    """True iff `text` is a well-formed WG 'ok' envelope -- a request-level success we can TRUST as
+    authoritative about which tanks have data. A network failure (text is None), bad JSON, or an
+    error envelope (rate-limit / bad application_id) is NOT ok, so the caller retries rather than
+    marking the tanks permanently no-data. Distinct from an ok-but-EMPTY distribution, which IS
+    authoritative (those tanks genuinely lack MoE data). Pure -- safe on the worker thread."""
+    if not text:
+        return False
+    try:
+        blob = json.loads(text)
+    except (ValueError, TypeError):
+        return False
+    return (isinstance(blob, dict) and blob.get("status") == "ok"
+            and isinstance(blob.get("data"), dict))
+
+
+def _schedule_retry(chunk, attempt):
+    """Re-queue a transiently-failed chunk after a bounded backoff. Its ids stay in _inflight
+    across the wait (they were never discarded), so a concurrent get_thresholds won't double-queue
+    them. Main-thread only."""
+    idx = min(attempt - 1, len(_RETRY_BACKOFF_SECONDS) - 1)
+    delay = _RETRY_BACKOFF_SECONDS[idx]
+    LOG_NOTE("[moe] wgapi retrying %d tanks in %.0fs (attempt %d/%d)"
+             % (len(chunk), delay, attempt, _MAX_FETCH_RETRIES))
+    try:
+        import BigWorld
+        BigWorld.callback(delay, lambda: _requeue(chunk, attempt))
+    except Exception:
+        # No scheduler available (shouldn't happen in-client) -> requeue immediately.
+        _requeue(chunk, attempt)
+
+
+def _requeue(chunk, attempt):
+    """Put a retried chunk back on the queue at its next attempt count, then pump. Main-thread only."""
+    _queue.append((chunk, attempt))
+    _pump()
 
 
 def _notify_ready():
@@ -666,16 +763,19 @@ def _save_list():
 try:
     class _FetchThread(threading.Thread):
         """Downloads + parses one job (<=100 tank_ids) off the main thread. Stores the parsed
-        dict on self.result (None on failure) and, on failure, the traceback on self.error.
-        Never touches game state or WG's logger -- the main-thread poll adopts result + emits
-        any stashed traceback."""
+        dict on self.result (None on failure), whether the request got an authoritative WG 'ok'
+        envelope on self.ok (False on any transient failure -> the poll retries), and, on an
+        exception, the traceback on self.error. Never touches game state or WG's logger -- the
+        main-thread poll adopts result + emits any stashed traceback."""
 
         def __init__(self, url):
             threading.Thread.__init__(self)
             self.url = url
             self.chunk = []
+            self.attempt = 0
             self.result = None
             self.updated_at = None
+            self.ok = False
             self.error = None
             self.name = "MoE wgapi downloader"
             self.daemon = True
@@ -683,10 +783,12 @@ try:
         def run(self):
             try:
                 text = _fetch_text(self.url)
+                self.ok = _response_ok(text)
                 self.result, self.updated_at = parse_response(text)
             except Exception:
                 import traceback
                 self.error = traceback.format_exc()
                 self.result = None
+                self.ok = False
 except Exception:  # pragma: no cover - threading always present; defensive only
     _FetchThread = None

@@ -60,7 +60,13 @@ def add_with_eviction(current, recency_map, new_cd, cap=constants.FETCH_LIST_CAP
     Idempotent: an id already present returns the list unchanged and no eviction. With room to
     spare the id is appended. When the list is full the least-recently-played CURRENT member is
     evicted first (tie -> largest intCD, exactly the element rank_by_recency would drop off the
-    tail), then the new id is appended. Pure."""
+    tail), then the new id is appended. Pure.
+
+    Eviction ranks only the CURRENT members, not `new_cd`, so a full list could in principle drop
+    a member fresher than the incoming tank. That is safe by the caller contract: `add` fires only
+    on buy / battle-played (moe_wgapi._promote), which stamps `new_cd`'s recency to `now` -- i.e.
+    the incoming tank is always the most-recently-active one, never a stale add, so it would never
+    be the correct victim anyway. If a caller ever adds a genuinely stale id, revisit this."""
     ids = [int(c) for c in current]
     new_cd = int(new_cd)
     if new_cd in ids:

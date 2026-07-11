@@ -42,11 +42,14 @@
     font-family: PFDINMax, "PF DIN Max Compressed", "Warhelios", sans-serif;
     letter-spacing: 0.02em;
     color: #ede6d9;
-    /* Capture pointer on the box FOOTPRINT ONLY so it can react to :hover (item 2 --
-       mirrors the garage bottom-bar boxes). The box floats over dead hangar space above
-       the carousel; every overlay child that extends past the box (.moe-ticks,
-       .moe-end*, .moe-cur-marker) keeps pointer-events:none so only the panel captures
-       hover -- drag-to-rotate/clicks that start off the box are untouched. */
+    /* Capture the pointer on the box FOOTPRINT so it can react to :hover -- this powers the
+       box's own hover polish (#moe-root:hover brightens the fill + fades the border into one flat
+       panel; and, when re-enabled, the hover tooltip). :hover only fires on an element that
+       RECEIVES pointer events, so this MUST stay `auto` for the hover visual to work at all --
+       do NOT set it to `none` (that silently kills the hover styling below). The box floats over
+       largely-dead hangar space above the carousel, and every overlay child that extends past the
+       box (.moe-ticks, .moe-end*, .moe-cur-marker) stays pointer-events:none, so only the panel
+       footprint captures -- a drag-to-rotate/click that starts off the box is untouched. */
     pointer-events: auto;
     /* WoT "card" panel: a faint dark fill + a thin warm-parchment hairline border and a
        subtle inner shadow that darkens the fill from the edges inward (tuned in the MoE

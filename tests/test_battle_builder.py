@@ -135,6 +135,14 @@ def test_build_battle_model_clamps_cur_percent_to_100():
     assert m.cur_percent == 100.0
 
 
+def test_build_battle_model_nan_pre_percentile_clamps():
+    # A NaN pre_percentile must be clamped to the low bound, not passed through: NaN compares
+    # False against the clamp bounds, so the naive clamp would leak NaN into cur_percent.
+    m = build_battle_model(_bsnap(pre_percentile=float("nan")))
+    assert m.cur_percent == m.cur_percent  # not NaN
+    assert 0.0 <= m.cur_percent <= 100.0
+
+
 def test_build_battle_model_no_thresholds_degrades():
     m = build_battle_model(_bsnap(thresholds={}))
     assert m.has_data is False

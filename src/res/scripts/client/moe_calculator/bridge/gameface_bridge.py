@@ -30,7 +30,6 @@ from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_NOTE
 from moe_calculator.adapter import engine_adapter
 from moe_calculator.adapter import moe_data
 from moe_calculator.adapter import garage_roster
-from moe_calculator.adapter import format as fmt
 from moe_calculator.adapter import i18n
 from moe_calculator.domain.builder import build_model, bar_visible
 from moe_calculator.domain.placement import choose_placement, INJECT, BLOCKED
@@ -91,8 +90,9 @@ _data_listener_armed = False
 # the result MUST be stored back onto the attribute or the subscription is silently lost.
 
 def _on_vehicle_changed(*args, **kwargs):
-    # Tank selection changed -> record the selection in the fetch list's temp set (its threshold
-    # fetch is covered by get_thresholds() in the push below), then re-push.
+    # Tank selection changed -> notify the data source (a no-op seam today: selection commits
+    # nothing to the fetch list, and the threshold fetch is covered by get_thresholds() in the
+    # push below), then re-push.
     try:
         moe_data.on_vehicle_selected(garage_roster.selected_int_cd())
     except Exception:
@@ -480,9 +480,10 @@ def push(rvm, host_vm=None):
                 tv.setMarkCount(tk.mark_count)
                 tv.setDamageRequired(tk.damage_required)
                 tv.setReached(bool(tk.reached))
-                # Compose the nation mark art here (asset knowledge lives in the adapter,
-                # not the pure domain). "" -> the widget uses a generic glyph.
-                tv.setIcon(fmt.mark_icon_url(model.nation, tk.mark_count))
+                # No per-tick icon: the widget draws a flat, nation-agnostic mark glyph
+                # (MoECalculator.js FLAT_MARK) for every tick -- the nation gun-barrel decals mush
+                # at tick size, so they were dropped. (Was: tv.setIcon(mark_icon_url(...)), which
+                # the JS never read.)
                 arr.addViewModel(tv)
             arr.invalidate()
         # Nudge the host sub-view so its data re-syncs to JS (nested-model updates may not

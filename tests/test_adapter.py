@@ -43,12 +43,16 @@ def test_signed_percent_sub_precision_reads_zero():
     assert fmt.signed_percent(0.06, decimals=1) == "+0.1%"
 
 
-def test_mark_icon_url():
-    assert fmt.mark_icon_url("germany", 1) == \
-        "img://gui/maps/icons/marksOnGun/95x85/germany_1_mark.png"
-    assert fmt.mark_icon_url("germany", 2) == \
-        "img://gui/maps/icons/marksOnGun/95x85/germany_2_marks.png"
-    assert fmt.mark_icon_url("ussr", 3) == \
-        "img://gui/maps/icons/marksOnGun/95x85/ussr_3_marks.png"
-    # unknown nation -> empty (widget falls back to a generic glyph)
-    assert fmt.mark_icon_url("", 2) == ""
+def test_percent_exact_half_rounds_half_away():
+    # An exact .5 at decimals=0 must round half-AWAY-from-zero (what the py2.7 client does),
+    # NOT half-to-even (what py3's built-in round() would do -> "84%"). Regression guard for
+    # the py2/py3 rounding divergence.
+    assert fmt.percent(84.5, decimals=0) == "85%"
+    assert fmt.percent(85.5, decimals=0) == "86%"  # py3 round(85.5) == 86 too; half-away here
+
+
+def test_signed_percent_exact_half_rounds_half_away():
+    # signed_percent(0.5, decimals=0): half-away -> "+1%" (py3 round(0.5)==0 -> would be "0%").
+    assert fmt.signed_percent(0.5, decimals=0) == "+1%"
+    assert fmt.signed_percent(-0.5, decimals=0) == "-1%"
+    assert fmt.signed_percent(2.5, decimals=0) == "+3%"  # py3 round(2.5)==2 -> the divergence

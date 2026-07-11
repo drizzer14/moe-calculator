@@ -62,6 +62,120 @@ def test_parse_response_missing_distribution_is_empty():
     assert moe_wgapi.parse_response(json.dumps({"status": "ok", "data": {}}))[0] == {}
 
 
+# --- _response_ok (authoritative-success vs transient-failure discriminator) --
+
+def test_response_ok_true_for_well_formed_ok_envelope():
+    assert moe_wgapi._response_ok(json.dumps(_OK)) is True
+    # ok with an EMPTY distribution is STILL authoritative (those tanks genuinely have no data).
+    assert moe_wgapi._response_ok(json.dumps({"status": "ok", "data": {}})) is True
+
+
+def test_response_ok_false_for_transient_failures():
+    assert moe_wgapi._response_ok(None) is False           # network failure (no body)
+    assert moe_wgapi._response_ok("") is False
+    assert moe_wgapi._response_ok("not json") is False      # bad JSON
+    # WG error envelope (rate-limit / bad application_id) -> retry-able, NOT authoritative.
+    assert moe_wgapi._response_ok(json.dumps(
+        {"status": "error", "error": {"message": "REQUEST_LIMIT_EXCEEDED"}})) is False
+    assert moe_wgapi._response_ok(json.dumps({"status": "ok", "data": None})) is False
+
+
+# --- _poll state machine: transient-failure retry vs authoritative no-data ----
+# The engine seams (BigWorld.callback) are no-op stubs (conftest), so _poll runs its branch
+# logic synchronously; we drive it with a fake finished worker and inspect module state.
+
+class _FakeThread(object):
+    def __init__(self, chunk, ok=False, result=None, updated_at=None, error=None, attempt=0):
+        self.chunk = chunk
+        self.ok = ok
+        self.result = result
+        self.updated_at = updated_at
+        self.error = error
+        self.attempt = attempt
+
+    def is_alive(self):
+        return False
+
+
+def _reset_fetch_state(monkeypatch, app_id="app-id", **kw):
+    monkeypatch.setattr(moe_wgapi, "APP_ID", app_id)
+    monkeypatch.setattr(moe_wgapi, "_seen", set())
+    monkeypatch.setattr(moe_wgapi, "_inflight", set(kw.get("inflight", ())))
+    monkeypatch.setattr(moe_wgapi, "_table", dict(kw.get("table", {})))
+    monkeypatch.setattr(moe_wgapi, "_queue", [])
+    monkeypatch.setattr(moe_wgapi, "_want", {})
+    monkeypatch.setattr(moe_wgapi, "_busy", True)
+    monkeypatch.setattr(moe_wgapi, "_loaded", False)
+    monkeypatch.setattr(moe_wgapi, "_updated_at", 0)
+    monkeypatch.setattr(moe_wgapi, "_fetched_at", 0)
+    monkeypatch.setattr(moe_wgapi, "_ready_listeners", [])
+    monkeypatch.setattr(moe_wgapi, "_save_cache", lambda: None)
+    monkeypatch.setattr(moe_wgapi, "_now_epoch", lambda: 1000)
+
+
+def test_poll_transient_failure_does_not_mark_seen_and_retries(monkeypatch):
+    # A network blip / rate-limit on the FIRST attempt: ids must NOT be marked _seen (retry-able)
+    # and must stay in _inflight while the bounded retry is scheduled -- the headline fix.
+    _reset_fetch_state(monkeypatch, inflight=(10, 20))
+    monkeypatch.setattr(moe_wgapi, "_thread", _FakeThread([10, 20], ok=False, result={}, attempt=0))
+    moe_wgapi._poll()
+    assert moe_wgapi._seen == set()             # NOT doomed to the estimator
+    assert moe_wgapi._inflight == {10, 20}      # still tracked (retry pending, no double-enqueue)
+
+
+def test_poll_gives_up_after_max_retries(monkeypatch):
+    # Sustained outage: on the final attempt the chunk is given up -> marked _seen (degrade to the
+    # estimator for the session) and cleared from _inflight, rather than retrying forever.
+    _reset_fetch_state(monkeypatch, inflight=(10, 20))
+    monkeypatch.setattr(moe_wgapi, "_thread",
+                        _FakeThread([10, 20], ok=False, result={}, attempt=moe_wgapi._MAX_FETCH_RETRIES))
+    moe_wgapi._poll()
+    assert moe_wgapi._seen == {10, 20}
+    assert moe_wgapi._inflight == set()
+
+
+def test_poll_authoritative_ok_marks_seen_even_when_tank_absent(monkeypatch):
+    # A successful WG 'ok' response that simply doesn't include the tank IS authoritative: the tank
+    # genuinely has no MoE data -> mark _seen so the caller degrades to the estimator (no refetch).
+    _reset_fetch_state(monkeypatch, inflight=(99,))
+    monkeypatch.setattr(moe_wgapi, "_thread", _FakeThread([99], ok=True, result={}, attempt=0))
+    moe_wgapi._poll()
+    assert moe_wgapi._seen == {99}
+    assert moe_wgapi._inflight == set()
+    assert moe_wgapi.needs_estimate(99) is True   # -> estimator fallback
+
+
+def test_poll_authoritative_ok_with_data_caches_and_seen(monkeypatch):
+    _reset_fetch_state(monkeypatch, inflight=(69153,))
+    row = {1: 2544, 2: 3634, 3: 4512, 100: 5229}
+    monkeypatch.setattr(moe_wgapi, "_thread",
+                        _FakeThread([69153], ok=True, result={69153: row}, updated_at=123, attempt=0))
+    moe_wgapi._poll()
+    assert moe_wgapi._table[69153] == row
+    assert moe_wgapi._seen == {69153}
+    assert moe_wgapi.needs_estimate(69153) is False   # real data -> no estimate
+
+
+def test_needs_estimate_true_when_no_app_id(monkeypatch):
+    # No application_id configured -> no fetch is ever issued, so the estimator is the only path.
+    monkeypatch.setattr(moe_wgapi, "APP_ID", "")
+    monkeypatch.setattr(moe_wgapi, "_seen", set())
+    monkeypatch.setattr(moe_wgapi, "_table", {})
+    assert moe_wgapi.needs_estimate(1073) is True
+    assert moe_wgapi.needs_estimate(0) is False       # no vehicle -> not an estimate
+
+
+def test_enqueue_noop_without_app_id(monkeypatch):
+    monkeypatch.setattr(moe_wgapi, "APP_ID", "")
+    monkeypatch.setattr(moe_wgapi, "_queue", [])
+    monkeypatch.setattr(moe_wgapi, "_inflight", set())
+    monkeypatch.setattr(moe_wgapi, "_seen", set())
+    monkeypatch.setattr(moe_wgapi, "_table", {})
+    moe_wgapi._enqueue([1073, 2049])
+    assert moe_wgapi._queue == []                      # no doomed HTTP round-trip queued
+    assert moe_wgapi._inflight == set()
+
+
 # --- fresh_table (threshold cache envelope, revalidated at fetched_at + 24h) ---
 
 _UPD = 1783468800      # WG's own updated_at (epoch s) -- stored, but NOT the freshness anchor
