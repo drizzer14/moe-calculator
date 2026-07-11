@@ -1,6 +1,6 @@
 ---
 name: moe-garage
-description: Use when editing the 14th_ua MoE Calculator's HANGAR percentile-bar widget — its garage mount/hook, the MoEVM/MarkTickVM data channel, the engine read, or the MoECalculator.js/.css DOM, render branches, bar axis, carousel positioning, assets, or the (disabled) hover tooltip. For the in-battle overlay see moe-battle.
+description: Use when editing the 14th_ua MoE Calculator's HANGAR percentile-bar widget — its garage mount/hook, the MoEVM/MarkTickVM data channel, the engine read, or the MoECalculator.js/.css DOM, render branches, bar axis, carousel positioning, assets, or the hover tooltip. For the in-battle overlay see moe-battle.
 ---
 
 # MoE Calculator — garage widget (feature)
