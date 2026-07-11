@@ -21,9 +21,15 @@ function unwrap(x) {
 // decals carry flag backgrounds + detail that mush at tick size.
 const FLAT_MARK = "img://gui/maps/icons/library/marksOnGun/mark_%d.png";
 
-// Combined-damage glyph for the tooltip's current-damage row -- the same personal-
-// missions "battle condition: damage" art the top-left readout uses (see the .css).
-const DMG_ICON = "img://gui/maps/icons/personal_missions_30/quest_type/128x128/icon_battle_condition_damage.png";
+// The big nation mark art for the tooltip header -- the client's own "huge icon"
+// (getHugeIcon): marksOnGun 180x180 atlas, keyed by the vehicle's nation + mark count.
+// Matches the client's MoE award tooltip. count clamps to 1..3; a 0-mark vehicle shows
+// the 3-mark art (what you can earn), exactly as the client does (currentValue = 3 if 0).
+function bigMarkIcon(nation, marks) {
+    const count = (marks | 0) <= 0 ? 3 : Math.min(3, marks | 0);
+    const suffix = count < 2 ? "mark" : "marks";
+    return "img://gui/maps/icons/marksOnGun/180x180/" + (nation || "ussr") + "_" + count + "_" + suffix + ".png";
+}
 
 // Localized label bundle, pushed from Python as a JSON string on the model (`labels`).
 // The JS renders whatever the model carries and hardcodes NO English (see the
@@ -49,6 +55,45 @@ function pctText(p) {
     p = Math.floor((Number(p) || 0) * 100) / 100;   // truncate to 2dp first
     if (p <= 0) return "0%";
     return p.toFixed(2) + "%";
+}
+
+// Bare 2-decimal percentile figure (no "%"), truncated like pctText: "84.73".
+function pctNum(p) {
+    return (Math.floor((Number(p) || 0) * 100) / 100).toFixed(2);
+}
+
+// Build the tooltip's "current ratio" line from the localized WG template
+// (#tooltips:achievement/marksOnGunCount). This engine has NO inline formatting -- ANY child
+// element (span/font, any `display`) drops onto its own line; only flexbox lays boxes out
+// horizontally (confirmed by live probe; see the sibling wgmod-research-progress note). So the
+// ratio line is a flex-wrap row (see .moe-tip-ratio) and we emit ONE <span> PER WORD -- each a
+// flex item that wraps like text -- with the word(s) inside the WG template's colour tags
+// carrying `.moe-tip-hi` (white). Placeholders are filled as the client fills them: color_tag_*
+// delimit the highlighted run (marked here with \x01/\x02 sentinels, stripped as we tokenize),
+// `count` is the truncated percentile, `%%` a single `%`. The embedded newline + doubled spaces
+// collapse first so the split yields clean words. Returns "" when the string is absent.
+function ratioHtml(pct) {
+    const tpl = L("ratio");
+    if (!tpl) return "";
+    const marked = tpl
+        .replace("%(color_tag_open)s", "\x01")
+        .replace("%(color_tag_close)s", "\x02")
+        .replace("%(count)s", pctNum(pct))
+        .replace(/%%/g, "%")
+        .replace(/\s*\n\s*/g, " ")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+    const words = marked.split(" ");
+    let hot = false, html = "";
+    for (let i = 0; i < words.length; i++) {
+        let w = words[i];
+        if (w.indexOf("\x01") !== -1) { hot = true; w = w.replace(/\x01/g, ""); }
+        let closeAfter = false;
+        if (w.indexOf("\x02") !== -1) { closeAfter = true; w = w.replace(/\x02/g, ""); }
+        if (w) html += "<span" + (hot ? ' class="moe-tip-hi"' : "") + ">" + w + "</span>";
+        if (closeAfter) hot = false;
+    }
+    return html;
 }
 
 // Piecewise axis: map a percentile (0..100) to a position along the bar (0..100 %).
@@ -136,61 +181,67 @@ function renderTicks(ticksEl, ticks) {
     }
 }
 
-// Hover tooltip master switch. Off for now (WIP layout) -- flip to true to re-enable.
-// When false, renderTooltip() bails early so the host node is never built and no hover
-// listeners are bound (ensureTooltip is reached only through renderTooltip).
-const TOOLTIP_ENABLED = false;
+// Hover tooltip master switch. When false, renderTooltip() bails early so the host node
+// is never built and no hover listeners are bound (ensureTooltip is reached only through
+// renderTooltip).
+const TOOLTIP_ENABLED = true;
+
+// Hover-intent delay (ms) before a sustained hover reveals the tooltip, so a quick pass over
+// the bar doesn't flash it (matches the client's own tooltip dwell). The pending timer is
+// cleared on mouseleave and whenever the widget hides.
+const TOOLTIP_DELAY_MS = 400;
+let ttShowTimer = 0;
 
 // Build the hover tooltip host ONCE (body-level, position:fixed so it escapes the root
 // padding/frame) and bind the whole-widget hover on #moe-root. render() only updates the
-// row text/classes -- it never rebuilds this node, which would drop an open tooltip
-// mid-hover (see the harness Tooltips guidance). The tooltip stays pointer-events:none
-// (CSS) so it never steals the hangar's drag-to-rotate.
+// text/classes -- it never rebuilds this node, which would drop an open tooltip mid-hover
+// (see the harness Tooltips guidance). The tooltip stays pointer-events:none (CSS) so it
+// never steals the hangar's drag-to-rotate.
+//
+// Layout mirrors the client's native MoE award tooltip: the big nation mark art beside the
+// title + current-ratio line, then the description, a divider, and the condition rules.
 function ensureTooltip() {
     let tip = document.getElementById("moe-tooltip");
     if (tip) return tip;
     tip = document.createElement("div");
     tip.id = "moe-tooltip";
+    // Reuse the shared `.wg-tooltip` / `.wg-tip-*` tooltip component (the same class
+    // vocabulary the sibling wgmod-research-progress mod uses -- both mods render identically,
+    // but each ships its OWN standalone copy of the CSS, scoped to its root). Text column
+    // (title + ratio + description) inside .wg-tip-main, with the mark art pinned to the
+    // top-RIGHT out of flow (.wg-tip-icon). The divider + condition span full width below.
+    // MoE-local hooks: .moe-tip-ratio / .moe-tip-descr (JS targets; both styled by the shared
+    // .wg-tip-effect body row); condition bullets are shared .wg-tip-effect rows too.
+    tip.className = "wg-tooltip";
     tip.innerHTML =
-        '<div class="moe-tt-title"></div>' +
-        '<div class="moe-tt-grid">' +
-        '  <div class="moe-tt-grid-row"></div>' +
-        '  <div class="moe-tt-grid-row"></div>' +
+        '<div class="wg-tip-main wg-tip-main-mark">' +
+        '  <div class="wg-tip-text">' +
+        '    <div class="wg-tip-name"></div>' +
+        '    <div class="wg-tip-effect moe-tip-ratio"></div>' +
+        '  </div>' +
+        '  <div class="wg-tip-icon wg-tip-icon-mark"></div>' +
         '</div>' +
-        '<div class="moe-tt-sep"></div>' +
-        '<div class="moe-tt-foot">' +
-        '  <span class="moe-tt-foot-dmg">' +
-        '    <span class="moe-tt-foot-ico" style="background-image:url(' + DMG_ICON + ')"></span>' +
-        '    <span class="moe-tt-foot-dmg-val"></span>' +
-        '  </span>' +
-        '  <span class="moe-tt-foot-pct"></span>' +
-        '</div>';
+        // The description is a FULL-WIDTH paragraph OUTSIDE .wg-tip-main -- it sits below the
+        // mark art, so it must not be squeezed into the icon's reserved right column; as a
+        // top-level block it uses the whole tooltip width like the divider + conditions.
+        '<div class="wg-tip-effect moe-tip-descr"></div>' +
+        '<div class="wg-tip-div"></div>' +
+        '<div class="wg-tip-cond"></div>';
     document.body.appendChild(tip);
-
-    // The four requirement cells: three marks (65/85/95) + the 100% goalpost, laid out
-    // 2x2 (two cells per grid row). Built once; render() fills glyph/text/classes.
-    const gridRows = tip.querySelectorAll(".moe-tt-grid-row");
-    for (let i = 0; i < 4; i++) {
-        const cell = document.createElement("div");
-        cell.className = "moe-tt-cell";
-        cell.innerHTML =
-            '<span class="moe-tt-cell-ico"></span>' +
-            '<span class="moe-tt-cell-txt">' +
-            '  <span class="moe-tt-cell-pct"></span>' +
-            '  <span class="moe-tt-cell-dmg"></span>' +
-            '</span>' +
-            '<span class="moe-tt-cell-chk"></span>';
-        gridRows[i < 2 ? 0 : 1].appendChild(cell);
-    }
 
     const root = document.getElementById("moe-root");
     if (root) {
         root.addEventListener("mouseenter", function () {
             if (root.style.display === "none") return;
-            tip.classList.add("moe-tt-open");
-            positionTooltip(root, tip);
+            clearTimeout(ttShowTimer);
+            ttShowTimer = setTimeout(function () {
+                if (root.style.display === "none") return;   // widget hid during the delay
+                tip.classList.add("moe-tt-open");
+                positionTooltip(root, tip);
+            }, TOOLTIP_DELAY_MS);
         });
         root.addEventListener("mouseleave", function () {
+            clearTimeout(ttShowTimer);
             tip.classList.remove("moe-tt-open");
         });
     }
@@ -202,9 +253,8 @@ function ensureTooltip() {
 // node is shown (a hidden node measures 0).
 function positionTooltip(root, tip) {
     const r = root.getBoundingClientRect();
-    // Match the tooltip's width to the widget's EXACT rendered width (px, box-sizing agnostic
-    // -- #moe-tooltip is border-box, so this includes its frame). Set before measuring so the
-    // height/edge-clamp below reflect the final width.
+    // Match the tooltip's width to the widget's EXACT rendered px width (box-sizing:border-box,
+    // so this includes the frame). Set before measuring so the height/edge-clamp reflect it.
     tip.style.width = Math.round(r.width) + "px";
     const t = tip.getBoundingClientRect();
     const gap = 8;
@@ -222,48 +272,54 @@ function positionTooltip(root, tip) {
 }
 
 function hideTooltip() {
+    clearTimeout(ttShowTimer);   // drop any pending delayed-show so it can't fire off-widget
     const tip = document.getElementById("moe-tooltip");
     if (tip) tip.classList.remove("moe-tt-open");
 }
 
-// Populate the tooltip from the model. The only text is the localized WG title (off the
-// model's LABELS bundle -- no hardcoded English); everything else is language-neutral
-// numbers, percentages, and the widget's own glyphs (mark art + the damage icon).
+// Populate the tooltip from the model -- the client's own MoE award tooltip. All text is
+// localized off the model's LABELS bundle (no hardcoded English); the mark art is the
+// vehicle's own nation icon. Title/description are keyed by the current mark count
+// (title0..3 / descr0..3): at 0 marks the blurb tells you how to earn the 1st, at 3 it
+// reads "maximum obtained" -- exactly as the client does.
 function renderTooltip(root, data) {
     if (!TOOLTIP_ENABLED) return;
     const tip = ensureTooltip();
-    tip.querySelector(".moe-tt-title").textContent = L("title");
+    const marks = Math.max(0, Math.min(3, Number(data.marks) || 0));
 
-    // 2x2 requirement grid. Cells 0..2 = the three marks (65/85/95%) with the flat mark
-    // glyph; cell 3 = the 100% goalpost (glyph-less). Each shows its percentile + required
-    // combined damage; a reached mark brightens and carries a check.
-    const ticks = (data.ticks || []).map(unwrap);
-    const cells = tip.querySelectorAll(".moe-tt-grid .moe-tt-cell");
-    for (let i = 0; i < 3; i++) {
-        const cell = cells[i];
-        const tk = ticks[i];
-        const count = tk ? Math.max(1, Math.min(3, tk.markCount || (i + 1))) : (i + 1);
-        cell.querySelector(".moe-tt-cell-ico").style.backgroundImage =
-            "url(" + FLAT_MARK.replace("%d", String(count)) + ")";
-        cell.querySelector(".moe-tt-cell-pct").textContent =
-            tk ? (Math.round(tk.percent || 0) + "%") : "";
-        cell.querySelector(".moe-tt-cell-dmg").textContent =
-            (tk && tk.damageRequired > 0) ? thousands(tk.damageRequired) : "";
-        cell.querySelector(".moe-tt-cell-chk").textContent = (tk && tk.reached) ? "✓" : "";
-        cell.classList.toggle("moe-tt-cell-reached", !!(tk && tk.reached));
+    const iconEl = tip.querySelector(".wg-tip-icon");
+    iconEl.style.backgroundImage = "url(" + bigMarkIcon(data.nation, marks) + ")";
+    // 0 marks: dim the (aspirational 3-mark) art -- the client shows an unearned mark faint
+    // in its own statistics/awards tooltip.
+    iconEl.classList.toggle("wg-tip-icon-unearned", marks === 0);
+    tip.querySelector(".wg-tip-name").textContent = L("title" + marks);
+    tip.querySelector(".moe-tip-descr").textContent = L("descr" + marks);
+
+    // Current-ratio line: shown only when the client would (a real percentile > 0), matching
+    // the native tooltip's localizedValue (empty at damageRating <= 0). Plain inline text.
+    const ratio = tip.querySelector(".moe-tip-ratio");
+    const pct = Number(data.curPercent) || 0;
+    if (pct > 0) {
+        ratio.innerHTML = ratioHtml(pct);
+        ratio.classList.remove("moe-tip-empty");
+    } else {
+        ratio.innerHTML = "";
+        ratio.classList.add("moe-tip-empty");
     }
-    // 100% goalpost cell (index 3): no mark glyph, percent "100%", the end goalpost damage.
-    const end = data.endDamageRequired || 0;
-    const goal = cells[3];
-    goal.querySelector(".moe-tt-cell-ico").style.backgroundImage = "";
-    goal.querySelector(".moe-tt-cell-pct").textContent = "100%";
-    goal.querySelector(".moe-tt-cell-dmg").textContent = end > 0 ? thousands(end) : "";
-    goal.querySelector(".moe-tt-cell-chk").textContent = "";
-    goal.classList.remove("moe-tt-cell-reached");
 
-    // Footer: current combined-damage (left) and current percentile (right), opposite corners.
-    tip.querySelector(".moe-tt-foot-dmg-val").textContent = thousands(data.curAvgDamage || 0);
-    tip.querySelector(".moe-tt-foot-pct").textContent = pctText(data.curPercent || 0);
+    // Condition rules: one localized '\n'-separated block -> one line per bullet, each a
+    // shared .wg-tip-effect body row (same rhythm as the ratio + description above).
+    const cond = tip.querySelector(".wg-tip-cond");
+    cond.innerHTML = "";
+    const lines = (L("condition") || "").split("\n");
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        const el = document.createElement("div");
+        el.className = "wg-tip-effect";
+        el.textContent = line;
+        cond.appendChild(el);
+    }
 
     if (tip.classList.contains("moe-tt-open")) positionTooltip(root, tip);
 }

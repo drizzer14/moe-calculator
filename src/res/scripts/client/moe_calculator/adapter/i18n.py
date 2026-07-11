@@ -29,18 +29,49 @@ DEFAULT_LANGUAGE = "en"
 #   title     -> "Marks of Excellence"  (the MoE achievement's own name; NOT marksOnGunHeader,
 #                which renders the unrelated label "Ranks by average damage:")
 #   avgDamage -> "Average Damage"
+#
+# The hover tooltip reproduces the client's own MoE award tooltip (Vehicle stats -> Awards),
+# so its text is the client's own achievement strings, keyed by the player's mark count:
+#   title0..3 -> "Marks of Excellence" / "1|2|3 Mark(s) of Excellence"  (#achievements:marksOnGun{N})
+#   descr0..3 -> the how-to-earn-the-next-mark blurb / "maximum obtained" (marksOnGun{N}_descr)
+#   condition -> the multi-line rules block  (#achievements:marksOnGun_condition; '\n'-separated,
+#                bullet chars baked into the string -- the JS splits on '\n')
+#   ratio     -> the "current ratio is higher than N% of players" template
+#                (#tooltips:achievement/marksOnGunCount; has %(color_tag_open)s / %(count)s /
+#                %(color_tag_close)s placeholders + a literal %% -- the JS substitutes them).
 # ("marks" is bundled, not reused: the only marks-count WG string is a whole templated
 # sentence -- "#tooltips:achievement/marksOnGunCount" -- unusable as a compact row label.)
 _WG_KEYS = {
     "title": "#achievements:marksOnGun0",         # tooltip header = "Marks of Excellence"
     "avgDamage": "#menu:tank_params/avgDamage",    # current-readout row label
+    # native MoE award-tooltip text, keyed by mark count 0..3
+    "title0": "#achievements:marksOnGun0",
+    "title1": "#achievements:marksOnGun1",
+    "title2": "#achievements:marksOnGun2",
+    "title3": "#achievements:marksOnGun3",
+    "descr0": "#achievements:marksOnGun0_descr",
+    "descr1": "#achievements:marksOnGun1_descr",
+    "descr2": "#achievements:marksOnGun2_descr",
+    "descr3": "#achievements:marksOnGun3_descr",
+    "condition": "#achievements:marksOnGun_condition",
+    "ratio": "#tooltips:achievement/marksOnGunCount",
 }
 
 # English fallbacks for the WG-sourced labels, used when the engine/key is unavailable
-# (under pytest, or if WG drops/renames a key).
+# (under pytest, or if WG drops/renames a key). Verbatim from the EU 2.3.0.1 client.
 _WG_FALLBACK_EN = {
     "title": "Marks of Excellence",
     "avgDamage": "Average Damage",
+    "title0": "Marks of Excellence",
+    "title1": "1 Mark of Excellence",
+    "title2": "2 Marks of Excellence",
+    "title3": "3 Marks of Excellence",
+    "descr0": "To obtain one Mark of Excellence, displayed on the gun, the average damage caused by the player and average damage caused with the player's assistance must be higher than the results of 65% of players in this vehicle for the past 14 days.",
+    "descr1": "To obtain two Marks of Excellence, displayed on the gun, the average damage caused by the player and average damage caused with the player's assistance must be higher than the results of 85% of players in this vehicle for the past 14 days.",
+    "descr2": "To obtain three Marks of Excellence, displayed on the gun, the average damage caused by the player and average damage caused with the player's assistance must be higher than the results of 95% of players in this vehicle for the past 14 days.",
+    "descr3": "The maximum number of Marks of Excellence is obtained.",
+    "condition": u"• The player's average damage is updated after each battle based on the last 100 battles. \n• Obtained Marks are permanent and do not disappear even if the player's average damage decreases.\n• Mark can only be earned in Tier V–XI vehicles.\n• Display of Marks on your vehicles can be disabled in the game settings.\n• Marks can only be obtained in Random Battles.",
+    "ratio": u"Current ratio is higher than the ratio of %(color_tag_open)s %(count)s%% %(color_tag_close)s\nplayers who fought in this vehicle for the past 14 days.",
 }
 
 # Our own strings, for concepts WG ships no reusable atom for. English is the fallback for

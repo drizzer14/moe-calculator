@@ -54,8 +54,10 @@
     /* WoT "card" panel: a faint dark fill + a thin warm-parchment hairline border and a
        subtle inner shadow that darkens the fill from the edges inward (tuned in the MoE
        box tuner). Replaces the old card_border.png 9-slice frame (::before, now removed).
-       Symmetric 18rem side padding so the bar spans the full panel width. */
-    padding: 11rem 18rem 9rem 18rem;
+       Symmetric 18rem side padding so the bar spans the full panel width. The box is
+       bottom-anchored (see `bottom` above), so trimming the bottom padding (9->8rem) also
+       lowers the bar ~1rem on screen (content bottom = box bottom - padding-bottom). */
+    padding: 11rem 18rem 8rem 18rem;
     background: rgba(10, 10, 10, 0.25);
     border-radius: 0.5rem;
     border: 1rem solid rgba(254, 235, 190, 0.1);
@@ -362,143 +364,157 @@
     color: #ede6d9;               /* reached marks read white */
 }
 
-/* --- hover tooltip: full localized stats breakdown ------------------------- */
+/* --- hover tooltip: native "Marks of Excellence" award tooltip ------------- */
 /* A body-level fixed panel (JS positions + edge-clamps it) shown while the widget is
-   hovered. Skinned to EXACTLY match the client's native garage tooltips: it reuses WG's
-   own tooltip chrome by VALUE. WG's generic tooltip container (.TooltipDecorator_decorator
-   in the client's Gameface CSS) is a 9-slice `border-image` of the components-atlas
-   WG's ammunition/module ("blocks") tooltip skin, ported verbatim from the client's own
-   Gameface CSS (mono/hangar/tooltips/tooltips.css -> .Index_decorator): the shared tooltip
-   window texture `R.images.gui.maps.icons.tooltip.background_with_border` drawn at
-   `border-image: ... 4 fill / 4rem round` (a THIN 4px 9-slice: solid rgb(25,25,25) fill,
-   1px light rim rgb(53,51,49), softly-rounded corners baked in), under a single soft
-   `box-shadow: 0 0 32px rgba(15,15,15,.8)`. We bundle that exact texture as a sibling PNG
-   (tooltip_bg.png, from gui/maps/icons/tooltip/background_with_border.png) because
-   border-image ignores img://+data: URIs but paints a relatively-loaded sibling file (same
-   trick as the widget's card_border.png). background-color duplicates the fill so it survives
-   if Coherent drops `fill`, and so box-shadow (needs a bg fill) renders. Hidden by default;
-   JS toggles .moe-tt-open. pointer-events:none so it never steals hangar input. Width is set
-   in JS to the widget's exact px width. All colours hardcoded (Gameface drops a whole
-   declaration on an unresolved var()). */
+   hovered, reproducing the client's own MoE award tooltip (Vehicle stats -> Awards): the
+   big nation mark art + the achievement title, the current-ratio line, the descriptive
+   text, a divider, and the condition rules. All text is the client's own strings (resolved
+   in adapter/i18n.py, pushed via the model's `labels` bundle); the mark art is the
+   marksOnGun 180x180 atlas.
+
+   STRUCTURE + CHROME reuse the shared `.wg-tooltip` / `.wg-tip-*` tooltip COMPONENT (see the
+   wotmod-gameface-widget harness skill, "Native tooltip recipe"): the SAME class vocabulary
+   the sibling wgmod-research-progress mod uses, so both mods' tooltips render IDENTICALLY.
+   The mods stay STANDALONE -- each ships its OWN copy of these rules (no shared file), scoped
+   here to #moe-tooltip so two installed mods never collide (the sibling scopes the same
+   classes under #wgmod-root). Chrome = WG's 9-slice tooltip frame (border-image of
+   gui/maps/icons/tooltip/background_with_border.png, 4 fill / 4rem round) loaded via `img://`
+   on the border-image LONGHAND -- which resolves where the `border-image` shorthand silently
+   fails -- over a rgba(20,20,20,.95) fallback + the native 0 0 32rem shadow; #ede6d9 title /
+   #8e867d body tokens; the width-stretched gui/maps/icons/tooltip/divider.png separator. The
+   bundled tooltip_bg.png / tooltip_divider.png stay sibling fallbacks if a client patch ever
+   breaks the img:// atlas. Hidden by default; JS toggles .moe-tt-open. pointer-events:none so
+   it never steals hangar input. All colours hardcoded (Gameface drops a whole declaration on
+   an unresolved var()).
+   MoE-LOCAL additions (NOT part of the shared recipe): .wg-tip-icon-mark / .wg-tip-main-mark
+   (the 180x180 mark-art icon box + its reserved column), .wg-tip-icon-unearned (dim the
+   aspirational art at 0 marks), .moe-tip-ratio / .moe-tip-descr (JS hooks, both styled by the
+   shared .wg-tip-effect), .moe-tip-hi (the white percentile highlight), .moe-tip-empty (hide
+   the ratio at 0%). */
 #moe-tooltip {
     position: fixed;
     display: none;
     left: 0;
     top: 0;
     z-index: 10000;               /* above the widget (9000) and its frame/hover overlays */
-    box-sizing: border-box;       /* so the JS-set width includes the frame -> matches widget */
+    box-sizing: border-box;
+    min-width: 168rem;
+    max-width: 440rem;            /* content-sized, like the sibling .wg-tooltip */
     font-family: PFDINMax, "PF DIN Max Compressed", "Warhelios", sans-serif;
     letter-spacing: 0.02em;
+    text-align: left;
+    white-space: normal;
     color: #ede6d9;
-    border: 4rem solid transparent;
-    border-image: url(tooltip_bg.png) 4 fill / 4rem round;
-    background-color: rgb(25, 25, 25);
-    box-shadow: 0 0 32px rgba(15, 15, 15, 0.8);   /* WG tooltip-window drop */
-    padding: 14rem 20rem 18rem;   /* WG blocks-tooltip content inset (.Index_ba2db44b) */
+    background: rgba(20, 20, 20, 0.95);            /* fallback under the atlas frame */
+    border-style: solid;
+    border-width: 4rem;
+    border-color: transparent;
+    border-image-source: url('img://gui/maps/icons/tooltip/background_with_border.png');
+    border-image-slice: 4 fill;
+    border-image-width: 4rem;
+    border-image-repeat: round;
+    box-shadow: 0 0 32rem rgba(15, 15, 15, 0.8);   /* native tooltip shadow */
+    padding: 12rem 16rem 14rem;
     pointer-events: none;
 }
 #moe-tooltip.moe-tt-open { display: block; }
 
-/* Header -- the localized "Marks of Excellence" title. Sized to WG's daily-mission /
-   blocks-tooltip title tier (.Index_title): 20rem, weight 600, --color-general-primary
-   #ede6d9, opacity 0.9. */
-#moe-tooltip .moe-tt-title {
-    font-size: 20rem;
-    font-weight: 600;
-    color: #ede6d9;
-    opacity: 0.9;
-    margin-bottom: 12rem;
-    white-space: nowrap;
-}
-
-/* The four MoE requirements as a 2x2 grid: the three marks (65/85/95%) + the 100%
-   goalpost. Two rows of two cells; each cell = [mark glyph][percent / required damage].
-   Reached cells brighten + carry a check; unreached read faint. */
-#moe-tooltip .moe-tt-grid-row {
-    display: flex;
-    align-items: stretch;
-}
-#moe-tooltip .moe-tt-grid-row + .moe-tt-grid-row { margin-top: 4rem; }
-#moe-tooltip .moe-tt-cell {
-    display: flex;
-    align-items: center;
-    box-sizing: border-box;
-    width: 50%;
-    padding: 4rem 10rem 4rem 0;
-    white-space: nowrap;
-}
-/* Mark glyph (mark_1/2/3). background-image div, never <img> (Gameface clips <img>). */
-#moe-tooltip .moe-tt-cell-ico {
+/* Main block: the text column (title + ratio + description) with the mark-art icon pinned to
+   the top-RIGHT and OUT of flow (absolute) -- the shared .wg-tip-main recipe. A plain BLOCK,
+   not flex/float: Coherent sizes a flex row from the text's FIRST line only and won't wrap
+   text around a float, so the icon is lifted out of flow into a reserved right-hand column
+   (.wg-tip-main-mark's padding-right = icon width + gap; a min-height floor = icon height),
+   and a plain block always grows to its full wrapped text. */
+#moe-tooltip .wg-tip-main {
     display: block;
-    flex: 0 0 auto;
-    width: 24rem;
-    height: 24rem;
-    margin-right: 8rem;
+    position: relative;
+}
+/* MoE mark-art column: reserve the 64rem icon + a 12rem gap; the min-height floor keeps a
+   short-text tooltip tall enough for the out-of-flow icon so the divider clears it. */
+#moe-tooltip .wg-tip-main-mark {
+    padding-right: 76rem;
+    min-height: 46rem;
+}
+#moe-tooltip .wg-tip-text {
+    min-width: 0;
+    overflow-wrap: break-word;    /* break an unbreakable token so it wraps inside max-width */
+    word-wrap: break-word;        /* old Coherent alias */
+}
+/* Shared icon box: out of flow, top-right; a background-image div (Gameface clips <img>); the
+   drop-shadow hugs the art's alpha. Its SIZE comes from the variant class. */
+#moe-tooltip .wg-tip-icon {
+    position: absolute;
+    top: 0;
+    right: 0;
     background-repeat: no-repeat;
-    background-position: center;
+    background-position: center top;   /* pin art to the TOP -> no centering on tall titles */
     background-size: contain;
+    filter: drop-shadow(0 1rem 2rem rgba(0, 0, 0, 0.85));
 }
-#moe-tooltip .moe-tt-cell-txt {
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 auto;
-    line-height: 1.2;
-}
-#moe-tooltip .moe-tt-cell-pct {
-    font-size: 14rem;
-    color: rgba(216, 207, 191, 0.75);
-}
-#moe-tooltip .moe-tt-cell-dmg {
-    font-size: 13rem;
-    color: rgba(216, 207, 191, 0.5);      /* requirement reads faint until reached */
-}
-#moe-tooltip .moe-tt-cell-chk {
-    flex: 0 0 auto;
-    margin-left: 6rem;
-    font-size: 13rem;
-    color: #8fce7a;                        /* reached check -- a calm WG-ish green */
-}
-#moe-tooltip .moe-tt-cell-reached .moe-tt-cell-pct { color: #ede6d9; }
-#moe-tooltip .moe-tt-cell-reached .moe-tt-cell-dmg { color: rgba(216, 207, 191, 0.85); }
-
-/* Footer: current combined-damage (left corner, with the widget's damage glyph) and
-   current percentile (right corner) pushed to opposite edges. */
-#moe-tooltip .moe-tt-foot {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    white-space: nowrap;
-}
-#moe-tooltip .moe-tt-foot-dmg {
-    display: flex;
-    align-items: center;
-}
-/* The damage glyph's 128px source fills only ~23% of its frame at contain, so zoom it
-   past the transparent padding -- exactly like the top-left readout icon (.moe-cur-icon). */
-#moe-tooltip .moe-tt-foot-ico {
-    display: block;
-    flex: 0 0 auto;
-    width: 20rem;
-    height: 20rem;
-    margin-right: 7rem;
-    background-repeat: no-repeat;
+/* MoE variant: the nation mark art (getHugeIcon = marksOnGun 180x180). The source is a
+   180x180 SQUARE canvas but the mark glyph inside is WIDE -- it occupies only rows ~25..153
+   (a 180x128 glyph) with ~25px transparent padding above and ~27px below, centred. So the box
+   takes the GLYPH's aspect (180:128 -> 64x46, not 64x64) and the art is scaled to fill the box
+   WIDTH (background-size 100% auto -> 64x64) then vertically CENTRED, which clips the equal
+   transparent bands top+bottom. Without this the square-in-square contain fit rendered the
+   glyph vertically centred in a 64x64 box -- i.e. ~9rem below the box top, reading as "lower
+   than the title" (the box is pinned top:0). Overrides the base icon's `contain` / `center top`. */
+#moe-tooltip .wg-tip-icon-mark {
+    width: 64rem;
+    height: 46rem;
+    background-size: 100% auto;
     background-position: center;
-    background-size: 260%;
 }
-#moe-tooltip .moe-tt-foot-dmg-val {
-    font-size: 15rem;
-    color: #ede6d9;
-}
-#moe-tooltip .moe-tt-foot-pct {
-    font-size: 15rem;
+/* 0 marks: dim the aspirational (3-mark) art, like an unearned mark in the client's own
+   statistics/awards tooltip. */
+#moe-tooltip .wg-tip-icon-unearned { opacity: 0.35; }
+
+/* Title -- native `.Index_title` token (primary parchment, semibold). */
+#moe-tooltip .wg-tip-name {
+    font-size: 16rem;
     font-weight: 600;
     color: #ede6d9;
+    opacity: 0.95;
+    line-height: 1.1;
 }
+/* Body text -- WG's tooltip description body: tertiary parchment, normal weight, wrapping.
+   The shared body row; here it styles the current-ratio line, the description, AND every
+   condition bullet, so all three share the native tooltip body rhythm (margin-top:5rem). */
+#moe-tooltip .wg-tip-effect {
+    margin-top: 5rem;
+    font-size: 12rem;
+    font-weight: 400;
+    color: #8e867d;
+    line-height: 1.25;
+}
+/* The current percentile, highlighted white like the native <font #FFFFFF>. Applied to a
+   <font> element (see ratioHtml) -- a bare <span> gets blockified by Coherent and drops onto
+   its own line; <font> renders inline. The figure has no internal spaces, so it never splits. */
+/* The ratio line renders one <span> PER WORD (see ratioHtml). This engine has no inline
+   formatting -- a colored child element always breaks onto its own line -- so the line is a
+   flex-wrap ROW (flexbox is the only horizontal layout it honours) and each word is a flex item
+   that wraps like text. Word spacing is a right margin on each item (NOT `gap`, which older
+   Coherent may not support); wrapped-line spacing comes from the items' own line-height. The
+   highlighted % word is .moe-tip-hi (white). */
+#moe-tooltip .moe-tip-ratio {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+}
+#moe-tooltip .moe-tip-ratio > span { margin-right: 3.4rem; }
+#moe-tooltip .moe-tip-hi { color: #ffffff; }
+/* The description is a full-width paragraph (it lives OUTSIDE .wg-tip-main -- see the DOM -- so
+   the icon's reserved column no longer narrows it). Its 7rem bottom margin opens the gap down
+   to the divider a touch more than the condition block's 5rem top margin below it. */
+#moe-tooltip .moe-tip-descr { margin-bottom: 7rem; }
+/* Ratio hidden at 0% (the client's empty-at-0 behaviour) so it adds no gap above the descr. */
+#moe-tooltip .moe-tip-empty { display: none; }
 
-/* Section separators -- WG's own tooltip divider image (gui/maps/icons/tooltip/divider.png,
-   a faint centred dotted rule), matched to .Index_separator (height 9rem, contain). */
-#moe-tooltip .moe-tt-sep {
+/* Section divider -- the same divider art WG's carousel vehicle tooltip uses, stretched to
+   full width x a fixed 9rem so the end-fade sits at the tooltip edges at any width. */
+#moe-tooltip .wg-tip-div {
     height: 9rem;
-    margin: 4rem 0 8rem;
-    background: url(tooltip_divider.png) center/contain no-repeat;
+    margin: 4rem 0;
+    background: url('img://gui/maps/icons/tooltip/divider.png') no-repeat center;
+    background-size: 100% 100%;
 }

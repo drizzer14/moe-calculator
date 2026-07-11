@@ -21,6 +21,28 @@ def test_labels_fall_back_to_english_without_engine():
         assert lab.get(key)
 
 
+def test_moe_tooltip_labels_present():
+    """The native-MoE-tooltip keys the widget JS reads by name resolve to non-empty text."""
+    lab = i18n.labels()
+    assert lab["title0"] == "Marks of Excellence"
+    assert lab["title1"] == "1 Mark of Excellence"
+    assert lab["title2"] == "2 Marks of Excellence"
+    assert lab["title3"] == "3 Marks of Excellence"
+    assert "65% of players" in lab["descr0"]
+    assert lab["descr3"]  # "maximum obtained"
+    # condition is the '\n'-separated bullet block the JS splits into lines
+    assert len([l for l in lab["condition"].split("\n") if l.strip()]) == 5
+
+
+def test_ratio_template_has_js_placeholders():
+    """The current-ratio template MUST keep the placeholders MoECalculator.js substitutes
+    (ratioHtml): the color-tag wrappers, %(count)s, and the literal %%. Guards the wire
+    contract so the offline/fallback path can't silently drift from the JS."""
+    tpl = i18n.labels()["ratio"]
+    for token in ("%(color_tag_open)s", "%(color_tag_close)s", "%(count)s", "%%"):
+        assert token in tpl
+
+
 def test_labels_are_cached():
     first = i18n.labels()
     assert i18n.labels() is first

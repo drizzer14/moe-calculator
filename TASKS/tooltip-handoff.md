@@ -1,91 +1,62 @@
-# MoE hover tooltip — handoff (WG ammo-tooltip restyle + 2x2 layout; NOW DISABLED behind a flag)
+# MoE hover tooltip — SHIPPED (shared .wg-tooltip component; in-game LGTM; committed)
 
-Session handoff for the **garage hover tooltip** (feature: `TASKS/hover-stats-tooltip.md`).
-Built full-stack in earlier sessions. **This session** (a) reskinned it to match WG's
-**ammunition / module ("blocks") tooltip** exactly, (b) reworked the content layout
-(bigger title + 2x2 requirement grid + opposite-corner footer), then (c) **DISABLED the
-whole tooltip behind a flag** at the user's request ("I'll come back to it later"). All
-**UNCOMMITTED**. The new layout was **NOT eyeballed live** (disabled before confirming).
+The garage hover tooltip reproduces the client's own **Marks-of-Excellence award tooltip**
+(Vehicle statistics → Awards), keyed by mark count 0..3: the big nation mark art (marksOnGun
+**180×180** atlas) top-right, the achievement **title**, the localized **current-ratio** line
+(the percentile highlighted white), the **description** (how to earn the next mark), a
+**divider**, and the 5-bullet **condition** block. All text is the client's own strings
+(dumped from the live EU 2.3.0.1 client into `adapter/i18n.py`, pushed via `MoEVM.labels`).
+`TOOLTIP_ENABLED = true`. **Verified in-game (LGTM) and committed.**
 
 Env: WoT = `D:/Games/World_of_Tanks_EU`, **EU 2.3.0.1**. Py2.7 = `C:\Python27\python.exe`
-(packaging); Py3.13 = `%LOCALAPPDATA%\Programs\Python\Python313\python.exe` (tests).
-Front-end hot-reload: `python tools/dev/sync_gameface.py "D:/Games/World_of_Tanks_EU" 2.3.0.1`
-then in-game toggle Tech Tree ↔ Garage (client may stay running; res_mods outranks the .wotmod).
+(packaging); Py3.13 = system `python` (tests).
 
-## STATE RIGHT NOW — tooltip is OFF
-`MoECalculator.js` has `const TOOLTIP_ENABLED = false;` (just above `ensureTooltip`).
-`renderTooltip()` bails on the first line when false, so the host node is never built and no
-hover listeners bind (`ensureTooltip` is reached ONLY through `renderTooltip`). The widget
-bar renders normally; hovering does nothing. **To resume: flip the flag to `true`, sync,
-toggle screen.** All the layout/skin code below is intact.
+## Final design (this is what shipped)
 
-## WG ammo/module tooltip skin — ported verbatim (do NOT re-probe; values captured here)
-Source: the client's own Gameface CSS, `mono/hangar/tooltips/tooltips.css` (`.Index_decorator`)
-+ `mono/tooltips/tooltips/tooltips.css` (`.Index_title`/`.Index_body`/`.Index_separator`).
-Extract pkg entries with Python `zipfile` (the harness `unzip`-wildcard trap does not apply).
-- **Bubble frame:** `border-image: url(tooltip_bg.png) 4 fill / 4rem round;`
-  `background-color: rgb(25,25,25);` `box-shadow: 0 0 32px rgba(15,15,15,.8);`
-  `border: 4rem solid transparent;` content `padding: 14rem 20rem 18rem;`
-  (This REPLACED the old components.dds `24 fill/24rem` skin + 3-layer `--hangar-highlight-shadow`.)
-- **Texture** `tooltip_bg.png` = WG's `gui/maps/icons/tooltip/background_with_border.png`
-  (gui-part2.pkg, 364×139): solid fill **rgb(25,25,25)**, 1px light rim **rgb(53,51,49)**,
-  softly-rounded corners baked into a 4px border region. Bundled beside the CSS (border-image
-  ignores `img://`/data: but paints a relative sibling — same trick as `card_border.png`).
-- **Divider** `tooltip_divider.png` = WG's `gui/maps/icons/tooltip/divider.png` (gui-part1.pkg,
-  624×18, faint centred dotted rule). `.moe-tt-sep`: `height:9rem; margin:4rem 0 8rem;
-  background:url(tooltip_divider.png) center/contain no-repeat;`
-- **Design tokens** (from `mono/lib/lib.css` + `global.css`): `--color-general-primary #ede6d9`
-  (237,230,217), `secondary #b2afab` (178,175,171), `tertiary #8e867d` (142,134,125).
-  Font `PFDINMax`, `letter-spacing: 0.02em`.
+**Shared `.wg-tooltip` / `.wg-tip-*` vocabulary, standalone copy.** The tooltip reuses the SAME
+class names + CSS as the sibling **wgmod-research-progress** mod's tooltip, so both render
+identically — but the mods stay STANDALONE: MoE ships its OWN copy of the rules, scoped to
+`#moe-tooltip` (the sibling scopes the same classes under `#wgmod-root`), so two installed mods
+never collide. The reusable recipe is documented in the **wotmod-gameface-widget** harness skill.
+DOM: `#moe-tooltip.wg-tooltip > (.wg-tip-main.wg-tip-main-mark > (.wg-tip-text > .wg-tip-name +
+.moe-tip-ratio) + .wg-tip-icon.wg-tip-icon-mark) + .moe-tip-descr + .wg-tip-div + .wg-tip-cond`.
+MoE-local additions (not part of the shared set): `.wg-tip-icon-mark`/`.wg-tip-main-mark`,
+`.wg-tip-icon-unearned`, `.moe-tip-ratio`/`.moe-tip-descr`, `.moe-tip-hi`, `.moe-tip-empty`.
 
-## Layout rework THIS session (the DOM the JS now builds)
-`.moe-tt-title` → **20rem / weight 600 / #ede6d9 / opacity 0.9** (WG daily-mission/blocks title
-tier; the daily_quest_tooltip.css itself only carries 18rem — its title comes from a shared
-header, so we used the canonical `.Index_title` 20rem token). Then a **2x2 grid**
-(`.moe-tt-grid` → two `.moe-tt-grid-row`, each two `.moe-tt-cell`) of the **four requirements**:
-cells 0–2 = the three marks (65/85/95%) with the flat mark glyph `mark_1/2/3` + percentile over
-required combined damage; cell 3 = the **100% goalpost** (glyph-less, `endDamageRequired`).
-Reached marks brighten + get a green `✓` (`.moe-tt-cell-reached`). Divider, then a **footer**
-(`.moe-tt-foot`, `justify-content:space-between`): current combined-damage LEFT (with the
-widget's `DMG_ICON` at `background-size:260%`), current **%** RIGHT — opposite corners.
-**Only localized text = the title** (off the model's `LABELS` bundle); everything else is
-language-neutral numbers/percent + reused widget glyphs. No new i18n keys needed.
+**Mark-art icon:** the 180×180 source is a SQUARE canvas but the glyph inside is WIDE (rows
+~25..153, ~25/27px transparent bands top/bottom). So the icon box takes the GLYPH aspect
+(64×46, not 64×64) with `background-size:100% auto` + `background-position:center`, cropping the
+bands — otherwise the square-in-square `contain` fit rendered the glyph vertically centred, ~9rem
+below the box top (read as "icon lower than the title").
 
-## Files touched this session (all in `src/`, uncommitted)
-- `MoECalculator.css` — `#moe-tooltip` reskin (see above) + full content-style rewrite
-  (title / grid / cells / footer). Removed the old `.moe-tt-row/-label/-val/-ico/-tick*` rules.
-- `MoECalculator.js` — `TOOLTIP_ENABLED` flag; `ensureTooltip()` builds the new grid+footer DOM;
-  `renderTooltip()` rewritten to fill 4 cells + footer (and bail when disabled).
-- `tooltip_bg.png` — REPLACED content with WG's `background_with_border.png` (was the 233×212
-  components.dds crop).
-- `tooltip_divider.png` — NEW (WG's tooltip/divider.png).
-- `tools/dev/sync_gameface.py` — ASSETS now lists `tooltip_divider.png` (user also added an
-  `ASSET_DIRS = ("fonts",)` copy pass — unrelated, for the battle overlay; leave it).
+**Current-ratio white % — THE engine gotcha.** This Gameface/Coherent build has **NO inline
+formatting**: a single text node wraps fine, but wrapping any run in a child element (span, font,
+`<i>`, any `display` — inline included) puts it on its OWN line. Confirmed by a live DOM probe
+(a default `<div>` is `block`; even inside a forced `display:block` container two `display:inline`
+spans landed on different lines). **The only horizontal-layout primitive is flexbox.** So the
+ratio line is a `display:flex; flex-wrap:wrap` container and `ratioHtml()` emits **one `<span>`
+per WORD** (each a flex item that wraps like text); the `%` word carries `.moe-tip-hi` (white).
+Word spacing = `margin-right` on each item (NOT `gap` — older Coherent may not support it). The
+WG template's `%(color_tag_open/close)s` are marked with `\x01`/`\x02` sentinels, stripped during
+tokenization. See [[hover-tooltip]].
 
-Prior-session parts of this same uncommitted feature (unchanged): `adapter/i18n.py` (labels +
-`_wg_text` hardening), `tests/test_i18n.py`, `bridge/view_models.py` (`labels` prop),
-`bridge/gameface_bridge.py` (`_labels_json()` + push).
+**Chrome:** WG's 9-slice tooltip frame via `border-image-source: url('img://…/tooltip/
+background_with_border.png')` (the **LONGHAND resolves `img://`** where the `border-image`
+shorthand does not) over an `rgba(20,20,20,.95)` fallback + `0 0 32rem` shadow; `#ede6d9` title /
+`#8e867d` body tokens; width-stretched `divider.png`. `tooltip_bg.png`/`tooltip_divider.png` stay
+bundled as fallbacks.
 
-## Deploy state
-CSS/JS + `tooltip_bg.png` + `tooltip_divider.png` **hot-reloaded** to `res_mods/2.3.0.1/…`.
-Tooltip is disabled, so nothing shows in-client. The **Python label fix is still on the OLD
-deployed build** — irrelevant while the tooltip is off; it must be rebuilt+deployed before the
-title reads "Marks of Excellence" once re-enabled (`C:\Python27\python.exe build\deploy_wotmod.py
-"D:/Games/World_of_Tanks_EU" 2.3.0.1`, client CLOSED). 43 tests pass; JS parses (`node --check`).
+**Layout tweaks (final):** description is a FULL-WIDTH paragraph (moved OUT of `.wg-tip-main` so
+the icon's reserved column doesn't narrow it), `margin-bottom: 7rem`. `#moe-root` bottom padding
+9→8rem (bottom-anchored, so this also lowers the bar ~1rem).
 
-## NEXT (when the user returns to the tooltip)
-1. Flip `TOOLTIP_ENABLED = true`, `sync_gameface.py … 2.3.0.1`, toggle screen.
-2. **Eyeball the new layout live** (never confirmed): 20rem title, the 2x2 grid, opposite-corner
-   footer, at the width-matched tooltip width. Likely tune knobs: grid cell font sizes (14/13rem)
-   if the damage numbers crowd at our width; the 100% cell is glyph-less (text aligns to the
-   reserved icon column) — give it a subtle marker if the empty slot reads odd. Fast CSS loop.
-3. Rebuild+deploy Python for the label fix, relaunch, verify title = "Marks of Excellence".
-4. (Gated on confirming the look) update the `wotmod-gameface-widget` skill with the "match WG's
-   native ammo/module tooltip" recipe — the `background_with_border`/`divider` texture locations,
-   the `4 fill/4rem round` + `0 0 32px` values, the design tokens, the sibling-PNG border-image
-   trick. Ask before editing the skill.
-5. **Commit** when asked. Tooltip-scoped files: `adapter/i18n.py`, `tests/test_i18n.py`,
-   `bridge/view_models.py`, `bridge/gameface_bridge.py`, `MoECalculator.js`, `MoECalculator.css`,
-   `tooltip_bg.png`, `tooltip_divider.png`, `tools/dev/sync_gameface.py`. (Tree also holds
-   unrelated widget-polish + in-battle-panel work — scope the commit; see
-   `TASKS/widget-polish-handoff.md`, `TASKS/in-battle-moe-panel.md`.)
+## Files (committed this session)
+`MoECalculator.js`, `MoECalculator.css`, `adapter/i18n.py`, `tests/test_i18n.py`. 215 tests pass,
+DEBUG ships False. Harness skill `wotmod-gameface-widget/SKILL.md` also updated (outside this repo).
+
+## Remaining
+1. **Rebuild the packaged `.wotmod`** with WoT CLOSED so it carries the final front-end and the
+   `res_mods` overlay is cleared: `C:\Python27\python.exe build\deploy_wotmod.py --clean-overlay`.
+   (Verified via hot-reloaded overlay only; source is committed ahead of the local package.)
+2. Update the **moe-garage** project skill's "Hover tooltip" section (still says DISABLED).
+3. Release bump if shipping (see wotmod-release).
