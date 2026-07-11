@@ -94,3 +94,9 @@ carries `MoECalculator-Setup-<ver>.exe` + the bare `.wotmod`, and `MoECalculator
 [wgmods.net/7745](https://wgmods.net/7745/). The installer self-update reads the GitHub Atom
 feed, so keep the `vX.Y.Z` tag + `MoECalculator-Setup-<ver>.exe` asset-name convention. Follow
 `wotmod-release` for the bump→tag→build→publish flow.
+
+**GitHub release title = `vX.Y.Z` (v-prefixed), strictly.** Both the tag AND the release title
+are `vX.Y.Z` (e.g. `v0.2.3`) — never the bare `X.Y.Z`. Every prior release (v0.1.0 … v0.2.3)
+follows this. Create with `gh release create vX.Y.Z --title "vX.Y.Z" …`, then verify
+`gh release view vX.Y.Z --json name --jq '.name'` prints `vX.Y.Z`; fix drift with
+`gh release edit vX.Y.Z --title "vX.Y.Z"`.
