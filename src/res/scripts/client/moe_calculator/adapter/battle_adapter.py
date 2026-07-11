@@ -23,7 +23,7 @@ cached (the dossier / garage roster is unreadable here).
 """
 import BigWorld
 
-from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_NOTE, _safe, _safe_int
+from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_DEBUG, _safe, _safe_int
 from moe_calculator.domain import battle_types as bt
 from moe_calculator.adapter import engine_adapter
 from moe_calculator.adapter import moe_data
@@ -223,12 +223,12 @@ def build_battle_snapshot():
             cached = baseline_cache.get(int_cd)
             if cached is not None:
                 pre_percentile, pre_avg = cached
-                LOG_NOTE("[moe-battle] baseline from garage cache: pct=%.2f avg=%d"
+                LOG_DEBUG("[moe-battle] baseline from garage cache: pct=%.2f avg=%d"
                          % (pre_percentile, pre_avg))
             elif baseline_known:
-                LOG_NOTE("[moe-battle] genuine 0 baseline (tank seen in garage, 0 career)")
+                LOG_DEBUG("[moe-battle] genuine 0 baseline (tank seen in garage, 0 career)")
             else:
-                LOG_NOTE("[moe-battle] no baseline (tank not seen in garage this session)")
+                LOG_DEBUG("[moe-battle] no baseline (tank not seen in garage this session)")
         thresholds = moe_data.get_thresholds(int_cd)
         nation = _player_nation(descr)
 

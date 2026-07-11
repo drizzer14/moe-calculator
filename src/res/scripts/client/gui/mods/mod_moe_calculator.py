@@ -15,7 +15,8 @@ OpenWG Gameface is a hard dependency. Python 2.7 (BigWorld) runtime.
 See the wotmod-architecture harness skill for the layered domain/adapter/bridge
 design this scaffold demonstrates, and wotmod-build-deploy for packaging.
 """
-from debug_utils import LOG_NOTE, LOG_CURRENT_EXCEPTION
+from debug_utils import LOG_CURRENT_EXCEPTION
+from moe_calculator._compat import LOG_DEBUG
 
 MOD_NAME = "14th_ua's MoE Calculator"
 MOD_VERSION = "0.2.2"
@@ -55,8 +56,8 @@ def _install():
     # Arm once now (for an install that happens while already in the hangar); each patched
     # _onLoading re-arms on every subsequent mount.
     bridge.install_all_listeners()
-    LOG_NOTE("[%s] v%s installed (collision-aware sub-view inject: %s)"
-             % (MOD_NAME, MOD_VERSION, ", ".join(patched) or "none"))
+    LOG_DEBUG("[%s] v%s installed (collision-aware sub-view inject: %s)"
+              % (MOD_NAME, MOD_VERSION, ", ".join(patched) or "none"))
 
 
 def _resolve_presenter(module_path, class_name):
@@ -117,8 +118,8 @@ def _install_battle():
     from moe_calculator.bridge import battle_bridge as bbridge
 
     bbridge.install_all_listeners()
-    LOG_NOTE("[%s] battle overlay armed (registered Gameface window on arena lifecycle)"
-             % MOD_NAME)
+    LOG_DEBUG("[%s] battle overlay armed (registered Gameface window on arena lifecycle)"
+              % MOD_NAME)
 
 
 try:

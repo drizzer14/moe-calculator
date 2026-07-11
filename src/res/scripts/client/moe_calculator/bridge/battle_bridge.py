@@ -14,7 +14,7 @@ burst of onTotalEfficiencyUpdated collapses to one deferred push.
 """
 import BigWorld
 
-from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_NOTE
+from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_DEBUG
 from moe_calculator.adapter import battle_adapter
 from moe_calculator.adapter import moe_data
 from moe_calculator.domain.battle_builder import build_battle_model, battle_bar_visible
@@ -152,7 +152,7 @@ def _on_moe_data_ready():
     # The MoE-data source signalled ready (a WG-API fetch round completed on the main-thread poll).
     # Re-push so the overlay (hidden while hasData is false) reveals with numbers.
     try:
-        LOG_NOTE("[moe-battle] table ready -> refresh")
+        LOG_DEBUG("[moe-battle] table ready -> refresh")
         refresh()
     except Exception:
         LOG_CURRENT_EXCEPTION()
@@ -236,7 +236,7 @@ def _arm(label, get_holder, attr, handler):
         if event is not None and handler not in event:
             event += handler
             setattr(holder, attr, event)
-            LOG_NOTE("[moe-battle] %s listener (re)armed" % label)
+            LOG_DEBUG("[moe-battle] %s listener (re)armed" % label)
     except Exception:
         LOG_CURRENT_EXCEPTION()
 
@@ -273,7 +273,7 @@ def _arm_overlay_listeners():
         for ev in events:
             g_eventBus.addListener(ev, _on_scoreboard_toggled, scope=EVENT_BUS_SCOPE.BATTLE)
         _overlay_listeners_armed = True
-        LOG_NOTE("[moe-battle] scoreboard hide listeners armed")
+        LOG_DEBUG("[moe-battle] scoreboard hide listeners armed")
     except Exception:
         LOG_CURRENT_EXCEPTION()
 
@@ -362,7 +362,7 @@ def push(rvm):
         overlay_open = bool(_open_overlays)
         visible = battle_bar_visible(snap.in_battle, snap.has_vehicle, snap.is_spectating,
                                      overlay_open=overlay_open)
-        LOG_NOTE("[moe-battle] push visible=%s spectating=%s scoreboard=%s cd=%d pct=%.1f delta=%.2f data=%s baseline=%s" % (
+        LOG_DEBUG("[moe-battle] push visible=%s spectating=%s scoreboard=%s cd=%d pct=%.1f delta=%.2f data=%s baseline=%s" % (
             visible, snap.is_spectating, overlay_open, model.combined_damage, model.cur_percent,
             model.pct_delta, model.has_data, model.has_baseline))
         with rvm.transaction() as tx:

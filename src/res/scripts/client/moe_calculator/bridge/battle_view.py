@@ -34,7 +34,7 @@ NOTE: adding the res_map entry triggers a ONE-TIME client restart the first time
 ResMapManager rebuilds res_map.json with our layout. PC-only (needs the live client); not
 imported under pytest. Python 2.7 runtime.
 """
-from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_NOTE
+from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_DEBUG
 
 from frameworks.wulf import ViewSettings, ViewFlags, WindowFlags, WindowLayer, PositionAnchor
 from gui.impl.pub import ViewImpl, WindowImpl
@@ -177,7 +177,7 @@ def open_window():
     try:
         layout = MoEBattleView._layoutID()
         if layout is None or layout < 0:
-            LOG_NOTE("[moe-battle] res_map layout '%s' unresolved -- a one-time client "
+            LOG_DEBUG("[moe-battle] res_map layout '%s' unresolved -- a one-time client "
                      "restart is needed for OpenWG to register it." % RES_MAP_ITEM_ID)
             return None
         view = MoEBattleView()
@@ -187,7 +187,7 @@ def open_window():
         # of whether load() completes synchronously or on a later tick.
         _active = (window, view)
         window.load()
-        LOG_NOTE("[moe-battle] overlay window opened (layoutID=%s, layer=WINDOW, content-sized)"
+        LOG_DEBUG("[moe-battle] overlay window opened (layoutID=%s, layer=WINDOW, content-sized)"
                  % layout)
         return view
     except Exception:
@@ -205,7 +205,7 @@ def close_window():
     _active = None
     try:
         window.destroy()
-        LOG_NOTE("[moe-battle] overlay window destroyed")
+        LOG_DEBUG("[moe-battle] overlay window destroyed")
     except Exception:
         LOG_CURRENT_EXCEPTION()
 

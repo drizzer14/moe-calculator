@@ -26,7 +26,7 @@ from CurrentVehicle import g_currentVehicle
 from helpers import dependency
 from skeletons.gui.shared import IItemsCache
 
-from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_NOTE
+from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_DEBUG
 from moe_calculator.adapter import engine_adapter
 from moe_calculator.adapter import moe_data
 from moe_calculator.adapter import garage_roster
@@ -154,7 +154,7 @@ def _on_moe_data_ready():
     # The MoE-data source signalled ready (a WG-API fetch round completed on the main-thread
     # poll). Re-push so the per-mark damage labels appear.
     try:
-        LOG_NOTE("[moe] table ready -> refresh")
+        LOG_DEBUG("[moe] table ready -> refresh")
         refresh()
     except Exception:
         LOG_CURRENT_EXCEPTION()
@@ -215,7 +215,7 @@ def _arm(label, get_holder, attr, handler):
         if event is not None and handler not in event:
             event += handler
             setattr(holder, attr, event)
-            LOG_NOTE("[moe] %s listener (re)armed" % label)
+            LOG_DEBUG("[moe] %s listener (re)armed" % label)
     except Exception:
         LOG_CURRENT_EXCEPTION()
 
@@ -396,7 +396,7 @@ def note_mount(name, vm):
             return (_placed_vm, _active[1]) if _active is not None else None
         # Our sub-view re-mounted with a fresh VM (post-battle hangar rebuild).
         if has_inject_model(vm):
-            LOG_NOTE("[moe] our sub-view '%s' re-mounted foreign-occupied -> yield" % name)
+            LOG_DEBUG("[moe] our sub-view '%s' re-mounted foreign-occupied -> yield" % name)
             return None
         rvm = attach(vm)
         if rvm is None:
@@ -413,10 +413,10 @@ def note_mount(name, vm):
         _placed_name = chosen
         _placed_vm = _candidate_vms[chosen]
         if _candidate_order and chosen != _candidate_order[0]:
-            LOG_NOTE("[moe] preferred sub-view occupied -> placed on fallback '%s'" % chosen)
+            LOG_DEBUG("[moe] preferred sub-view occupied -> placed on fallback '%s'" % chosen)
         return (_placed_vm, rvm)
     if action == BLOCKED:
-        LOG_NOTE("[moe] all candidate sub-views occupied -> yielding (no placement)")
+        LOG_DEBUG("[moe] all candidate sub-views occupied -> yielding (no placement)")
     return None
 
 
@@ -439,10 +439,10 @@ def refresh():
     completes mid-battle must not push into the torn-down `_active` VM -- and detaches then,
     so the state is cleared for a fresh placement decision on the next garage entry)."""
     if _active is None:
-        LOG_NOTE("[moe] refresh: no active widget")
+        LOG_DEBUG("[moe] refresh: no active widget")
         return False
     if not _host_alive():
-        LOG_NOTE("[moe] refresh: hangar host gone -> detach (stale listener fired off-lobby)")
+        LOG_DEBUG("[moe] refresh: hangar host gone -> detach (stale listener fired off-lobby)")
         detach()
         return False
     push(_active[1], host_vm=_active[0])
@@ -458,7 +458,7 @@ def push(rvm, host_vm=None):
         model = build_model(snap)
         rows, small = _carousel_geometry()
         visible = bar_visible(_overlay_closed(), _in_garage(), snap.has_vehicle)
-        LOG_NOTE("[moe] push visible=%s marks=%d pct=%.1f rows=%d data=%s" % (
+        LOG_DEBUG("[moe] push visible=%s marks=%d pct=%.1f rows=%d data=%s" % (
             visible, model.marks, model.cur_percentile, rows, model.has_data))
         with rvm.transaction() as tx:
             tx.setVisible(visible)

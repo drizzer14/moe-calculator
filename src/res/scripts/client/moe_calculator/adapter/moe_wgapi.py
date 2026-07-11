@@ -55,7 +55,7 @@ import json
 import threading
 
 from moe_calculator import build_config
-from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_NOTE
+from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_DEBUG
 from moe_calculator.adapter import garage_roster
 from moe_calculator.domain import constants
 from moe_calculator.domain import fetch_list
@@ -251,7 +251,7 @@ def start():
         if sel:
             _enqueue([sel])
         _ensure_list_ready()
-        LOG_NOTE("[moe] wgapi start (selected=%r, cached=%d, list=%d)"
+        LOG_DEBUG("[moe] wgapi start (selected=%r, cached=%d, list=%d)"
                  % (sel, len(_table), len(_want)))
     except Exception:
         LOG_CURRENT_EXCEPTION()
@@ -333,7 +333,7 @@ def on_vehicle_bought(int_cd):
         if not cd:
             return
         evicted = _promote(cd)
-        LOG_NOTE("[moe] bought %d (evicted=%r) -> list=%d" % (cd, evicted, len(_want)))
+        LOG_DEBUG("[moe] bought %d (evicted=%r) -> list=%d" % (cd, evicted, len(_want)))
     except Exception:
         LOG_CURRENT_EXCEPTION()
 
@@ -350,7 +350,7 @@ def on_vehicle_sold(int_cd):
             kept = fetch_list.remove_id(list(_want.keys()), cd)
             _want = dict((c, _want[c]) for c in kept)
             _save_list()
-        LOG_NOTE("[moe] sold %d -> list=%d" % (cd, len(_want)))
+        LOG_DEBUG("[moe] sold %d -> list=%d" % (cd, len(_want)))
     except Exception:
         LOG_CURRENT_EXCEPTION()
 
@@ -372,7 +372,7 @@ def on_battle_played(int_cd):
         if not cd:
             return
         evicted = _promote(cd)
-        LOG_NOTE("[moe] battle played in %d (evicted=%r) -> list=%d" % (cd, evicted, len(_want)))
+        LOG_DEBUG("[moe] battle played in %d (evicted=%r) -> list=%d" % (cd, evicted, len(_want)))
     except Exception:
         LOG_CURRENT_EXCEPTION()
 
@@ -424,12 +424,12 @@ def _ensure_list_ready():
             owned_want = [cd for cd in _want.keys() if cd in owned]
             ids, purged = fetch_list.purge_stale(owned_want, merged, now)
             if purged:
-                LOG_NOTE("[moe] fetch list purged %d stale/sold tanks" % len(purged))
+                LOG_DEBUG("[moe] fetch list purged %d stale/sold tanks" % len(purged))
         _want = dict((cd, merged.get(cd, now)) for cd in ids)
         _list_ready = True
         _save_list()
         due = fetch_list.needs_refetch(_fetched_at, now)
-        LOG_NOTE("[moe] fetch list ready: %d tanks (data refresh due=%s)" % (len(_want), due))
+        LOG_DEBUG("[moe] fetch list ready: %d tanks (data refresh due=%s)" % (len(_want), due))
         _enqueue(list(_want.keys()))
     except Exception:
         LOG_CURRENT_EXCEPTION()
@@ -504,7 +504,7 @@ def _poll():
         error = getattr(thread, "error", None) if thread is not None else None
         ok = bool(getattr(thread, "ok", False)) if thread is not None else False
         if error:
-            LOG_NOTE("[moe] wgapi fetch worker failed:\n%s" % error)
+            LOG_DEBUG("[moe] wgapi fetch worker failed:\n%s" % error)
         _busy = False
         _thread = None
         stale = False
@@ -513,7 +513,7 @@ def _poll():
             # every cached threshold is now stale -> drop the whole cache and refetch the list.
             stale = fetch_list.data_changed(_updated_at, upd)
             if stale:
-                LOG_NOTE("[moe] wgapi updated_at changed %r -> %r; refetching whole list"
+                LOG_DEBUG("[moe] wgapi updated_at changed %r -> %r; refetching whole list"
                          % (_updated_at, upd))
                 _table.clear()
                 _seen.clear()
@@ -546,10 +546,10 @@ def _poll():
                 _inflight.discard(cd)
                 _seen.add(cd)
             if chunk:
-                LOG_NOTE("[moe] wgapi gave up on %d tanks after %d attempts -> estimator this session"
+                LOG_DEBUG("[moe] wgapi gave up on %d tanks after %d attempts -> estimator this session"
                          % (len(chunk), _MAX_FETCH_RETRIES))
         _loaded = True
-        LOG_NOTE("[moe] wgapi fetch done: +%d tanks (%d cached, ok=%s)"
+        LOG_DEBUG("[moe] wgapi fetch done: +%d tanks (%d cached, ok=%s)"
                  % (len(result or {}), len(_table), ok))
         _notify_ready()
         if stale:
@@ -591,7 +591,7 @@ def _schedule_retry(chunk, attempt):
     them. Main-thread only."""
     idx = min(attempt - 1, len(_RETRY_BACKOFF_SECONDS) - 1)
     delay = _RETRY_BACKOFF_SECONDS[idx]
-    LOG_NOTE("[moe] wgapi retrying %d tanks in %.0fs (attempt %d/%d)"
+    LOG_DEBUG("[moe] wgapi retrying %d tanks in %.0fs (attempt %d/%d)"
              % (len(chunk), delay, attempt, _MAX_FETCH_RETRIES))
     try:
         import BigWorld
@@ -676,7 +676,7 @@ def _load_cache():
                 _fetched_at = int(blob.get("fetched_at") or 0)
             except (TypeError, ValueError):
                 pass
-            LOG_NOTE("[moe] wgapi cache adopted: %d tanks (fresh)" % len(table))
+            LOG_DEBUG("[moe] wgapi cache adopted: %d tanks (fresh)" % len(table))
     except Exception:
         LOG_CURRENT_EXCEPTION()
 
@@ -730,7 +730,7 @@ def _load_list():
         ids = valid_list(blob, REGION)
         if ids:
             _want = dict(ids)
-            LOG_NOTE("[moe] fetch list loaded: %d tanks" % len(_want))
+            LOG_DEBUG("[moe] fetch list loaded: %d tanks" % len(_want))
     except Exception:
         LOG_CURRENT_EXCEPTION()
 

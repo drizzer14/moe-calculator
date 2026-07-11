@@ -26,6 +26,20 @@ this skill is the concrete file list and command set. **Two Pythons:** package w
   `_AGENT` string carries the project URL (no version number — nothing cosmetic to bump there).
 - The **client** version `2.3.0.1` is deliberately excluded from the check (a `(?!\.\d)` lookahead skips the 4-part client version).
 
+## Release must stay silent (no unconditional logging)
+
+A shipped build must write **nothing** to WoT's `python.log` in normal operation — those logs
+are world-readable on every player's machine. Never call `debug_utils.LOG_NOTE` (or `LOG_NOTE`
+re-exported from `_compat`) directly for informational output. Route every chatty/internal note
+(lifecycle, placement, data payloads, fetch lists) through **`_compat.LOG_DEBUG`**, which is
+gated on **`_compat.DEBUG`** (ships **`False`**; flip `True` only for local dev, never commit it
+`True`). Genuine failures go through the always-on, path-safe `LOG_CURRENT_EXCEPTION`.
+
+`tests/test_logging_gate.py` enforces this: it fails the build if `DEBUG` is committed `True` or
+if any module outside `_compat.py` grows a raw `LOG_NOTE(` call site. **Run the full pytest suite
+before every release** (it is part of the gate, alongside `check_version.py`), and eyeball
+`python.log` after an in-game smoke test — it should stay clean.
+
 ## build/ scripts
 
 - **`build_wotmod.py`** — **Python 2.7 only** (asserts). Reads `meta.xml`, compiles `.py`→`.pyc`
