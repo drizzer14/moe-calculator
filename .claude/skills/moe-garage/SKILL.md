@@ -63,13 +63,31 @@ VM. `_arm` uses `getattr(holder, attr, None)` so a renamed WG event degrades qui
 - Anchored bottom-right: `right:46rem; bottom:calc(<rem>+140px)` — `.moe-rows2`=232rem, single-row=205.5rem, `.moe-small`=189rem; width `315rem`. (The `+140px` physical term is a resolution correction — see the `wotmod-gameface-widget` rem/px rule.)
 - Track uses WG `img://` progressbar textures; **`card_border.png` is a `border-image`** and MUST be a bare-sibling `url(card_border.png)` (`img://`/`data:` silently fail for `border-image`).
 
-## Hover tooltip — DISABLED
+## Hover tooltip — SHIPPED (native award-tooltip clone)
 
-`const TOOLTIP_ENABLED = false` in `MoECalculator.js`: `renderTooltip()` bails early so the
-host node is never built and no hover listeners bind. The (paused) layout is a 2×2 requirement
-grid + opposite-corner footer, reskinned to WG's ammo/module tooltip (`tooltip_bg.png`
-border-image + `tooltip_divider.png`). Never eyeballed live. To re-enable, flip the flag.
-See `TASKS/tooltip-handoff.md`.
+`TOOLTIP_ENABLED = true`. On hover (400ms intent delay) a body-level `position:fixed`
+`#moe-tooltip` reproduces the client's **Marks-of-Excellence award tooltip** (Vehicle stats →
+Awards), keyed by mark count 0..3: nation mark art (marksOnGun 180×180) top-right + title +
+current-ratio line (percentile in white) + description + divider + 5-bullet condition. Text is
+the client's own strings via the `labels` bundle (`adapter/i18n.py`).
+
+Built in the **shared `.wg-tooltip` / `.wg-tip-*` vocabulary** — the SAME classes as the sibling
+`wgmod-research-progress` tooltip (both render identically), but a STANDALONE copy scoped to
+`#moe-tooltip` (no shared file). Recipe: the `wotmod-gameface-widget` skill's "Native tooltip
+recipe". MoE-local classes: `.wg-tip-icon-mark`/`.wg-tip-main-mark`, `.wg-tip-icon-unearned`,
+`.moe-tip-ratio`/`.moe-tip-descr`, `.moe-tip-hi`, `.moe-tip-empty`.
+
+Engine gotchas baked into the CSS/JS (see the file comments):
+- **No inline formatting** in this Gameface build (any element child drops to its own line,
+  `display` has no effect) → the white-% ratio line is a `flex-wrap` row of one span PER WORD
+  (`ratioHtml`), the `%` word = `.moe-tip-hi`; word spacing via `margin-right`, not `gap`.
+- **Mark icon** box uses the glyph's real aspect (64×46, `background-size:100% auto` + center)
+  to crop the 180×180 source's ~25/27px transparent bands, so it aligns with the title.
+- **Description** is a full-width paragraph OUTSIDE `.wg-tip-main` (the icon's reserved column
+  would otherwise narrow it).
+- **Frame** = 9-slice via `border-image-source: url('img://…background_with_border.png')` — the
+  LONGHAND resolves `img://` where the `border-image` shorthand fails; `tooltip_bg.png` bundled
+  as fallback.
 
 ## Assets (bare siblings of the JS/CSS)
 
