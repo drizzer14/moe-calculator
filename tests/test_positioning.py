@@ -16,14 +16,14 @@ _EXTENT_2X = (1664, 824)    # logical space 1920x1080
 
 
 def test_fixed_offset_is_scale_invariant():
-    # The whole point of Phase 1: the SAME logical offset (264 from left, bottom-flush) at
+    # The whole point of Phase 1: the SAME logical offset (266 from left, bottom-flush) at
     # BOTH scales -- reproducing the 2x-aligned placement at 1x (where the old fraction anchor
     # wrongly landed at x=529). X is identical; Y is bottom-flush (= each scale's max_y).
     x1, y1 = anchor_top_left(_EXTENT_1X[0], _EXTENT_1X[1], BATTLE_ANCHOR_X, BATTLE_ANCHOR_Y)
     x2, y2 = anchor_top_left(_EXTENT_2X[0], _EXTENT_2X[1], BATTLE_ANCHOR_X, BATTLE_ANCHOR_Y)
-    assert (x1, y1) == (264, 1904)
-    assert (x2, y2) == (264, 824)
-    assert x1 == x2 == 264  # X does not change with scale
+    assert (x1, y1) == (266, 1904)
+    assert (x2, y2) == (266, 824)
+    assert x1 == x2 == 266  # X does not change with scale
 
 
 def test_y_from_bottom_raises_the_panel():
@@ -93,7 +93,7 @@ def test_raised_anchor_has_its_own_x():
     # Phase 2's raised anchor carries its own X (calibrated left of the default here), which
     # must be a valid on-screen offset and independent of the signed-off default X.
     assert BATTLE_ANCHOR_X_RAISED >= 0
-    assert BATTLE_ANCHOR_X == 264  # default X stays exactly as signed off in Phase 1
+    assert BATTLE_ANCHOR_X == 266  # default X (Phase 1 264 + 2rem right nudge)
 
 
 def test_raised_anchor_places_left_and_up_of_default():
@@ -101,7 +101,7 @@ def test_raised_anchor_places_left_and_up_of_default():
     # placement (same movable extent). Concrete regression check on the shipped values.
     xd, yd = anchor_top_left(3584, 1904, BATTLE_ANCHOR_X, BATTLE_ANCHOR_Y)
     xr, yr = anchor_top_left(3584, 1904, BATTLE_ANCHOR_X_RAISED, BATTLE_ANCHOR_Y_RAISED)
-    assert xr < xd   # raised X (215) < default X (264)
+    assert xr < xd   # raised X (215) < default X (266)
     assert yr < yd   # raised (33 from bottom) -> smaller top y than bottom-flush
 
 

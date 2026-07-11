@@ -62,7 +62,7 @@ EWMA_K = 2.0 / (EWMA_N + 1)
 # BOTTOM edge (0 = bottom-flush). Calibrated empirically to WG's efficiency panel corner
 # (WG panels are Flash -- no runtime position API). Phase 2 adds a separate raised anchor
 # (BATTLE_ANCHOR_*_RAISED) used when the damage-log summary block collapses.
-BATTLE_ANCHOR_X = 264
+BATTLE_ANCHOR_X = 266
 BATTLE_ANCHOR_Y = 0
 
 # Phase 2: the RAISED anchor used when the "Summarized damage" group is fully unticked (all four
