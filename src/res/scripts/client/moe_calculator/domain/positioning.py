@@ -27,6 +27,20 @@ def damage_log_summary_hidden(total, blocked, assist, assist_stun):
     return not (bool(total) or bool(blocked) or bool(assist) or bool(assist_stun))
 
 
+def efficiency_panel_wide(flags, values, threshold):
+    """True when any ENABLED "Summarized damage" total exceeds `threshold` (goes 5-digit).
+
+    A five-digit total widens WG's efficiency panel by one character, colliding with the
+    overlay -- so the caller shifts the overlay right (constants.BATTLE_ANCHOR_X_SHIFT). Only
+    ENABLED totals count: a huge value whose summary flag is unticked isn't drawn, so it can't
+    widen the panel. `flags` and `values` are aligned tuples (total, blocked, assist, stun):
+    `flags` from battle_adapter.read_damage_log_summary_flags(), `values` from
+    read_efficiency_totals(). Each flag is bool()-coerced (getSetting's 0/1/None) and each
+    value guarded against None. The fail-soft reads default flags to ticked / values to 0, so a
+    bad read never wrongly triggers the shift on a disabled/zero total."""
+    return any(bool(f) and (v or 0) > threshold for f, v in zip(flags, values))
+
+
 def anchor_top_left(max_x, max_y, x_from_left, y_from_bottom):
     """Top-left (x, y) in logical GUI space for the overlay window.
 

@@ -18,6 +18,8 @@ from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_NOTE
 from moe_calculator.adapter import battle_adapter
 from moe_calculator.adapter import moe_data
 from moe_calculator.domain.battle_builder import build_battle_model, battle_bar_visible
+from moe_calculator.domain.constants import EFFICIENCY_WIDE_THRESHOLD
+from moe_calculator.domain.positioning import efficiency_panel_wide
 from moe_calculator.bridge import battle_view
 
 # Set while a coalesced refresh is queued, so a burst of onTotalEfficiencyUpdated fires
@@ -48,6 +50,13 @@ _open_overlays = set()
 # arena teardown -- so we arm ONCE and never re-add (a second add would only warn + no-op).
 _overlay_listeners_armed = False
 
+# Last-applied "efficiency panel is 5-digit wide" state (see domain.efficiency_panel_wide).
+# The overlay opens at damage 0 (condition False), so the right-shift can only engage LATER,
+# when a total crosses the threshold mid-battle. We re-place the window when this flips (not on
+# every efficiency tick -- window.move is comparatively costly). None = not yet evaluated this
+# battle; reset on each mount.
+_last_wide = None
+
 
 # --- engine event subscriptions ---------------------------------------------
 # Handlers are module-level (stable identity) so the membership-checked _arm is idempotent.
@@ -56,9 +65,11 @@ def _on_mount_refresh(*args, **kwargs):
     # Avatar ready -> we're in a battle: open the overlay window, (re)arm the efficiency
     # listener, kick the thresholds loader, and push the initial model. Reset the played-tank
     # record so this battle promotes its vehicle exactly once (see push).
-    global _battle_recorded
+    global _battle_recorded, _last_wide
     try:
         _battle_recorded = False
+        # Re-evaluate the 5-digit shift from scratch this battle (totals reset to 0).
+        _last_wide = None
         # Clear any scoreboard flag left over from a prior battle / relogin / replay teardown,
         # so a stale key can never keep the fresh battle's overlay hidden.
         _open_overlays.clear()
@@ -289,6 +300,24 @@ def _do_scheduled_refresh():
     _refresh_pending = False
     try:
         refresh()
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+    _maybe_replace_for_width()
+
+
+def _maybe_replace_for_width():
+    """Re-place the overlay when the "efficiency panel is 5-digit wide" state flips (a total
+    crossed the threshold), so the right-shift engages/disengages live. Coalesced onto the
+    efficiency refresh; a no-op when the state is unchanged (avoids a window.move every tick).
+    Fail-soft: a bad read leaves the position untouched."""
+    global _last_wide
+    try:
+        wide = efficiency_panel_wide(battle_adapter.read_damage_log_summary_flags(),
+                                     battle_adapter.read_efficiency_totals(),
+                                     EFFICIENCY_WIDE_THRESHOLD)
+        if wide != _last_wide:
+            _last_wide = wide
+            battle_view.apply_position()
     except Exception:
         LOG_CURRENT_EXCEPTION()
 

@@ -69,3 +69,15 @@ BATTLE_ANCHOR_Y = 0
 # empirically against the collapsed layout (the summary block is Flash-side, no runtime px API).
 BATTLE_ANCHOR_X_RAISED = 215
 BATTLE_ANCHOR_Y_RAISED = 33
+
+# Extra rightward offset (fixed logical px, added to whichever X anchor is in play) applied
+# when WG's efficiency panel goes FIVE digits: a "Summarized damage" total that is ENABLED and
+# exceeds EFFICIENCY_WIDE_THRESHOLD makes WG's panel grow one character wider, which would
+# collide with our overlay. Shifting right by this much clears the widened panel. Calibrated in
+# the overlay tuner (tools/dev/gen_overlay_tuner.ps1) -- WG panels are Flash, no runtime width
+# API, so the offset is empirical like the anchors above. To be confirmed in-client.
+BATTLE_ANCHOR_X_SHIFT = 5
+
+# The "5-digit" cutoff: a value STRICTLY greater than this (i.e. >= 10000) prints a fifth
+# digit and widens WG's panel. Compared against getTotalEfficiency() totals.
+EFFICIENCY_WIDE_THRESHOLD = 9999

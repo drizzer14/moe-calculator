@@ -42,8 +42,10 @@ from openwg_gameface import ModDynAccessor
 
 from moe_calculator.bridge.view_models import BattleMoEVM
 from moe_calculator.domain.constants import (
-    BATTLE_ANCHOR_X, BATTLE_ANCHOR_Y, BATTLE_ANCHOR_X_RAISED, BATTLE_ANCHOR_Y_RAISED)
-from moe_calculator.domain.positioning import anchor_top_left, damage_log_summary_hidden
+    BATTLE_ANCHOR_X, BATTLE_ANCHOR_Y, BATTLE_ANCHOR_X_RAISED, BATTLE_ANCHOR_Y_RAISED,
+    BATTLE_ANCHOR_X_SHIFT, EFFICIENCY_WIDE_THRESHOLD)
+from moe_calculator.domain.positioning import (
+    anchor_top_left, damage_log_summary_hidden, efficiency_panel_wide)
 
 # itemID registered in mods/configs/res_map/MoEBattleView.json -- keep in lockstep.
 RES_MAP_ITEM_ID = "MoEBattleView"
@@ -133,9 +135,18 @@ def _place(window):
         # summary block and the damage-log events shift up, so we move to the raised anchor
         # (its own X + Y) to keep tracking them. Read fail-soft (a bad read -> default anchor).
         from moe_calculator.adapter import battle_adapter
-        raised = damage_log_summary_hidden(*battle_adapter.read_damage_log_summary_flags())
+        flags = battle_adapter.read_damage_log_summary_flags()
+        raised = damage_log_summary_hidden(*flags)
         x_from_left = BATTLE_ANCHOR_X_RAISED if raised else BATTLE_ANCHOR_X
         y_from_bottom = BATTLE_ANCHOR_Y_RAISED if raised else BATTLE_ANCHOR_Y
+        # When an ENABLED "Summarized damage" total goes 5-digit, WG's panel widens a character
+        # and collides with the overlay -- shift right to clear it. ONLY in the un-raised state:
+        # the raised anchor means the summary block is collapsed (all flags off), so the panel
+        # isn't drawn and can't widen. (efficiency_panel_wide is already False when every flag is
+        # off, so `not raised` is redundant with that -- but it pins the invariant explicitly.)
+        if not raised and efficiency_panel_wide(
+                flags, battle_adapter.read_efficiency_totals(), EFFICIENCY_WIDE_THRESHOLD):
+            x_from_left += BATTLE_ANCHOR_X_SHIFT
         window.move(_FAR, _FAR, xAnchor=PositionAnchor.LEFT, yAnchor=PositionAnchor.TOP)
         max_x, max_y = window.position
         x, y = anchor_top_left(max_x, max_y, x_from_left, y_from_bottom)

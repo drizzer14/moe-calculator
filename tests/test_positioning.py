@@ -3,9 +3,11 @@
 domain.positioning imports zero game symbols. The extents below are the REAL far-sentinel
 readouts measured in-client at 4K (probe_scale.py): 1x -> space 3840x2160, 2x -> 1920x1080,
 surface fixed 256x256, so movable extent = space - 256."""
-from moe_calculator.domain.positioning import anchor_top_left, damage_log_summary_hidden
+from moe_calculator.domain.positioning import (
+    anchor_top_left, damage_log_summary_hidden, efficiency_panel_wide)
 from moe_calculator.domain.constants import (
-    BATTLE_ANCHOR_X, BATTLE_ANCHOR_Y, BATTLE_ANCHOR_X_RAISED, BATTLE_ANCHOR_Y_RAISED)
+    BATTLE_ANCHOR_X, BATTLE_ANCHOR_Y, BATTLE_ANCHOR_X_RAISED, BATTLE_ANCHOR_Y_RAISED,
+    BATTLE_ANCHOR_X_SHIFT, EFFICIENCY_WIDE_THRESHOLD)
 
 
 # Measured movable extents (space - 256 surface) at 4K.
@@ -101,3 +103,75 @@ def test_raised_anchor_places_left_and_up_of_default():
     xr, yr = anchor_top_left(3584, 1904, BATTLE_ANCHOR_X_RAISED, BATTLE_ANCHOR_Y_RAISED)
     assert xr < xd   # raised X (215) < default X (264)
     assert yr < yd   # raised (33 from bottom) -> smaller top y than bottom-flush
+
+
+# --- 5-digit efficiency-panel right-shift -----------------------------------
+# When an ENABLED "Summarized damage" total goes 5-digit (> EFFICIENCY_WIDE_THRESHOLD), WG's
+# panel widens and the overlay shifts right by BATTLE_ANCHOR_X_SHIFT. flags/values are aligned
+# (total, blocked, assist, stun): flags = which totals are drawn, values = their amounts.
+_ALL_ON = (True, True, True, True)
+_ALL_OFF = (False, False, False, False)
+_T = EFFICIENCY_WIDE_THRESHOLD
+
+
+def test_wide_when_an_enabled_total_exceeds_threshold():
+    assert efficiency_panel_wide(_ALL_ON, (10000, 0, 0, 0), _T) is True
+
+
+def test_not_wide_when_high_total_is_disabled():
+    # A 5-digit total whose summary flag is unticked isn't drawn -> can't widen the panel.
+    assert efficiency_panel_wide((False, True, True, True), (10000, 0, 0, 0), _T) is False
+
+
+def test_not_wide_when_enabled_totals_below_threshold():
+    assert efficiency_panel_wide(_ALL_ON, (9999, 9999, 9999, 9999), _T) is False
+
+
+def test_threshold_is_strict_boundary():
+    # Exactly 9999 (4 digits) does NOT widen; 10000 (5 digits) does.
+    assert efficiency_panel_wide(_ALL_ON, (9999, 0, 0, 0), _T) is False
+    assert efficiency_panel_wide(_ALL_ON, (10000, 0, 0, 0), _T) is True
+
+
+def test_not_wide_all_zero():
+    assert efficiency_panel_wide(_ALL_ON, (0, 0, 0, 0), _T) is False
+
+
+def test_wide_checks_each_enabled_column():
+    # Any single enabled 5-digit total (blocked / assist / stun) triggers the shift.
+    assert efficiency_panel_wide(_ALL_ON, (0, 12000, 0, 0), _T) is True
+    assert efficiency_panel_wide(_ALL_ON, (0, 0, 12000, 0), _T) is True
+    assert efficiency_panel_wide(_ALL_ON, (0, 0, 0, 12000), _T) is True
+
+
+def test_not_wide_when_all_flags_off():
+    # No totals drawn at all (raised-anchor case) -> never widened, whatever the values.
+    assert efficiency_panel_wide(_ALL_OFF, (50000, 50000, 50000, 50000), _T) is False
+
+
+def test_wide_coerces_flag_and_guards_none_value():
+    # getSetting flags may be 0/1/None; a value may read None on a bad fetch -> treated as 0.
+    assert efficiency_panel_wide((1, 0, 0, 0), (10000, None, None, None), _T) is True
+    assert efficiency_panel_wide((0, 0, 0, 0), (10000, 0, 0, 0), _T) is False
+    assert efficiency_panel_wide((1, 0, 0, 0), (None, 0, 0, 0), _T) is False
+
+
+def test_shift_constant_is_positive():
+    # A positive addend shifts the window RIGHT (x measured from the left edge). Guards against
+    # the constant being left at 0 (the feature would then be a silent no-op).
+    assert BATTLE_ANCHOR_X_SHIFT > 0
+
+
+def test_shift_composes_with_default_anchor():
+    # The shift adds to the DEFAULT anchor's X; the shifted placement sits right of the unshifted
+    # one (same movable extent).
+    xd, _ = anchor_top_left(3584, 1904, BATTLE_ANCHOR_X, BATTLE_ANCHOR_Y)
+    xd_s, _ = anchor_top_left(3584, 1904, BATTLE_ANCHOR_X + BATTLE_ANCHOR_X_SHIFT, BATTLE_ANCHOR_Y)
+    assert xd_s > xd
+
+
+def test_shift_never_applies_in_the_raised_state():
+    # The raised anchor means the summary block is COLLAPSED (all four flags off) -- WG doesn't
+    # draw the totals, so nothing can widen and the shift must not fire. efficiency_panel_wide is
+    # the gate _place uses; with every flag off it is False regardless of how huge the values are.
+    assert efficiency_panel_wide(_ALL_OFF, (99999, 99999, 99999, 99999), _T) is False

@@ -93,6 +93,27 @@ def _read_efficiency():
         return 0, 0, 0
 
 
+def read_efficiency_totals():
+    """The four "Summarized damage" totals as (damage, blocked, assist, stun) ints, ALIGNED to
+    read_damage_log_summary_flags()' order. Feeds domain.positioning.efficiency_panel_wide to
+    decide the 5-digit right-shift. Unlike _read_efficiency (which reads only the three totals
+    that feed the combined-damage math), this also reads BLOCKED_DAMAGE, since WG's panel draws
+    a blocked row too. Fail-soft to 0 per value (a bad read -> 0 -> below threshold -> no shift)."""
+    try:
+        from gui.battle_control.battle_constants import PERSONAL_EFFICIENCY_TYPE as PE
+        ctrl = _efficiency_ctrl()
+        if ctrl is None:
+            return 0, 0, 0, 0
+        damage = _safe_int(lambda: ctrl.getTotalEfficiency(PE.DAMAGE), 0)
+        blocked = _safe_int(lambda: ctrl.getTotalEfficiency(PE.BLOCKED_DAMAGE), 0)
+        assist = _safe_int(lambda: ctrl.getTotalEfficiency(PE.ASSIST_DAMAGE), 0)
+        stun = _safe_int(lambda: ctrl.getTotalEfficiency(PE.STUN), 0)
+        return damage, blocked, assist, stun
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+        return 0, 0, 0, 0
+
+
 def _player_vehicle_descr():
     """The player's controlled arena vehicle descriptor (has .type.compactDescr = intCD),
     or None. Sourced from the observed/controlled vehicle so it also works while spectating

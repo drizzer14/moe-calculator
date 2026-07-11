@@ -73,6 +73,16 @@
   .out{background:#0f1013;border:1px solid var(--line);border-radius:8px;padding:11px;font-family:"Cascadia Code",Consolas,monospace;font-size:10.5px;color:#b9c2cf;white-space:pre;overflow-x:auto;line-height:1.5}
   .copy{margin-top:9px;width:100%;background:var(--gold);color:#1a160c;border:0;border-radius:8px;padding:10px;font-weight:800;font-size:13px;cursor:pointer}
   .note{font-size:10.5px;color:var(--muted);margin-top:12px;line-height:1.5}
+  /* ---- 5-digit panel guide: translucent stand-in for WG's widened efficiency panel ---- */
+  #panelGuide{position:absolute;z-index:5;display:none;border:2px dashed rgba(211,68,63,.9);
+    background:linear-gradient(90deg,rgba(211,68,63,.04),rgba(211,68,63,.30));border-radius:2px;
+    box-shadow:0 0 0 1px rgba(0,0,0,.45)}
+  #panelGuide::after{content:"WG efficiency panel @ 5 digits";position:absolute;left:4px;top:-15px;
+    font:700 10px "Segoe UI",system-ui,sans-serif;color:rgba(233,150,146,.98);white-space:nowrap;letter-spacing:.04em}
+  /* ---- shift read-out: the logical-px value to paste into BATTLE_ANCHOR_X_SHIFT ---- */
+  .shiftout{background:#0f1013;border:1px solid var(--gold);border-radius:8px;padding:9px 11px;margin-bottom:9px;
+    font-family:"Cascadia Code",Consolas,monospace;font-size:11.5px;color:var(--gold);font-weight:700;
+    font-variant-numeric:tabular-nums;line-height:1.4}
   /* ---- dither magnifier (only shown in Dots mode) ---- */
   #loupe{position:absolute;top:12px;right:12px;width:230px;background:rgba(10,11,14,.94);
     border:1px solid var(--line);border-radius:8px;padding:9px;font-family:"Segoe UI",system-ui,sans-serif;z-index:50}
@@ -87,15 +97,17 @@
     <div class="mb-row"><span class="mb-ico dmg"></span><span class="mb-value mb-cd"></span><span class="mb-sep">/</span><span class="mb-value mb-avg">2,718</span></div>
     <div class="mb-row"><span class="mb-ico pct"></span><span class="mb-value mb-pct">84.73%</span><span class="mb-delta"></span></div>
   </div>
+  <div id="panelGuide"></div>
   <div id="loupe"><div class="loupelab">DITHER MAGNIFIER</div><div id="loupeSwatch"><div id="loupeDither"></div></div><div id="loupeCap"></div></div>
 </div></div>
 <div class="panel">
-  <h1>In-battle overlay &mdash; tuner v3</h1>
-  <p class="sub">Real 4K frame @0.42&times;, real markup, calibrated 1&thinsp;rem&asymp;2.0&thinsp;px @3840 (measured off our live 13rem MoEBattle value). The backdrop is a fixed two-layer stack: a dark <b>background gradient</b> (with a left clip) under the <b>dots</b> dither (with its own fade) &mdash; both always on. Font toggle: <b>MoEBattle</b> is the actual game font (from <code>fontlib.swf</code>) vs the <b>Univers</b> lookalike. Sliders pair with number boxes; values drop into <code>MoEBattle.css</code>.</p>
+  <h1>In-battle overlay &mdash; tuner v4</h1>
+  <p class="sub">Real 4K frame @0.42&times;, real markup, calibrated 1&thinsp;rem&asymp;2.0&thinsp;px @3840 (measured off our live 13rem MoEBattle value). The backdrop is a fixed two-layer stack: a dark <b>background gradient</b> (with a left clip) under the <b>dots</b> dither (with its own fade) &mdash; both always on. Font toggle: <b>MoEBattle</b> is the actual game font (from <code>fontlib.swf</code>) vs the <b>Univers</b> lookalike. Sliders pair with number boxes; values drop into <code>MoEBattle.css</code>. <b>5-digit shift</b> (new): WG&rsquo;s efficiency panel widens a digit once a total passes 9999 &mdash; dial <b>Shift right</b> until the box clears the red panel guide; that logical-px number is <code>BATTLE_ANCHOR_X_SHIFT</code>.</p>
   <div class="seg" id="fontSeg"><button data-f="MoEBattle" class="on">MoEBattle (real game font)</button><button data-f="UniversCn">Univers (lookalike)</button></div>
   <div class="seg" id="caseSeg"><button data-c="above" class="on">DMG &gt; avg</button><button data-c="equal">= avg</button><button data-c="below">&lt; avg</button></div>
-  <div class="row2"><label><input type="checkbox" id="cBounds"> show bounds</label></div>
+  <div class="row2"><label><input type="checkbox" id="cBounds"> show bounds</label><label><input type="checkbox" id="cWide" checked> 5-digit values</label><label><input type="checkbox" id="cGuide" checked> panel guide</label></div>
   <div id="controls"></div>
+  <div class="shiftout" id="shiftOut"></div>
   <div class="out" id="out"></div>
   <button class="copy" id="copyBtn">Copy CSS values</button>
   <p class="note">Icon glow is a radial-gradient <b>background element</b> behind the glyph (<code>.mb-ico::before</code>) &mdash; verify it renders in Gameface before relying on it in-game. Icons are the real gold quest glyphs (WG&rsquo;s panel icons are green; swap art later).</p>
@@ -109,6 +121,16 @@
     ["Position",[
       {id:"left",label:"Left (vw)",min:0,max:60,step:0.1,val:13.8},
       {id:"top",label:"Top (vh)",min:0,max:100,step:0.1,val:78.7}]],
+    ["5-digit shift (efficiency panel widens past 9999)",[
+      // shiftPx is in LOGICAL px -- the exact value that becomes constants.BATTLE_ANCHOR_X_SHIFT
+      // (added to BATTLE_ANCHOR_X=264). 1 logical px == 1 rem == PXREM stage-px, so the overlay
+      // moves by shiftPx*PXREM here. The guide is a translucent stand-in for WG's panel widened
+      // by a digit: outline it over the backdrop, then raise Shift right until the box clears it.
+      {id:"shiftPx",label:"Shift right - BATTLE_ANCHOR_X_SHIFT (logical px)",min:0,max:200,step:1,val:5},
+      {id:"guideL",label:"Panel guide left (vw)",min:0,max:60,step:0.1,val:8.5},
+      {id:"guideT",label:"Panel guide top (vh)",min:0,max:100,step:0.1,val:77.5},
+      {id:"guideW",label:"Panel guide width (vw)",min:0,max:40,step:0.1,val:6.5},
+      {id:"guideH",label:"Panel guide height (vh)",min:0,max:40,step:0.1,val:10}]],
     ["Typography",[
       {id:"valSize",label:"Number size (rem)",min:8,max:48,step:0.5,val:14},
       {id:"valWeight",label:"Number weight",min:300,max:700,step:100,val:600},
@@ -182,6 +204,7 @@
   ];
   var st={}, casev="above", famv="MoEBattle";
   SCHEMA.forEach(function(sec){sec[1].forEach(function(c){st[c.id]=c.val;});});
+  st._wide=true; st._guide=true;   // 5-digit preview + panel guide on by default (see checkboxes)
   function hexA(hex,a){var n=parseInt(hex.slice(1),16);return "rgba("+((n>>16)&255)+","+((n>>8)&255)+","+(n&255)+","+a+")";}
   // Left-edge clip on the background-gradient underlay.
   function rowMask(){return (st.clipEnd<=st.clipStart)?"none":"linear-gradient(90deg,transparent "+st.clipStart+"%,#000 "+st.clipEnd+"%)";}
@@ -231,7 +254,8 @@
   function apply(){
     var r=document.getElementById("moe-battle-root"),S=r.style;
     S.setProperty("--fam",'"'+famv+'","Arial Narrow",sans-serif');
-    S.setProperty("--left",(st.left*PXVW).toFixed(1)+"px");S.setProperty("--top",(st.top*PXVH).toFixed(1)+"px");
+    // --left = base anchor + the 5-digit shift (shiftPx is LOGICAL px == rem == PXREM stage-px).
+    S.setProperty("--left",(st.left*PXVW + st.shiftPx*PXREM).toFixed(1)+"px");S.setProperty("--top",(st.top*PXVH).toFixed(1)+"px");
     S.setProperty("--rowmb",rem(st.rowGap));S.setProperty("--valml",rem(st.valGap));
     S.setProperty("--icomr",rem(st.icoGap));S.setProperty("--rpv",rem(st.rowPadV));S.setProperty("--rph",rem(st.rowPadH));
     // Backdrop = fixed two-layer stack: dots dither (::before) over background gradient (::after).
@@ -249,9 +273,20 @@
     r.style.outline=st._bounds?"1px dashed #ff5":"none";
     var cd=document.querySelector(".mb-cd"),d=document.querySelector(".mb-delta");
     cd.className="mb-value mb-cd";d.className="mb-delta";
+    var avg=document.querySelector(".mb-avg");
     if(casev==="above"){cd.classList.add("mb-up");cd.textContent="3,141";d.classList.add("mb-up");d.textContent="(+1.5%)";}
     else if(casev==="below"){cd.classList.add("mb-down");cd.textContent="2,100";d.classList.add("mb-down");d.textContent="(-1.2%)";}
     else{cd.textContent="2,718";d.textContent="(0%)";}
+    // "5-digit values": preview the overlay's own numbers at 5 digits (the state that co-occurs
+    // with WG's widened panel), so the box width you're clearing is realistic.
+    if(st._wide){cd.textContent="1"+cd.textContent;avg.textContent="12,718";}else{avg.textContent="2,718";}
+    // Panel guide = translucent stand-in for WG's widened efficiency panel.
+    var gd=document.getElementById("panelGuide");
+    gd.style.display=st._guide?"block":"none";
+    gd.style.left=(st.guideL*PXVW).toFixed(1)+"px";gd.style.top=(st.guideT*PXVH).toFixed(1)+"px";
+    gd.style.width=(st.guideW*PXVW).toFixed(1)+"px";gd.style.height=(st.guideH*PXVH).toFixed(1)+"px";
+    document.getElementById("shiftOut").textContent=
+      "BATTLE_ANCHOR_X_SHIFT = "+st.shiftPx+"   (logical px — anchor 264 → "+(264+st.shiftPx)+")";
     document.getElementById("out").textContent=cssOut();
   }
   function cssOut(){
@@ -308,6 +343,8 @@
     det.appendChild(g);host.appendChild(det);
   });
   document.getElementById("cBounds").addEventListener("change",function(e){st._bounds=e.target.checked;apply();});
+  document.getElementById("cWide").addEventListener("change",function(e){st._wide=e.target.checked;apply();});
+  document.getElementById("cGuide").addEventListener("change",function(e){st._guide=e.target.checked;apply();});
   document.querySelectorAll("#fontSeg button").forEach(function(b){b.addEventListener("click",function(){famv=b.dataset.f;document.querySelectorAll("#fontSeg button").forEach(function(x){x.classList.remove("on");});b.classList.add("on");apply();});});
   document.querySelectorAll("#caseSeg button").forEach(function(b){b.addEventListener("click",function(){casev=b.dataset.c;document.querySelectorAll("#caseSeg button").forEach(function(x){x.classList.remove("on");});b.classList.add("on");apply();});});
   document.getElementById("copyBtn").addEventListener("click",function(){var t=cssOut();if(navigator.clipboard)navigator.clipboard.writeText(t);var b=document.getElementById("copyBtn");b.textContent="Copied ✓";setTimeout(function(){b.textContent="Copy CSS values";},1300);});
