@@ -11,7 +11,7 @@ while this module owns only the set arithmetic:
   add_with_eviction : add a tank, evicting the least-recently-played member when full.
   remove_id       : drop a sold tank.
   purge_stale     : session-open drop of tanks not played within the window.
-  needs_refetch   : the boolean "is the current data older than the revalidation window".
+  needs_refetch   : the boolean "did we last fetch longer ago than the revalidation window".
   data_changed    : the boolean "did a fetch reveal WG's updated_at changed" (force full refetch).
 
 Everything is pure (no engine imports): the caller passes now_epoch / recency_map / cap so
@@ -88,12 +88,13 @@ def purge_stale(current, recency_map, now_epoch, max_age=constants.STALE_WINDOW_
     return kept, purged
 
 
-def needs_refetch(updated_at, now_epoch, ttl=constants.REVALIDATE_SECONDS):
-    """True when the current data is missing or older than the revalidation window -- i.e. a
-    fresh batch fetch is due. False while now_epoch < updated_at + ttl (so repeated sessions
-    within the window serve the cache without refetching). Pure."""
+def needs_refetch(fetched_at, now_epoch, ttl=constants.REVALIDATE_SECONDS):
+    """True when we have no data yet or last fetched it longer ago than the revalidation window --
+    i.e. a fresh batch fetch is due. False while now_epoch < fetched_at + ttl (so repeated
+    sessions within the window serve the cache without refetching). Anchored to OUR fetch time,
+    not WG's `updated_at`, since WG publishes its daily distribution with a lag. Pure."""
     try:
-        return now_epoch >= int(updated_at) + ttl
+        return now_epoch >= int(fetched_at) + ttl
     except (TypeError, ValueError):
         return True
 

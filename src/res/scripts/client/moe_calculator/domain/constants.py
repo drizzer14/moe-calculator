@@ -37,12 +37,15 @@ FETCH_LIST_CAP = 100
 # tank is stamped with the purchase time so it survives ~7 days even if never played.
 STALE_WINDOW_SECONDS = 7 * 24 * 3600
 
-# Threshold data is served without refetching while now < updated_at + this (the cache-freshness
-# fallback TTL). Single source shared by moe_wgapi.fresh_table (cache-adopt gate) and
-# fetch_list.needs_refetch (the "don't refetch every session" throttle). This is the time-based
-# backstop; a fetch that reveals a changed WG `updated_at` forces a full refetch sooner
-# (fetch_list.data_changed + moe_wgapi._poll).
-REVALIDATE_SECONDS = 7 * 24 * 3600
+# Threshold data is served without refetching while now < OUR LAST FETCH TIME + this (the
+# cache-freshness throttle). Single source shared by moe_wgapi.fresh_table (cache-adopt gate) and
+# fetch_list.needs_refetch (the "don't refetch every session" throttle). WG refreshes the MoE
+# distribution DAILY (officially confirmed) but publishes it with a ~1-2 day lag, so anchoring the
+# window to WG's own `updated_at` would leave the data >24h old on arrival and refetch on every
+# garage entry. We therefore anchor to when WE fetched: check at most once per day, which still
+# picks up WG's new daily distribution within ~24h. A fetch that reveals a changed WG `updated_at`
+# still forces a full refetch sooner (fetch_list.data_changed + moe_wgapi._poll).
+REVALIDATE_SECONDS = 24 * 3600
 
 # In-battle projected-rating (EWMA) coefficient. WG's Marks rating is a moving average
 # over "~50-100 battles"; we model it as an EWMA newAvg = prevAvg + k*(CD - prevAvg) with

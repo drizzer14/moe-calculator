@@ -10,7 +10,7 @@ from moe_calculator.domain import constants
 
 NOW = 1_700_000_000
 WINDOW = constants.STALE_WINDOW_SECONDS  # 7 days
-TTL = constants.REVALIDATE_SECONDS       # 7 days
+TTL = constants.REVALIDATE_SECONDS       # 1 day
 
 
 # --- bootstrap_ids -----------------------------------------------------------
@@ -131,7 +131,7 @@ def test_purge_empty():
 
 # --- needs_refetch -----------------------------------------------------------
 
-def test_needs_refetch_missing_updated_at():
+def test_needs_refetch_missing_fetched_at():
     assert fetch_list.needs_refetch(0, NOW) is True
     assert fetch_list.needs_refetch(None, NOW) is True
 
@@ -145,7 +145,7 @@ def test_needs_refetch_past_ttl_is_true():
 
 
 def test_needs_refetch_boundary_is_true():
-    # now == updated_at + ttl -> due (>= boundary).
+    # now == fetched_at + ttl -> due (>= boundary).
     assert fetch_list.needs_refetch(NOW - TTL, NOW) is True
 
 

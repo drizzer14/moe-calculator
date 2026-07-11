@@ -62,45 +62,54 @@ def test_parse_response_missing_distribution_is_empty():
     assert moe_wgapi.parse_response(json.dumps({"status": "ok", "data": {}}))[0] == {}
 
 
-# --- fresh_table (threshold cache envelope, revalidated at updated_at + 7d) ---
+# --- fresh_table (threshold cache envelope, revalidated at fetched_at + 24h) ---
 
-_UPD = 1783468800  # the data's own updated_at (epoch s)
+_UPD = 1783468800      # WG's own updated_at (epoch s) -- stored, but NOT the freshness anchor
+_FETCHED = 1783600000  # when WE fetched it (epoch s) -- the freshness anchor
 
 
-def _blob(updated_at=_UPD, region="eu"):
-    return {"version": moe_wgapi._STORE_VERSION, "updated_at": updated_at, "region": region,
+def _blob(fetched_at=_FETCHED, updated_at=_UPD, region="eu"):
+    return {"version": moe_wgapi._STORE_VERSION, "updated_at": updated_at,
+            "fetched_at": fetched_at, "region": region,
             "table": {"69153": {"1": 2544, "2": 3634, "3": 4512, "100": 5229}}}
 
 
 def test_fresh_table_within_window_adopts():
-    # 1h after updated_at -> still inside the 24h revalidation window.
-    table = moe_wgapi.fresh_table(_blob(), _UPD + 3600, "eu")
+    # 1h after WE fetched -> still inside the 24h revalidation window.
+    table = moe_wgapi.fresh_table(_blob(), _FETCHED + 3600, "eu")
     assert table == {69153: {1: 2544, 2: 3634, 3: 4512, 100: 5229}}
 
 
 def test_fresh_table_past_revalidation_is_empty():
-    assert moe_wgapi.fresh_table(_blob(), _UPD + moe_wgapi._REVALIDATE_SECONDS + 1, "eu") == {}
+    assert moe_wgapi.fresh_table(_blob(), _FETCHED + moe_wgapi._REVALIDATE_SECONDS + 1, "eu") == {}
+
+
+def test_fresh_table_stale_updated_at_still_adopts():
+    # WG publishes with a lag, so updated_at can be days old; freshness is anchored to fetched_at,
+    # so a recently-fetched cache is adopted even when its updated_at is far in the past.
+    table = moe_wgapi.fresh_table(_blob(updated_at=_UPD - 5 * 24 * 3600), _FETCHED + 3600, "eu")
+    assert table == {69153: {1: 2544, 2: 3634, 3: 4512, 100: 5229}}
 
 
 def test_fresh_table_other_region_is_empty():
-    assert moe_wgapi.fresh_table(_blob(region="na"), _UPD + 3600, "eu") == {}
+    assert moe_wgapi.fresh_table(_blob(region="na"), _FETCHED + 3600, "eu") == {}
 
 
 def test_fresh_table_version_mismatch_is_empty():
     blob = _blob()
     blob["version"] = moe_wgapi._STORE_VERSION + 99
-    assert moe_wgapi.fresh_table(blob, _UPD + 3600, "eu") == {}
+    assert moe_wgapi.fresh_table(blob, _FETCHED + 3600, "eu") == {}
 
 
-def test_fresh_table_missing_updated_at_is_empty():
+def test_fresh_table_missing_fetched_at_is_empty():
     blob = _blob()
-    del blob["updated_at"]
-    assert moe_wgapi.fresh_table(blob, _UPD + 3600, "eu") == {}
+    del blob["fetched_at"]
+    assert moe_wgapi.fresh_table(blob, _FETCHED + 3600, "eu") == {}
 
 
 def test_fresh_table_junk_is_empty():
-    assert moe_wgapi.fresh_table(None, _UPD, "eu") == {}
-    assert moe_wgapi.fresh_table({}, _UPD, "eu") == {}
+    assert moe_wgapi.fresh_table(None, _FETCHED, "eu") == {}
+    assert moe_wgapi.fresh_table({}, _FETCHED, "eu") == {}
 
 
 # --- valid_list (persistent fetch-list envelope; no time window) -------------

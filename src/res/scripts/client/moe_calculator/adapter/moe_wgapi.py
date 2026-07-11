@@ -28,16 +28,18 @@ Fetch behavior -- a persistent, capped (100) working set of OWNED tank ids ("the
     playing a battle in it promotes it to the permanent list. Adds past the 100-cap evict the
     least-recently-played member.
   * On selection: get_thresholds() lazily fetches a single tank iff it's not already cached.
-  * Results are cached in memory AND persisted, revalidated two ways: (a) a time backstop --
-    the cache is served while now < the data's own `updated_at` + 7 days -- and (b) an
-    updated_at-change trigger -- whenever any fetch returns an `updated_at` newer than the one
-    held, the WG distribution has refreshed, so the whole cache is dropped and the entire list
-    is refetched (fetch_list.data_changed + _poll). Within the window the per-id
-    _table/_seen/_inflight dedup serves the cache: a still-fresh cache is adopted on load, and
-    the batch enqueue then skips every id already held while still fetching any genuinely-missing
-    one. Detection of (b) is opportunistic -- it rides whatever fetch naturally happens (a
-    cache-miss on select, a buy/sell, a battle in a new tank); the 7-day backstop covers the
-    case where nothing triggers a fetch.
+  * Results are cached in memory AND persisted, revalidated two ways: (a) a time throttle -- the
+    cache is served while now < OUR last-fetch time + 1 day (WG refreshes the distribution daily
+    but publishes it with a ~1-2 day lag, so the window is anchored to when WE fetched, not to
+    WG's own `updated_at`, which would leave the data >24h old on arrival and refetch every
+    session) -- and (b) an updated_at-change trigger -- whenever any fetch returns an `updated_at`
+    newer than the one held, the WG distribution has refreshed, so the whole cache is dropped and
+    the entire list is refetched (fetch_list.data_changed + _poll). Within the window the per-id
+    _table/_seen/_inflight dedup serves the cache: a still-fresh cache is adopted on load, and the
+    batch enqueue then skips every id already held while still fetching any genuinely-missing one.
+    Detection of (b) is opportunistic -- it rides whatever fetch naturally happens (a cache-miss
+    on select, a buy/sell, a battle in a new tank); the 1-day throttle covers the case where
+    nothing triggers a fetch, and picks up WG's new daily data within ~24h of our next session.
   * If a request errors (or a tank has no WG data), needs_estimate() lets the caller fall back
     to the offline estimator (domain/moe_estimate) so the bar still shows extrapolated numbers.
 
@@ -75,17 +77,18 @@ _AGENT = ("Mozilla/5.0 (compatible; 14th_ua-MoE-Calculator; "
           "+https://github.com/drizzer14/moe-calculator)")
 _POLL_INTERVAL = 0.25                                # seconds between worker-done checks
 _MAX_IDS_PER_REQUEST = 100                           # WG API cap on tank_id per call
-_STORE_VERSION = 2                                   # on-disk cache envelope version
+_STORE_VERSION = 3                                   # on-disk cache envelope version (v3 adds fetched_at)
 _LIST_VERSION = 1                                    # on-disk fetch-list envelope version
-# Cache-freshness time backstop: while now < updated_at + this, the cache is served without a
-# time-driven refetch. The primary invalidation is the updated_at-change trigger in _poll; this
-# is the fallback for sessions where no fetch happens to reveal the change. Single source
-# (shared with domain/fetch_list.needs_refetch) lives in constants.
+# Cache-freshness time throttle: while now < our last-fetch time + this, the cache is served
+# without a time-driven refetch. The primary invalidation is the updated_at-change trigger in
+# _poll; this is the fallback for sessions where no fetch happens to reveal the change. Single
+# source (shared with domain/fetch_list.needs_refetch) lives in constants.
 _REVALIDATE_SECONDS = constants.REVALIDATE_SECONDS
 
 # --- module state (main-thread only) -----------------------------------------
 _table = {}            # int_cd -> {1: dmg, 2: dmg, 3: dmg, 100: dmg}
 _updated_at = 0        # WG data `updated_at` (epoch s) of the newest fetch/adopted cache
+_fetched_at = 0        # OUR wall-clock (epoch s) at the newest fetch/adopted cache -- freshness anchor
 _loaded = False        # something is showable (a fetch completed, or the cache adopted)
 _started = False       # start() has run (caches loaded + fast-paint enqueued)
 _want = {}             # int_cd -> recency epoch: the persistent fetch list (owned tanks only)
@@ -157,14 +160,17 @@ def parse_response(text):
 def fresh_table(blob, now_epoch, region):
     """Return the cached {int_cd: {1,2,3,100: dmg}} table from a persisted envelope iff it is
     the current store version, same region, and still within the revalidation window
-    (now_epoch < updated_at + 7d); otherwise {} (stale -> refetch). Pure."""
+    (now_epoch < fetched_at + 24h -- i.e. WE fetched it less than a day ago); otherwise {}
+    (stale -> refetch). The window is anchored to our own fetch time, not WG's `updated_at`,
+    because WG publishes its daily distribution with a lag (see constants.REVALIDATE_SECONDS).
+    Pure."""
     if not isinstance(blob, dict):
         return {}
     if blob.get("version") != _STORE_VERSION or blob.get("region") != region:
         return {}
-    updated_at = blob.get("updated_at")
+    fetched_at = blob.get("fetched_at")
     try:
-        if now_epoch >= int(updated_at) + _REVALIDATE_SECONDS:
+        if now_epoch >= int(fetched_at) + _REVALIDATE_SECONDS:
             return {}
     except (TypeError, ValueError):
         return {}
@@ -319,7 +325,7 @@ def on_vehicle_bought(int_cd):
 
 def on_vehicle_sold(int_cd):
     """A vehicle left the garage -> drop it from the permanent list (and the temp set). Leaves
-    any cached thresholds in _table/_seen alone (harmless, bounded by the 7-day envelope). Guarded."""
+    any cached thresholds in _table/_seen alone (harmless, bounded by the 1-day envelope). Guarded."""
     global _want
     try:
         cd = int(int_cd or 0)
@@ -412,7 +418,7 @@ def _ensure_list_ready():
         _want = dict((cd, merged.get(cd, now)) for cd in ids)
         _list_ready = True
         _save_list()
-        due = fetch_list.needs_refetch(_updated_at, now)
+        due = fetch_list.needs_refetch(_fetched_at, now)
         LOG_NOTE("[moe] fetch list ready: %d tanks (data refresh due=%s)" % (len(_want), due))
         _enqueue(list(_want.keys()))
     except Exception:
@@ -455,7 +461,7 @@ def _pump():
 def _poll():
     """Main-thread poll: when the current worker finishes, adopt its parsed rows, persist, fire
     ready listeners, and start the next queued job."""
-    global _loaded, _busy, _thread, _poll_cb, _updated_at
+    global _loaded, _busy, _thread, _poll_cb, _updated_at, _fetched_at
     _poll_cb = None
     try:
         thread = _thread
@@ -481,6 +487,7 @@ def _poll():
             _table.update(result)  # the just-fetched rows are current under the new updated_at
             if upd:
                 _updated_at = upd
+            _fetched_at = _now_epoch()  # freshness is anchored to OUR fetch time, not WG's updated_at
             _save_cache()
         for cd in chunk:
             _inflight.discard(cd)
@@ -538,7 +545,7 @@ def _fetch_text(url):
 # --- threshold cache persistence ---------------------------------------------
 
 def _now_epoch():
-    """Current wall-clock as epoch seconds (compared against updated_at + 7d)."""
+    """Current wall-clock as epoch seconds (stamped as fetched_at; compared against fetched_at + 24h)."""
     import time
     return time.time()
 
@@ -552,9 +559,9 @@ def _store_path():
 
 
 def _load_cache():
-    """Adopt a still-fresh cache from disk into _table (within updated_at + 7d). Guarded ->
+    """Adopt a still-fresh cache from disk into _table (fetched within the last 24h). Guarded ->
     no-op on any error / stale envelope."""
-    global _updated_at
+    global _updated_at, _fetched_at
     try:
         path = _store_path()
         if not os.path.isfile(path):
@@ -566,6 +573,10 @@ def _load_cache():
             _table.update(table)
             try:
                 _updated_at = int(blob.get("updated_at") or 0)
+            except (TypeError, ValueError):
+                pass
+            try:
+                _fetched_at = int(blob.get("fetched_at") or 0)
             except (TypeError, ValueError):
                 pass
             LOG_NOTE("[moe] wgapi cache adopted: %d tanks (fresh)" % len(table))
@@ -581,7 +592,8 @@ def _save_cache():
         directory = os.path.dirname(path)
         if not os.path.isdir(directory):
             os.makedirs(directory)
-        blob = {"version": _STORE_VERSION, "updated_at": _updated_at, "region": REGION,
+        blob = {"version": _STORE_VERSION, "updated_at": _updated_at, "fetched_at": _fetched_at,
+                "region": REGION,
                 "table": dict((str(cd), dict((str(k), v) for k, v in row.items()))
                               for cd, row in _table.items())}
         tmp = path + ".tmp"
