@@ -87,7 +87,7 @@ before every release** (it is part of the gate, alongside `check_version.py`), a
 
 ## Release state
 
-**v0.1.0, v0.2.0 and v0.2.1 are published** on `github.com/drizzer14/moe-calculator` (`origin/main`).
+**v0.1.0 through v0.2.3 are published** on `github.com/drizzer14/moe-calculator` (`origin/main`).
 Both channels now ship the **same single build** (WG-API threshold source): the GitHub release
 carries `MoECalculator-Setup-<ver>.exe` + the bare `.wotmod`, and `MoECalculator_<ver>.zip`
 (same `.wotmod` + vendor deps) is uploaded manually to
