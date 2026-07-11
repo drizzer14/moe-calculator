@@ -6,6 +6,24 @@ note under `TASKS/`; delete an entry here once it ships.
 
 ## Open
 
+### Garage bridge lifecycle cleanups (deferred remainder)
+The input-steal cleanup SHIPPED the landable parts (2026-07-11, 5eecb3d): dropped the dead
+per-tick `setIcon`/`mark_icon_url` marshaling, corrected the stale battle "full-screen" docs.
+The `#moe-root` pointer-events "input-steal" is **WON'T-FIX** — `auto` is required for the box
+`:hover` polish, not tooltip-only (see the note + memory garage-box-pointer-events). What REMAINS
+here is the fail-soft bridge lifecycle edge cases (`_active` push-into-dead-VM on ordinary sub-view
+unmount, re-inject on re-mount, non-coalesced `_on_vehicle_changed`) — deferred behind the same
+"adjacent change **and** bridge test coverage" trigger as the bridge-scaffolding extraction below.
+→ Research: TASKS/garage-widget-input-steal-cleanup.md
+
+### Build packaging hardening (deferred remainder)
+The reproducibility fix SHIPPED (2026-07-11, 9fe5b13): stable `dfile=` makes the `.wotmod`
+byte-reproducible and strips the dev path; `check_version` prose regex + debug-builder lock guard
+hardened. What REMAINS: the secret-on-temp-disk window (optional in-memory compile), the unused
+disabled-tooltip PNGs (tied to the tooltip resurrection decision), and the ungated 4-part
+`CLIENT_VERSION` (folds into the next release bump, tracked below).
+→ Research: TASKS/build-reproducibility-hardening.md
+
 ### Cleanup (batch) — the deferred remainder (all TRIGGER-GATED)
 Doc/markup/micro drift, the `moe_data` late-subscriber no-op, and the worker-thread
 `LOG_CURRENT_EXCEPTION` invariant all **shipped** (76fa5c3). Everything still listed here is
