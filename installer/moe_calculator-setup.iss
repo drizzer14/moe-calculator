@@ -13,8 +13,8 @@
 ;         .wotmod already built into ..\dist by build\build_wotmod.py).
 
 #define ModId         "com.14th_ua.moe_calculator"
-#define ModVersion    "0.2.2"
-#define ModWotmod     "com.14th_ua.moe_calculator_0.2.2.wotmod"
+#define ModVersion    "0.2.3"
+#define ModWotmod     "com.14th_ua.moe_calculator_0.2.3.wotmod"
 #define OpenWgWotmod  "net.openwg.gameface_1.1.6.wotmod"
 ; Used by the GitHub update check (see [Code]): the Atom feed + release-asset URLs
 ; are built from these, and SetupBaseName must match this .exe's filename convention.
