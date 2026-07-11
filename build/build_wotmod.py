@@ -93,10 +93,18 @@ def _read_app_id():
     return ""
 
 
-def _compile_py(src_file, pyc, app_id):
+def _compile_py(src_file, pyc, app_id, dfile):
     """Compile one .py -> .pyc (normalized for reproducible builds). For build_config.py, compile
     a SUBSTITUTED temp copy (WG_APPLICATION_ID set to `app_id`) instead of the repo file, so the
-    packaged bytecode carries the injected secret without mutating the working tree."""
+    packaged bytecode carries the injected secret without mutating the working tree.
+
+    `dfile` is the STABLE, machine-independent name recorded as the code object's co_filename
+    (the arc-relative source path, e.g. res/scripts/.../foo.py). Without it, py_compile embeds the
+    on-disk path py_compile was handed: the builder's ABSOLUTE source path for normal files (which
+    leaks the dev's Windows home/username into every shipped .pyc and makes the artifact reproduce
+    only on an identical checkout path) and, for build_config, the RANDOM NamedTemporaryFile path
+    (never stable -> build_config.pyc differs every build, defeating the checksum verification the
+    _normalize_pyc/_FIXED_DATE determinism work exists for). A fixed dfile makes both byte-stable."""
     if os.path.abspath(src_file) == os.path.abspath(BUILD_CONFIG):
         with open(src_file, "rb") as fh:
             text = fh.read().decode("utf-8")
@@ -108,11 +116,11 @@ def _compile_py(src_file, pyc, app_id):
         try:
             tmp.write(text.encode("utf-8"))
             tmp.close()
-            py_compile.compile(tmp.name, cfile=pyc, doraise=True)
+            py_compile.compile(tmp.name, cfile=pyc, dfile=dfile, doraise=True)
         finally:
             os.remove(tmp.name)
     else:
-        py_compile.compile(src_file, cfile=pyc, doraise=True)
+        py_compile.compile(src_file, cfile=pyc, dfile=dfile, doraise=True)
     _normalize_pyc(pyc)
 
 
@@ -129,7 +137,10 @@ def _compile_tree(src_root, out_root, app_id):
             src_file = os.path.join(dirpath, name)
             if name.endswith(".py"):
                 pyc = os.path.join(target_dir, name + "c")  # foo.py -> foo.pyc
-                _compile_py(src_file, pyc, app_id)
+                # Stable co_filename: the archive-relative source path (posix), so the shipped
+                # bytecode is identical regardless of where the repo is checked out / who built it.
+                dfile = os.path.relpath(src_file, SRC).replace(os.sep, "/")
+                _compile_py(src_file, pyc, app_id, dfile)
             elif name.endswith(".pyc"):
                 continue  # skip stray/foreign bytecode; we compile fresh from .py
             else:

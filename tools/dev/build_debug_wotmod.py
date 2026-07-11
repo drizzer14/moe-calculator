@@ -34,6 +34,17 @@ def _check_python():
                  .format(sys.version_info[0], sys.version_info[1]))
 
 
+def _abort_if_locked(err):
+    """Mirror build/deploy_wotmod.py: a locked output file means the WoT client is still running
+    (it holds mods/<version>/*.wotmod open). Print the same friendly 'close the client' message
+    instead of dumping a raw OSError traceback."""
+    if getattr(err, "errno", None) in (13, 32):  # EACCES / sharing violation
+        print("\nERROR: the debug .wotmod is locked -- the WoT client is still running.")
+        print("Close World of Tanks completely, then re-run this build.")
+        sys.exit(2)
+    raise err
+
+
 def main():
     _check_python()
     if len(sys.argv) < 3:
@@ -53,12 +64,16 @@ def main():
     pyc = os.path.join(mods_dir, "mod_moe_calculator_debug.pyc")
     py_compile.compile(src, cfile=pyc, doraise=True)
 
-    if os.path.exists(out):
-        os.remove(out)
-    zf = zipfile.ZipFile(out, "w", zipfile.ZIP_STORED)
-    zf.write(os.path.join(stage, "meta.xml"), "meta.xml")
-    zf.write(pyc, "res/scripts/client/gui/mods/mod_moe_calculator_debug.pyc")
-    zf.close()
+    try:
+        if os.path.exists(out):
+            os.remove(out)
+        zf = zipfile.ZipFile(out, "w", zipfile.ZIP_STORED)
+        zf.write(os.path.join(stage, "meta.xml"), "meta.xml")
+        zf.write(pyc, "res/scripts/client/gui/mods/mod_moe_calculator_debug.pyc")
+        zf.close()
+    except (OSError, IOError) as e:
+        shutil.rmtree(stage, ignore_errors=True)
+        _abort_if_locked(e)
     shutil.rmtree(stage)
     print("built + deployed:", out)
     print("Restart the WoT client to load it.")

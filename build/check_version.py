@@ -55,17 +55,27 @@ _SCAN_EXT = (".md", ".py", ".xml", ".iss", ".ps1", ".txt")
 # to ROOT; skipped silently when absent (dist/ is gitignored build output).
 _EXTRA_FILES = ("dist/INSTALL.txt",)
 
-# Each pattern captures a semver in group 1 that must equal the meta version.
-# The mod id is matched via re.escape so any dots in it stay literal. The prose
-# "version <v>" pattern uses (?!\.\d) so it matches this mod's 3-part version but
-# never the 4-part client version ("version 2.3.0.1").
+# Each pattern captures a semver in group 1 that must equal the meta version. The mod id is
+# matched via re.escape so any dots in it stay literal. These forms UNAMBIGUOUSLY carry THIS
+# mod's version (a packaged/installer filename, a MOD_VERSION/ModVersion assignment), so they are
+# scanned in every file.
 _PATTERNS = [
     re.compile(re.escape("com.14th_ua.moe_calculator") + r"_(\d+\.\d+\.\d+)\.wotmod"),
     re.compile(re.escape("MoECalculator") + r"-Setup-(\d+\.\d+\.\d+)\.exe"),
     re.compile(r'MOD_VERSION\s*=\s*"(\d+\.\d+\.\d+)"'),
     re.compile(r'#define\s+ModVersion\s+"(\d+\.\d+\.\d+)"'),
-    re.compile(r"version\s+(\d+\.\d+\.\d+)(?!\.\d)"),
 ]
+
+# The free-prose "version <v>" form is inherently ambiguous -- it also matches a DEPENDENCY
+# version written the same way (e.g. "OpenWG version 1.1.6"), which would spuriously fail the
+# gate, and it can't tell this mod's 3-part version from an unrelated one. So it is applied ONLY
+# to the consumer-facing install docs, where "version <v>" means THIS mod's version by convention
+# -- not to source, research notes, or other prose scattered across the repo. The (?<!\d\.) /
+# (?!\.\d) guards keep it from matching a fragment of the 4-part client version ("2.3.0.1").
+_PROSE_PATTERN = re.compile(r"(?<!\d\.)version\s+(\d+\.\d+\.\d+)(?!\.\d)")
+# Root-relative, forward-slashed. dist/INSTALL.txt is gitignored build output (scanned when present
+# via _EXTRA_FILES); README.md / INSTALL.md are the shipped consumer docs.
+_PROSE_FILES = frozenset(("README.md", "INSTALL.md", "dist/INSTALL.txt"))
 
 # Files that MUST carry at least one version reference. Catches a file silently
 # LOSING its reference (which would otherwise pass). Paths are ROOT-relative,
@@ -105,8 +115,10 @@ def main():
         except (IOError, OSError):
             continue
         rel = os.path.relpath(path, ROOT).replace(os.sep, "/")
+        # Unambiguous patterns everywhere; the ambiguous prose form only in the consumer docs.
+        pats = _PATTERNS + [_PROSE_PATTERN] if rel in _PROSE_FILES else _PATTERNS
         for lineno, line in enumerate(text.splitlines(), 1):
-            for pat in _PATTERNS:
+            for pat in pats:
                 for m in pat.finditer(line):
                     found_any = True
                     counts[rel] = counts.get(rel, 0) + 1
