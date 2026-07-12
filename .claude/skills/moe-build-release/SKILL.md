@@ -63,7 +63,7 @@ before every release** (it is part of the gate, alongside `check_version.py`), a
   (`NeedOpenWg`, `uninsneveruninstall`), cleans old builds, WoT-running guard, GitHub
   Atom-feed self-update. Repo `drizzer14/moe-calculator`, base name `MoECalculator-Setup`.
 - **`build_installer.ps1`** — preflights the built `.wotmod` + vendor dep, finds `ISCC.exe`, compiles → `dist/MoECalculator-Setup-<version>.exe`.
-- **`readme.moe.txt`** — bilingual EN/UA readme for the wgmods zip. **`readme.wgmods.txt`** — stub (superseded). **`installer/vendor/`** — `net.openwg.gameface_1.1.6.wotmod`.
+- **`readme.moe.txt`** — bilingual EN/UA readme for the wgmods zip. **`readme.wgmods.txt`** — stub (superseded). **`installer/vendor/`** — `net.openwg.gameface_1.1.6.wotmod` + `izeberg.modssettingsapi_1.7.0.wotmod`.
 
 ## Hot-reload (the split that bites)
 
@@ -87,11 +87,13 @@ before every release** (it is part of the gate, alongside `check_version.py`), a
 
 ## Release state
 
-**v0.1.0 through v0.2.3 are published** on `github.com/drizzer14/moe-calculator` (`origin/main`).
+**v0.1.0 through v0.3.0 are published** on `github.com/drizzer14/moe-calculator` (`origin/main`).
 Both channels now ship the **same single build** (WG-API threshold source): the GitHub release
 carries `MoECalculator-Setup-<ver>.exe` + the bare `.wotmod`, and `MoECalculator_<ver>.zip`
 (same `.wotmod` + vendor deps) is uploaded manually to
-[wgmods.net/7745](https://wgmods.net/7745/). The installer self-update reads the GitHub Atom
+[wgmods.net/7745](https://wgmods.net/7745/). Since **v0.3.0** the installer and the zip also
+bundle **ModsSettingsAPI** (`installer/vendor/izeberg.modssettingsapi_1.7.0.wotmod`) alongside
+OpenWG GameFace. The installer self-update reads the GitHub Atom
 feed, so keep the `vX.Y.Z` tag + `MoECalculator-Setup-<ver>.exe` asset-name convention. Follow
 `wotmod-release` for the bump→tag→build→publish flow.
 
