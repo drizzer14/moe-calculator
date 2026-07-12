@@ -4,8 +4,9 @@
 ;   1. Detects the World of Tanks install folder (registry + common paths), lets
 ;      the user confirm/override it, and validates it (version.xml present).
 ;   2. Resolves the client version (e.g. 2.3.0.1) and targets mods\<version>\.
-;   3. Installs the bundled OpenWG GameFace dependency ONLY if it isn't already
-;      present (recursive check) -- many users already have it via ModsList/Aslain.
+;   3. Installs the bundled dependencies ONLY if not already present (recursive check):
+;      OpenWG GameFace (required) and ModsSettingsAPI (provides the in-game settings
+;      panel) -- many users already have both via ModsList/Aslain.
 ;   4. Cleans old copies of this mod (and stale loose res_mods leftovers), then
 ;      installs the mod's .wotmod.
 ;
@@ -16,6 +17,7 @@
 #define ModVersion    "0.3.0"
 #define ModWotmod     "com.14th_ua.moe_calculator_0.3.0.wotmod"
 #define OpenWgWotmod  "net.openwg.gameface_1.1.6.wotmod"
+#define MsaWotmod     "izeberg.modssettingsapi_1.7.0.wotmod"
 ; Used by the GitHub update check (see [Code]): the Atom feed + release-asset URLs
 ; are built from these, and SetupBaseName must match this .exe's filename convention.
 #define RepoOwner     "drizzer14"
@@ -52,6 +54,9 @@ Source: "..\dist\{#ModWotmod}"; DestDir: "{code:GetModsVersionDir}"; Flags: igno
 ; Bundled OpenWG dependency -> only copied when not already installed, and never
 ; removed on uninstall (other GameFace mods may depend on it).
 Source: "vendor\{#OpenWgWotmod}"; DestDir: "{code:GetModsVersionDir}"; Flags: ignoreversion uninsneveruninstall; Check: NeedOpenWg
+; Bundled ModsSettingsAPI dependency (provides the in-game settings panel). Same
+; policy: only copied when absent, never removed on uninstall (shared by many mods).
+Source: "vendor\{#MsaWotmod}"; DestDir: "{code:GetModsVersionDir}"; Flags: ignoreversion uninsneveruninstall; Check: NeedMsa
 
 [Messages]
 ; Repurpose the "Select Destination Location" page for picking the WoT root.
@@ -217,6 +222,48 @@ end;
 function NeedOpenWg(): Boolean;
 begin
   Result := not FindOpenWgIn(GetModsVersionDir(''));
+end;
+
+{ Recursive search for *modssettingsapi*.wotmod under a directory (matches both
+  izeberg.modssettingsapi* and aslain.modssettingsapi* and any other variant). }
+function FindMsaIn(Dir: string): Boolean;
+var
+  FR: TFindRec;
+begin
+  Result := False;
+  { files in this dir }
+  if FindFirst(Dir + '\*modssettingsapi*.wotmod', FR) then
+  begin
+    try
+      Result := True;
+      Exit;
+    finally
+      FindClose(FR);
+    end;
+  end;
+  { recurse into subdirs }
+  if FindFirst(Dir + '\*', FR) then
+  begin
+    try
+      repeat
+        if (FR.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
+          if (FR.Name <> '.') and (FR.Name <> '..') then
+            if FindMsaIn(Dir + '\' + FR.Name) then
+            begin
+              Result := True;
+              Exit;
+            end;
+      until not FindNext(FR);
+    finally
+      FindClose(FR);
+    end;
+  end;
+end;
+
+{ [Files] Check: copy bundled ModsSettingsAPI only when none is already present. }
+function NeedMsa(): Boolean;
+begin
+  Result := not FindMsaIn(GetModsVersionDir(''));
 end;
 
 { ---- WoT-running guard (file locks) -------------------------------------- }

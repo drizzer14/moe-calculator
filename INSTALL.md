@@ -21,6 +21,7 @@ plays out.
 |-------------|--------|
 | **Game** | World of Tanks **EU (Wargaming)** client, version **2.3.0.1**. Built and tested against this version. |
 | **Dependency** | **OpenWG GameFace** (required). The installer sets this up for you; for a manual install you add it yourself. |
+| **Optional** | **ModsSettingsAPI** — adds the in-game settings panel for turning the Garage and Battle widgets on/off. The installer adds it if missing; without it the mod still runs with both widgets enabled. |
 
 This build targets the Wargaming EU/global client (version 2.3.0.1).
 
@@ -34,12 +35,12 @@ This build targets the Wargaming EU/global client (version 2.3.0.1).
    contains `version.xml`. The installer detects it automatically in most cases.
 4. If a newer version is available on GitHub, the installer offers to download and run the
    latest installer for you — accept to always get the newest build.
-5. The installer adds OpenWG GameFace when your client doesn't already have it, then
-   installs the mod into `mods\<version>\`.
+5. The installer adds OpenWG GameFace (and ModsSettingsAPI, for the settings panel) when
+   your client doesn't already have them, then installs the mod into `mods\<version>\`.
 6. Start the game and go to the Garage.
 
 To remove the mod later, use its entry in Windows **Apps & features**, or re-run the
-installer. OpenWG GameFace stays in place for other mods that use it.
+installer. OpenWG GameFace and ModsSettingsAPI stay in place for other mods that use them.
 
 ---
 
@@ -59,10 +60,12 @@ installer. OpenWG GameFace stays in place for other mods that use it.
 
 3. Copy **`com.14th_ua.moe_calculator_0.3.0.wotmod`** into that folder.
 4. Delete any older version of this mod from the same folder first.
-5. Fully restart the game client: exit completely and relaunch.
+5. *(Optional)* Add **ModsSettingsAPI** (`izeberg.modssettingsapi`) into the same folder to
+   get the in-game settings panel. Without it the mod runs with both widgets enabled.
+6. Fully restart the game client: exit completely and relaunch.
 
-The `mods\2.3.0.1\` folder then holds the OpenWG GameFace `.wotmod` and
-`com.14th_ua.moe_calculator_0.3.0.wotmod`.
+The `mods\2.3.0.1\` folder then holds the OpenWG GameFace `.wotmod`,
+`com.14th_ua.moe_calculator_0.3.0.wotmod`, and (optionally) the ModsSettingsAPI `.wotmod`.
 
 ---
 
@@ -73,6 +76,18 @@ The `mods\2.3.0.1\` folder then holds the OpenWG GameFace `.wotmod` and
    3-mark milestone ticks and your current average combined damage and mark percentage.
 3. Enter a battle — the in-battle overlay appears over the HUD and updates live as you deal
    damage.
+
+---
+
+## Settings
+
+With **ModsSettingsAPI** installed, open the in-game mod settings and find
+**14th_ua's MoE Calculator**. Two toggles, both on by default:
+
+- **Garage Widget Enabled** — the Garage percentile bar.
+- **Battle Widget Enabled** — the in-battle overlay.
+
+Changes apply immediately. Without ModsSettingsAPI both widgets are simply always on.
 
 ---
 

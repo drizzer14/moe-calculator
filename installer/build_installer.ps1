@@ -7,8 +7,8 @@
              & "C:\Python27\python.exe" build\build_wotmod.py
       2. Inno Setup must be installed (provides ISCC.exe):
              winget install -e --id JRSoftware.InnoSetup
-      3. The bundled vendor .wotmod dependency must be present under installer\vendor\
-         (net.openwg.gameface_1.1.6.wotmod).
+      3. The bundled vendor .wotmod dependencies must be present under installer\vendor\
+         (net.openwg.gameface_1.1.6.wotmod, izeberg.modssettingsapi_1.7.0.wotmod).
 
     Usage:
         pwsh installer\build_installer.ps1
@@ -25,6 +25,7 @@ $RepoRoot     = Split-Path -Parent $InstallerDir
 $Iss          = Join-Path $InstallerDir 'moe_calculator-setup.iss'
 $ModWotmod    = Join-Path $RepoRoot 'dist\com.14th_ua.moe_calculator_0.3.0.wotmod'
 $OpenWg       = Join-Path $InstallerDir 'vendor\net.openwg.gameface_1.1.6.wotmod'
+$Msa          = Join-Path $InstallerDir 'vendor\izeberg.modssettingsapi_1.7.0.wotmod'
 
 function Find-ISCC {
     $candidates = @(
@@ -45,6 +46,9 @@ if (-not (Test-Path $ModWotmod)) {
 if (-not (Test-Path $OpenWg)) {
     throw "Bundled OpenWG dependency not found: $OpenWg"
 }
+if (-not (Test-Path $Msa)) {
+    throw "Bundled ModsSettingsAPI dependency not found: $Msa"
+}
 $iscc = Find-ISCC
 if (-not $iscc) {
     throw "ISCC.exe (Inno Setup compiler) not found. Install it:`n    winget install -e --id JRSoftware.InnoSetup"
@@ -53,6 +57,7 @@ if (-not $iscc) {
 Write-Host "ISCC:       $iscc"
 Write-Host "Mod:        $ModWotmod"
 Write-Host "OpenWG:     $OpenWg"
+Write-Host "MSA:        $Msa"
 Write-Host "Script:     $Iss"
 Write-Host ''
 

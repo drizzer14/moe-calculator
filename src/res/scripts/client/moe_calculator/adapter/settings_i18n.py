@@ -19,11 +19,15 @@ text for that key alone (and is underscore-marked when ``i18n.MARK_UNTRANSLATED`
 matching the widget's diagnostic). An unknown client code degrades to full English.
 
 NOTE on terminology: the non-English blocks use each locale's natural wording for
-"widget", "Garage", "battle" and "Marks of Excellence". Those feature nouns (esp. the
-official Marks-of-Excellence term per language) and the exact ``getClientLanguage()`` codes
-(esp. Ukrainian ``uk`` vs ``ua``) should be spot-checked against a running client
-(moe-build-release / debug REPL) before a release; the mechanism supports any code and
-never breaks on an unverified one.
+"widget", "Garage", "battle" and "Marks of Excellence". The official Marks-of-Excellence
+noun per language is still worth a spot-check against a running client before a release; the
+mechanism supports any code and never breaks on an unverified one.
+
+Ukrainian code CONFIRMED: the EU 2.3.0.1 client's ``#settings:LANGUAGE_CODE`` resolves to
+``'uk'`` (verified against ``res/text/lc_messages/settings.mo`` + the client's own
+``dog_tag_composer.SUPPORTED_LANGUAGES``, which lists ``'uk'``, never ``'ua'``). So the
+``'uk'`` table key matches ``getClientLanguage()`` directly; the ``ua`` alias below never
+fires on this client and is kept only as defense for an odd client build.
 """
 from moe_calculator._compat import LOG_CURRENT_EXCEPTION
 from moe_calculator.adapter import i18n
@@ -31,8 +35,9 @@ from moe_calculator.adapter import i18n
 # The default client language + the value returned when the engine read fails.
 DEFAULT_LANGUAGE = u"en"
 
-# getClientLanguage() code quirks -> our table keys. Seeded with the suspected Ukrainian
-# case; extend after verifying live codes (Chinese/Portuguese variants, region suffixes).
+# getClientLanguage() code quirks -> our table keys. The EU client returns 'uk' for
+# Ukrainian (confirmed -- see module docstring), so this ua->uk alias is defensive only;
+# extend if a client variant surfaces a non-standard code (Chinese/Portuguese, region suffix).
 _ALIASES = {
     u"ua": u"uk",
 }

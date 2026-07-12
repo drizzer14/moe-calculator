@@ -9,6 +9,7 @@ your World of Tanks folder and restart the game.
 WHAT'S IN THE BOX
     com.14th_ua.moe_calculator_{VERSION}.wotmod      the mod
     net.openwg.gameface_1.1.6.wotmod                 REQUIRED dependency
+    izeberg.modssettingsapi_1.7.0.wotmod             optional (settings panel)
 
 
 ==============================================================
@@ -38,6 +39,11 @@ INSTALL  (2 steps)
 DEPENDENCIES
     OpenWG GameFace is REQUIRED - the widget will not appear without
     it. If you already run it, keep your existing copy.
+
+    ModsSettingsAPI is OPTIONAL - it adds the in-game settings panel
+    where you can turn the Garage and Battle widgets on or off. Without
+    it the mod still works with both widgets enabled. Keep your existing
+    copy if you already run it.
 
 UNINSTALL
     Delete com.14th_ua.moe_calculator_{VERSION}.wotmod from
@@ -73,6 +79,11 @@ UNINSTALL
 ЗАЛЕЖНОСТІ
     OpenWG GameFace ОБОВ'ЯЗКОВИЙ - без нього віджет не з'явиться.
     Якщо він уже стоїть, лишіть свою копію.
+
+    ModsSettingsAPI НЕОБОВ'ЯЗКОВИЙ - додає ігрову панель налаштувань,
+    де можна вмикати/вимикати віджети в Ангарі та в бою. Без нього мод
+    працює з обома увімкненими віджетами. Якщо він уже стоїть, лишіть
+    свою копію.
 
 ВИДАЛЕННЯ
     Видаліть com.14th_ua.moe_calculator_{VERSION}.wotmod з
