@@ -382,3 +382,35 @@ engine.whenReady.then(() => {
     observer.subscribe();
     render(observer.model);
 });
+
+/* Match the widget's size to WG's bottom-bar slot boxes (crew/equip/directive/ammo/
+   consumables). Those boxes scale with the VIEWPORT (like the carousel), while the widget is
+   sized in rem (= interfaceScale px). interfaceScale is power-of-two gated, so at 1440p (x1,
+   taller viewport) the rem widget is too SHORT vs the boxes. We rescale the whole widget by
+       k = innerHeight / (SIZE_REF * scale)
+   The boxes are a BLEND of scale and viewport (pure-viewport over-grows the widget at 1440p),
+   so the rescale is
+       k = 1 + GROWTH * (vp/scale - SIZE_REF) / SIZE_REF ,   vp/scale = innerHeight / (1rem px)
+   which is EXACTLY 1.0 at 4K (vp/scale = 2160/2 = 1080) and 1080p (1080/1) -- where the rem
+   design already matches the boxes -- and grows for taller viewports at the same scale (1440p:
+   vp/scale = 1440). GROWTH picks how much of that viewport growth to follow: 0 = pure rem
+   (too short at 1440p), 1 = pure viewport (too tall). GROWTH=0.625 was calibrated LIVE at
+   1440p against the slot boxes (k=1.208). Anchored at the bottom-right corner (transform-origin)
+   so the calibrated `bottom`/`right` anchor holds; the box grows up and to the left. SIZE_REF=
+   1080 is fixed by "widget matches boxes at 4K" (also the exact-match point at 1080p). */
+var SIZE_REF = 1080;
+var GROWTH = 0.625;
+function widgetScale(remPx) {
+    return 1 + GROWTH * (window.innerHeight / remPx - SIZE_REF) / SIZE_REF;
+}
+function applyWidgetScale() {
+    var root = document.getElementById("moe-root");
+    if (!root) return;
+    var remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 1;
+    root.style.transformOrigin = "100% 100%";
+    root.style.transform = "scale(" + widgetScale(remPx) + ")";
+}
+engine.whenReady.then(function () {
+    applyWidgetScale();
+    window.addEventListener("resize", applyWidgetScale);
+});

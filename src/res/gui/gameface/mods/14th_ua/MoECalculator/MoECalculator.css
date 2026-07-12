@@ -1,16 +1,22 @@
 /* 14th_ua's MoE Calculator widget. Uses WoT's native Gameface palette by VALUE
    (PFDINMax font + parchment/gold hex). We do NOT use var(--color-*) custom
    properties: Gameface's CSS engine drops a whole declaration when it can't resolve a
-   var() (ignoring the fallback), which renders elements invisible. EVERYTHING -- sizing
-   AND the anchor offsets -- is in rem: the engine sets the hangar doc's root font so
-   1rem == interfaceScale px (measured via the S1 probe: 1px @1x, 2px @2x), i.e. rem IS
-   WG's own logical layout unit. A rem offset therefore tracks WG's panels across BOTH
-   interface scale and resolution (a fixed physical offset at a given scale, independent of
-   resolution -- the CSS px viewport stays physical, 3840x2160, at every scale). The anchor
-   was originally vw/vh, which pins a fixed *physical* offset (a fraction of the physical
-   viewport, which does NOT shrink with scale), so the widget drifted against WG's
-   scale-tracking panels away from its calibration scale (tuned at 2x, drifted at 1x). The
-   engine reflows rem live when scale changes, so no Python scale-push / re-render is needed.
+   var() (ignoring the fallback), which renders elements invisible. SIZING is all in rem:
+   the engine sets the hangar doc's root font so 1rem == interfaceScale px (measured via the
+   S1 probe: 1px @1x, 2px @2x), i.e. rem IS WG's own logical layout unit, so the box + bar
+   scale with the interface. The two ANCHOR AXES are DIFFERENT units, because they clear two
+   WG elements that move by DIFFERENT laws (verified live at 1080p, 1440p, 4K -- all Auto):
+     X (right: rem) tracks the vehicle-info column's right edge, which is SCALE-tracking
+        (logical): 46rem = 46px @1x, 92px @2x. Verified across scale + resolution.
+     Y (bottom: calc(B rem + V vh)) clears the carousel top, which is NEITHER pure-scale NOR
+        pure-viewport -- it is a BLEND (see the #moe-root Y note for the full derivation).
+        Auto interfaceScale is power-of-two gated (x2 only at height>=1536), so 1080p and
+        1440p are BOTH x1 and 4K is x2; 4K being exactly 2x 1080p makes those two points
+        degenerate (rem, vh, and every blend agree there), and 1440p is what pins the blend.
+     History: pure vw/vh -> a `calc(<rem>+140px)` hybrid (patched a fixed-4K scale-toggle
+   drift, but a fixed px term over-lifts at lower resolutions) -> pure rem (right at 1080p/4K,
+   too LOW at 1440p) -> pure vh (too HIGH at 1440p) -> this rem+vh blend, right at all three.
+   Do NOT collapse Y back to a single unit. The engine reflows both units live, no push.
 
    Layout: a horizontal percentile bar (0..100) anchored bottom-right, above the
    carousel, styled like the garage's top-right Battlepass chapter-progress widget.
@@ -19,19 +25,25 @@
 
 #moe-root {
     position: fixed;
-    /* Bottom-right, above the carousel, aligned toward the vehicle-info column's right
-       edge (see the file header for the rem-is-WG's-logical-unit reasoning; converted from
-       the old vw/vh anchor, which was tuned at 2x and drifted at 1x).
-         X: pure rem -- the vehicle-info column's right edge scales cleanly with interface
-            scale, so right 2.4vw (92px@2x) -> 46rem tracks it at every scale. Verified 1x+2x.
-         Y: rem + a fixed 140px term -- the carousel top does NOT scale purely: it sits above
-            bottom chrome whose height is scale-INVARIANT, so a lone rem value that's right at
-            2x lands ~70px too low at 1x. calc(<rem> + 140px) fits BOTH scales (the rem part
-            still reflows live with scale; the 140px is the constant chrome). Per carousel
-            state, <rem> is pinned so 2x reproduces the original vh px exactly (no regression):
-            single-row 25.5vh=551px@2x -> calc(205.5rem+140px); .moe-rows2 confirmed live. */
+    /* Bottom-right, above the carousel. X and Y use DIFFERENT units (see file header).
+         X: right 46rem -- the vehicle-info column's right edge is scale-tracking. Verified.
+         Y: bottom calc(B rem + V vh) -- a BLEND of a scale term and a viewport term, because
+            the carousel top is NEITHER pure-scale NOR pure-viewport. 1rem = interfaceScale px
+            (the scale term, so B rem = B*scale px); 1vh = viewport_height/100 px (the drift
+            term). Why a blend: interfaceScale is power-of-two gated (x2 only at height>=1536),
+            so 1080p and 1440p are BOTH x1 while 4K is x2. 4K is exactly 2x 1080p in scale AND
+            pixels -> those two points are DEGENERATE (pure rem, pure vh, and every blend all
+            agree there), so they alone can't fix the law; 1440p (x1 but a taller viewport)
+            is the point that pins it. V=18.33vh was calibrated LIVE on the 2-ROW carousel
+            (302/368/604px measured good @1080p/1440p/4K); the same V is reused for single-row
+            + small (their B pinned to the original 1080p/4K px). 1080p+4K reproduce EXACTLY.
+         RETUNE: V (vh) is shared by all three states; B (rem) differs per carousel height.
+            To adjust the mid-resolution (e.g. 1440p) feel, change V and re-solve B to hold
+            1080p: B = px_at_1080p - V*10.8. Do NOT collapse back to a single unit (pure rem
+            sits too LOW at 1440p; pure vh too HIGH -- both tried live). single/small B are
+            extrapolated from the rows2 fit -- verify live if those carousel modes are used. */
     right: 46rem;
-    bottom: calc(205.5rem + 140px);   /* single-row (rows=1) clearance (was 25.5vh / 275rem) */
+    bottom: calc(77.5rem + 18.33vh);  /* single-row (rows=1) -- scale/viewport blend (see Y note) */
     width: 315rem;                /* content width; matched to the missions-panel box width
                                      (was 360 -- box read ~13% wider than the reference) */
     z-index: 9000;
@@ -85,10 +97,10 @@
 
 /* Responsive lift: raise the bar to clear a taller carousel. A double row is taller
    than a single row; the small (shorter) double-row tiles need less lift than the tall
-   adaptive tiles. .moe-small must follow .moe-rows2 in source order so it wins. Values
-   calibrated live per resolution. */
-#moe-root.moe-rows2 { bottom: calc(232rem + 140px); }        /* was 28vh/302rem (605px@2x); verified live 1x+2x */
-#moe-root.moe-rows2.moe-small { bottom: calc(189rem + 140px); }  /* was 24vh/259rem (518px@2x) */
+   adaptive tiles. .moe-small must follow .moe-rows2 in source order so it wins. Same blend
+   as #moe-root bottom (shared V vh; B rem differs per carousel height -- see the Y note). */
+#moe-root.moe-rows2 { bottom: calc(104rem + 18.33vh); }        /* blend -- calibrated live (302/368/604px @1080p/1440p/4K) */
+#moe-root.moe-rows2.moe-small { bottom: calc(61rem + 18.33vh); }  /* blend */
 
 /* --- current readout, sitting right on top of the bar ---------------------- */
 /* Anchored just above the track's left end (like the Battle Pass "Stage 1"
