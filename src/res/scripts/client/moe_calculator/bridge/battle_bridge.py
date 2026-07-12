@@ -21,6 +21,7 @@ from moe_calculator.domain.battle_builder import build_battle_model, battle_bar_
 from moe_calculator.domain.constants import EFFICIENCY_WIDE_THRESHOLD
 from moe_calculator.domain.positioning import efficiency_panel_wide
 from moe_calculator.bridge import battle_view
+from moe_calculator.bridge import mod_settings
 
 # Set while a coalesced refresh is queued, so a burst of onTotalEfficiencyUpdated fires
 # collapses to a single deferred refresh().
@@ -58,6 +59,11 @@ _overlay_listeners_armed = False
 _last_wide = None
 
 
+# True between avatar-ready and avatar-non-player, i.e. while we're in a battle. Tracked even
+# when the overlay is disabled so a live enable (apply_settings) knows to open the window now.
+_in_battle = False
+
+
 # --- engine event subscriptions ---------------------------------------------
 # Handlers are module-level (stable identity) so the membership-checked _arm is idempotent.
 
@@ -65,14 +71,19 @@ def _on_mount_refresh(*args, **kwargs):
     # Avatar ready -> we're in a battle: open the overlay window, (re)arm the efficiency
     # listener, kick the thresholds loader, and push the initial model. Reset the played-tank
     # record so this battle promotes its vehicle exactly once (see push).
-    global _battle_recorded, _last_wide
+    global _battle_recorded, _last_wide, _in_battle
     try:
+        _in_battle = True
         _battle_recorded = False
         # Re-evaluate the 5-digit shift from scratch this battle (totals reset to 0).
         _last_wide = None
         # Clear any scoreboard flag left over from a prior battle / relogin / replay teardown,
         # so a stale key can never keep the fresh battle's overlay hidden.
         _open_overlays.clear()
+        if not mod_settings.battle_enabled():
+            # Overlay disabled -> don't open the window this battle. A live enable opens it
+            # mid-battle (see apply_settings); _in_battle stays True so that path fires.
+            return
         battle_view.open_window()
         install_all_listeners()
         moe_data.start()  # idempotent; the garage path may already have kicked it
@@ -112,7 +123,9 @@ def _on_observed_vehicle_changed(*args, **kwargs):
 def _on_teardown(*args, **kwargs):
     # Avatar became non-player (battle exit) -> tear down the overlay window; the next
     # battle mount re-opens it. The event lists are rebuilt by the arena teardown regardless.
+    global _in_battle
     try:
+        _in_battle = False
         battle_view.close_window()
     except Exception:
         LOG_CURRENT_EXCEPTION()
@@ -361,7 +374,8 @@ def push(rvm):
         model = build_battle_model(snap)
         overlay_open = bool(_open_overlays)
         visible = battle_bar_visible(snap.in_battle, snap.has_vehicle, snap.is_spectating,
-                                     overlay_open=overlay_open)
+                                     overlay_open=overlay_open,
+                                     enabled=mod_settings.battle_enabled())
         LOG_DEBUG("[moe-battle] push visible=%s spectating=%s scoreboard=%s cd=%d pct=%.1f delta=%.2f data=%s baseline=%s" % (
             visible, snap.is_spectating, overlay_open, model.combined_damage, model.cur_percent,
             model.pct_delta, model.has_data, model.has_baseline))
@@ -373,5 +387,24 @@ def push(rvm):
             tx.setPctDelta(model.pct_delta)
             tx.setHasData(model.has_data)
             tx.setHasBaseline(model.has_baseline)
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+
+
+def apply_settings():
+    """Apply the "Battle Widget Enabled" flag live (the mod_settings change callback).
+
+    Disabled: close the overlay window if it is open. Enabled while in a battle: open it now
+    (arm + kick data + push) so the toggle takes effect without waiting for the next battle."""
+    try:
+        if not mod_settings.battle_enabled():
+            if battle_view.active_view() is not None:
+                battle_view.close_window()
+            return
+        if _in_battle and battle_view.active_view() is None:
+            battle_view.open_window()
+            install_all_listeners()
+            moe_data.start()
+            refresh()
     except Exception:
         LOG_CURRENT_EXCEPTION()

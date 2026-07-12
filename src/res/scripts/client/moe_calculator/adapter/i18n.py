@@ -22,6 +22,16 @@ from moe_calculator._compat import LOG_CURRENT_EXCEPTION
 
 DEFAULT_LANGUAGE = "en"
 
+# DIAGNOSTIC: when on, untranslated (English-fallback) strings are underscore-tagged so
+# they stand out in-client. Off for releases. Shared by settings_i18n (the settings-panel
+# translation resolver) so its English leaks flag the same way. Flip to True only for dev.
+MARK_UNTRANSLATED = False
+
+
+def _mark(s):
+    """Tag an untranslated (English-fallback) string so it stands out in-client."""
+    return (u"_" + s) if (MARK_UNTRANSLATED and s) else s
+
 # WG resource keys we reuse (verified LIVE against the EU 2.3.0.1 client -- each renders
 # real translated text, not a key echo; the client resolves each to the active language).
 # Keys drift per patch -- resolution is guarded, so a dropped/renamed key degrades to the

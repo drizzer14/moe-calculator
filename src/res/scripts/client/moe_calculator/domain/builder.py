@@ -54,14 +54,18 @@ def build_model(snapshot):
         end_damage_required=end_required)
 
 
-def bar_visible(overlay_closed, in_garage, has_vehicle):
+def bar_visible(overlay_closed, in_garage, has_vehicle, enabled=True):
     """Whether the bar should render. Pure/engine-free so it unit-tests on plain inputs.
 
+    - enabled     : the "Garage Widget Enabled" setting; a hard override so a live toggle-off
+                    hides an already-mounted bar on the next push. Defaults True (prior callers).
     - has_vehicle : a vehicle must be selected.
     - in_garage   : show ONLY in the plain garage (fail-closed allowlist; the vehicle-
                     params sub-view we inject into stays mounted on other lobby views).
     - overlay_closed : hidden while a tank-setup overlay (ammo/equipment/...) is open.
     """
+    if not enabled:
+        return False
     if not has_vehicle:
         return False
     if not in_garage:

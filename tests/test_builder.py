@@ -96,6 +96,14 @@ def test_bar_visible_gates():
     assert bar_visible(True, True, False) is False
 
 
+def test_bar_visible_disabled_setting_hides():
+    # "Garage Widget Enabled" off is a hard override: hides an otherwise-visible bar.
+    assert bar_visible(True, True, True, enabled=False) is False
+    # Default (enabled) preserves prior behavior.
+    assert bar_visible(True, True, True, enabled=True) is True
+    assert bar_visible(True, True, True) is True
+
+
 # --- wulf_args (JS command argument parsing) --------------------------------
 
 class _WulfMap(object):

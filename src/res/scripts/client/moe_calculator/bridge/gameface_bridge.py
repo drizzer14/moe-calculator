@@ -34,6 +34,7 @@ from moe_calculator.adapter import i18n
 from moe_calculator.domain.builder import build_model, bar_visible
 from moe_calculator.domain.placement import choose_placement, INJECT, BLOCKED
 from moe_calculator.bridge.view_models import MoEVM, MarkTickVM
+from moe_calculator.bridge import mod_settings
 import openwg_gameface
 
 WIDGET_NAME = "MoECalculator"
@@ -233,6 +234,10 @@ def install_all_listeners():
             _data_listener_armed = True
         except Exception:
             LOG_CURRENT_EXCEPTION()
+    # Self-heal the settings panel: MSA may load AFTER us at startup (our mod id sorts before
+    # izeberg's), so register() can no-op at entry-point time. Retry here every hangar mount
+    # (idempotent once registered).
+    mod_settings.register()
 
 
 def _schedule_refresh():
@@ -389,6 +394,11 @@ def note_mount(name, vm):
     global _placed_name, _placed_vm
     _candidate_vms[name] = vm
 
+    if not mod_settings.garage_enabled():
+        # Widget disabled -> never inject. Keep the cached VM so a live re-enable
+        # (apply_settings) can place onto it immediately without a hangar re-render.
+        return None
+
     if _placed_name is not None:
         if name != _placed_name:
             return None  # a non-ours candidate mounted -- never migrate.
@@ -449,6 +459,34 @@ def refresh():
     return True
 
 
+def apply_settings():
+    """Apply the "Garage Widget Enabled" flag live (the mod_settings change callback).
+
+    Disabled: re-push so bar_visible folds the bar to hidden. Enabled: re-push to reveal, or
+    -- if disabled-at-mount left us un-placed while we're still in the hangar -- decide
+    placement now over the cached candidate VMs so the bar appears without a hangar re-render."""
+    try:
+        if not mod_settings.garage_enabled():
+            if _active is not None:
+                push(_active[1], host_vm=_active[0])
+            return
+        if _active is not None:
+            push(_active[1], host_vm=_active[0])
+            return
+        if _host_alive():
+            for name in _candidate_order:
+                vm = _candidate_vms.get(name)
+                if vm is None:
+                    continue
+                target = note_mount(name, vm)
+                if target is not None:
+                    host_vm, rvm = target
+                    push(rvm, host_vm=host_vm)
+                    break
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+
+
 def push(rvm, host_vm=None):
     """Recompute the MoE model for the selected vehicle and write it into rvm."""
     if rvm is None:
@@ -457,7 +495,8 @@ def push(rvm, host_vm=None):
         snap = engine_adapter.build_snapshot()
         model = build_model(snap)
         rows, small = _carousel_geometry()
-        visible = bar_visible(_overlay_closed(), _in_garage(), snap.has_vehicle)
+        visible = bar_visible(_overlay_closed(), _in_garage(), snap.has_vehicle,
+                              enabled=mod_settings.garage_enabled())
         LOG_DEBUG("[moe] push visible=%s marks=%d pct=%.1f rows=%d data=%s" % (
             visible, model.marks, model.cur_percentile, rows, model.has_data))
         with rvm.transaction() as tx:

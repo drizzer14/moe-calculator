@@ -19,7 +19,7 @@ from debug_utils import LOG_CURRENT_EXCEPTION
 from moe_calculator._compat import LOG_DEBUG
 
 MOD_NAME = "14th_ua's MoE Calculator"
-MOD_VERSION = "0.2.3"
+MOD_VERSION = "0.3.0"
 
 
 # Candidate hangar sub-views in PRIORITY order: (name, module path, class). `params` is
@@ -121,6 +121,26 @@ def _install_battle():
     LOG_DEBUG("[%s] battle overlay armed (registered Gameface window on arena lifecycle)"
               % MOD_NAME)
 
+
+def _install_settings():
+    # Register the two "…Widget Enabled" toggles (ModsSettingsAPI is a SOFT dependency: if it
+    # is absent register() logs-and-returns and both widgets stay enabled). Subscribe each
+    # feature bridge's apply_settings so a checkbox change takes effect live. Runs BEFORE the
+    # two installers so the flags are already seeded when the first mount reads them.
+    from moe_calculator.bridge import mod_settings
+    from moe_calculator.bridge import gameface_bridge, battle_bridge
+
+    mod_settings.register()
+    mod_settings.add_change_listener(gameface_bridge.apply_settings)
+    mod_settings.add_change_listener(battle_bridge.apply_settings)
+    LOG_DEBUG("[%s] settings registered (garage=%s, battle=%s)"
+              % (MOD_NAME, mod_settings.garage_enabled(), mod_settings.battle_enabled()))
+
+
+try:
+    _install_settings()
+except Exception:
+    LOG_CURRENT_EXCEPTION()
 
 try:
     _install()

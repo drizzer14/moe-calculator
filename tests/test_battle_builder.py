@@ -237,3 +237,11 @@ def test_battle_bar_visible_overlay_never_reveals_hidden_case():
     assert battle_bar_visible(True, False, overlay_open=False) is False   # no vehicle
     assert battle_bar_visible(False, True, overlay_open=False) is False   # not in combat
     assert battle_bar_visible(True, True, is_spectating=True, overlay_open=False) is False
+
+
+def test_battle_bar_visible_disabled_setting_hides():
+    # "Battle Widget Enabled" off is a hard override: hides an otherwise-visible overlay.
+    assert battle_bar_visible(True, True, enabled=False) is False
+    # Default (enabled) preserves prior behavior.
+    assert battle_bar_visible(True, True, enabled=True) is True
+    assert battle_bar_visible(True, True) is True
