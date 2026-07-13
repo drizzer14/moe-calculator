@@ -30,14 +30,20 @@ MOD_DISPLAY_NAME = "14th_ua's MoE Calculator"
 # Bump ONLY when the control layout / varName set changes (the host wipes saved values to
 # defaults on a bump). Localizing text is text-only -- it does NOT bump this (the stored
 # template text is refreshed in place by _sync_template_text instead).
-SETTINGS_VERSION = 1
+SETTINGS_VERSION = 2
 
 GARAGE_KEY = "garage_widget_enabled"
 BATTLE_KEY = "battle_widget_enabled"
+# The in-battle overlay's "peek" mode: show it only while Alt is held. Mutually exclusive with
+# BATTLE_KEY -- when the always-on battle widget is enabled this flag is ignored (see
+# battle_bar_visible's soft-gate). MSA 1.7.0 has no per-control disabled field, so the checkbox
+# stays clickable; its value simply has no effect while BATTLE_KEY is on.
+BATTLE_ALT_KEY = "battle_widget_alt_key"
 
-# Both widgets ship ON. merge_settings only ever overlays these known keys, so an MSA store
-# from a newer/older template can never introduce or drop a flag we act on.
-DEFAULTS = {GARAGE_KEY: True, BATTLE_KEY: True}
+# The two widgets ship ON; the Alt-peek mode ships OFF (opt-in). merge_settings only ever
+# overlays these known keys, so an MSA store from a newer/older template can never introduce or
+# drop a flag we act on.
+DEFAULTS = {GARAGE_KEY: True, BATTLE_KEY: True, BATTLE_ALT_KEY: False}
 
 # Live flag state (seeded from MSA in register(); defaults until then / if MSA is absent).
 _settings = dict(DEFAULTS)
@@ -74,6 +80,14 @@ def battle_enabled():
     return bool(_settings.get(BATTLE_KEY, True))
 
 
+def battle_alt_key_enabled():
+    """Whether the "show only while Alt held" peek mode is enabled (default False).
+
+    Independent of battle_enabled(): the consumer (battle_bar_visible) applies the soft-gate
+    so this is ignored while battle_enabled() is on."""
+    return bool(_settings.get(BATTLE_ALT_KEY, False))
+
+
 def add_change_listener(fn):
     """Register a zero-arg callback invoked (guarded) after the flags change."""
     if fn not in _listeners:
@@ -88,10 +102,28 @@ def _notify():
             LOG_CURRENT_EXCEPTION()
 
 
-def _apply(saved):
-    """Replace the live flag state from an MSA settings dict (pure merge onto defaults)."""
+def _seed(saved):
+    """Replace the WHOLE flag state from an AUTHORITATIVE store (registration only), filling
+    defaults for any key it omits. Used where `saved` fully defines our state."""
     global _settings
     _settings = merge_settings(saved)
+
+
+def _apply(saved):
+    """Overlay only the PRESENT known keys from `saved` onto the live cache IN PLACE; a key
+    ABSENT from `saved` keeps its current value.
+
+    This is the live-change path, and preserving current values is load-bearing: MSA fires the
+    onSettingsChanged callback GLOBALLY, so `_on_changed` also runs for OTHER mods' changes,
+    handed a payload that contains none of OUR keys. Merging that onto DEFAULTS (as a naive
+    replace would) snapped every flag back to its default -- the bug where a foreign mod's
+    settings sync silently re-enabled the always-on battle overlay, so it ignored
+    "Battle Widget Enabled = off" + "on Alt Key = on". A foreign payload now no-ops here."""
+    if not isinstance(saved, dict):
+        return
+    for key in DEFAULTS:
+        if key in saved:
+            _settings[key] = bool(saved[key])
 
 
 def _template():
@@ -117,6 +149,13 @@ def _template():
                 "value": DEFAULTS[BATTLE_KEY],
                 "tooltip": t["battleWidget"]["tooltip"],
                 "varName": BATTLE_KEY,
+            },
+            {
+                "type": "CheckBox",
+                "text": t["battleAltKey"]["text"],
+                "value": DEFAULTS[BATTLE_ALT_KEY],
+                "tooltip": t["battleAltKey"]["tooltip"],
+                "varName": BATTLE_ALT_KEY,
             },
         ],
         "column2": [],
@@ -216,10 +255,10 @@ def register():
         template = _template()
         saved = g_modsSettingsApi.getModSettings(LINKAGE, template)
         if saved:
-            _apply(saved)
+            _seed(saved)
             g_modsSettingsApi.registerCallback(LINKAGE, _on_changed)
         else:
-            _apply(g_modsSettingsApi.setModTemplate(LINKAGE, template, _on_changed))
+            _seed(g_modsSettingsApi.setModTemplate(LINKAGE, template, _on_changed))
         # Wire the panel's "reset to defaults" button on whichever api(s) store our settings
         # (Aslain keeps a SEPARATE api object from izeberg's; subscribe on both, de-duped).
         for api in _candidate_apis():
@@ -235,9 +274,16 @@ def register():
 
 
 def _on_changed(linkage, new_settings):
-    """MSA onSettingsChanged callback: re-merge and fan out to the feature bridges so a
-    checkbox change applies live."""
+    """MSA onSettingsChanged callback: overlay our keys and fan out to the feature bridges so a
+    checkbox change applies live.
+
+    Linkage-scoped: MSA broadcasts this callback GLOBALLY (it fires for every mod's change, not
+    just ours), so ignore events for other mods -- mirrors _on_reset. Even without the guard the
+    _apply overlay would no-op a foreign payload, but skipping early also avoids a spurious
+    _notify()/re-push and any chance of a foreign key colliding with one of ours."""
     try:
+        if linkage != LINKAGE:
+            return
         _apply(new_settings)
         LOG_DEBUG("[moe] settings changed -> %r" % (_settings,))
         _notify()
@@ -251,7 +297,7 @@ def _on_reset(linkage, defaults):
     try:
         if linkage != LINKAGE:
             return
-        _apply(defaults if defaults else DEFAULTS)
+        _seed(defaults if defaults else DEFAULTS)
         LOG_DEBUG("[moe] settings reset -> %r" % (_settings,))
         _notify()
     except Exception:

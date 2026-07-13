@@ -133,8 +133,9 @@ def _install_settings():
     mod_settings.register()
     mod_settings.add_change_listener(gameface_bridge.apply_settings)
     mod_settings.add_change_listener(battle_bridge.apply_settings)
-    LOG_DEBUG("[%s] settings registered (garage=%s, battle=%s)"
-              % (MOD_NAME, mod_settings.garage_enabled(), mod_settings.battle_enabled()))
+    LOG_DEBUG("[%s] settings registered (garage=%s, battle=%s, battle_alt=%s)"
+              % (MOD_NAME, mod_settings.garage_enabled(), mod_settings.battle_enabled(),
+                 mod_settings.battle_alt_key_enabled()))
 
 
 try:

@@ -16,6 +16,7 @@ import BigWorld
 
 from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_DEBUG
 from moe_calculator.adapter import battle_adapter
+from moe_calculator.adapter import battle_input
 from moe_calculator.adapter import moe_data
 from moe_calculator.domain.battle_builder import build_battle_model, battle_bar_visible
 from moe_calculator.domain.constants import EFFICIENCY_WIDE_THRESHOLD
@@ -64,6 +65,12 @@ _last_wide = None
 _in_battle = False
 
 
+# Whether Alt is currently held, as reported by the event-driven battle_input hook. Drives the
+# "Battle Widget on Alt Key" peek mode: the overlay's visible flag follows this while that mode
+# is on (and the always-on widget is off). Whether the mode CARES is decided in battle_bar_visible.
+_alt_held = False
+
+
 # --- engine event subscriptions ---------------------------------------------
 # Handlers are module-level (stable identity) so the membership-checked _arm is idempotent.
 
@@ -80,9 +87,11 @@ def _on_mount_refresh(*args, **kwargs):
         # Clear any scoreboard flag left over from a prior battle / relogin / replay teardown,
         # so a stale key can never keep the fresh battle's overlay hidden.
         _open_overlays.clear()
-        if not mod_settings.battle_enabled():
-            # Overlay disabled -> don't open the window this battle. A live enable opens it
-            # mid-battle (see apply_settings); _in_battle stays True so that path fires.
+        if not (mod_settings.battle_enabled() or mod_settings.battle_alt_key_enabled()):
+            # Neither the always-on widget nor the Alt-peek mode is on -> don't open the window
+            # this battle. A live enable of either opens it mid-battle (see apply_settings);
+            # _in_battle stays True so that path fires. When only Alt-peek is on we DO open the
+            # window here (kept hidden until Alt is held -- see push/battle_bar_visible).
             return
         battle_view.open_window()
         install_all_listeners()
@@ -188,6 +197,19 @@ def _on_scoreboard_toggled(event):
         LOG_CURRENT_EXCEPTION()
 
 
+def _set_alt_held(down):
+    # battle_input's transition callback: Alt was pressed / released. Store it and re-push so
+    # the overlay reveals/hides live under the "Battle Widget on Alt Key" peek mode. refresh()
+    # is cheap and no-ops when no window is open (always-on off + peek off), so it's safe to
+    # fire on every Alt transition regardless of which mode is active.
+    global _alt_held
+    try:
+        _alt_held = bool(down)
+        refresh()
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+
+
 def _player_events_holder():
     from PlayerEvents import g_playerEvents
     return g_playerEvents
@@ -268,6 +290,10 @@ def install_all_listeners():
         except Exception:
             LOG_CURRENT_EXCEPTION()
     _arm_overlay_listeners()
+    # Event-driven Alt-key hook for the "Battle Widget on Alt Key" peek mode. Installed once
+    # (idempotent + self-healing: AvatarInputHandler may not be importable until a battle
+    # exists, so a failed attempt retries on the next mount).
+    battle_input.install_alt_key_listener(_set_alt_held)
 
 
 def _arm_overlay_listeners():
@@ -375,10 +401,12 @@ def push(rvm):
         overlay_open = bool(_open_overlays)
         visible = battle_bar_visible(snap.in_battle, snap.has_vehicle, snap.is_spectating,
                                      overlay_open=overlay_open,
-                                     enabled=mod_settings.battle_enabled())
-        LOG_DEBUG("[moe-battle] push visible=%s spectating=%s scoreboard=%s cd=%d pct=%.1f delta=%.2f data=%s baseline=%s" % (
-            visible, snap.is_spectating, overlay_open, model.combined_damage, model.cur_percent,
-            model.pct_delta, model.has_data, model.has_baseline))
+                                     enabled=mod_settings.battle_enabled(),
+                                     alt_mode=mod_settings.battle_alt_key_enabled(),
+                                     alt_held=_alt_held)
+        LOG_DEBUG("[moe-battle] push visible=%s spectating=%s scoreboard=%s alt=%s cd=%d pct=%.1f delta=%.2f data=%s baseline=%s" % (
+            visible, snap.is_spectating, overlay_open, _alt_held, model.combined_damage,
+            model.cur_percent, model.pct_delta, model.has_data, model.has_baseline))
         with rvm.transaction() as tx:
             tx.setVisible(visible)
             tx.setCombinedDamage(model.combined_damage)
@@ -392,12 +420,15 @@ def push(rvm):
 
 
 def apply_settings():
-    """Apply the "Battle Widget Enabled" flag live (the mod_settings change callback).
+    """Apply the battle-overlay settings live (the mod_settings change callback).
 
-    Disabled: close the overlay window if it is open. Enabled while in a battle: open it now
-    (arm + kick data + push) so the toggle takes effect without waiting for the next battle."""
+    The window must exist whenever EITHER the always-on "Battle Widget Enabled" or the
+    "Battle Widget on Alt Key" peek mode is on. Neither on -> close it if open. Either on while
+    in a battle -> open it now (arm + kick data + push) so the toggle takes effect without
+    waiting for the next battle. (Under Alt-peek the window opens but stays hidden until Alt is
+    held -- push/battle_bar_visible decides the visible flag.)"""
     try:
-        if not mod_settings.battle_enabled():
+        if not (mod_settings.battle_enabled() or mod_settings.battle_alt_key_enabled()):
             if battle_view.active_view() is not None:
                 battle_view.close_window()
             return
@@ -405,6 +436,10 @@ def apply_settings():
             battle_view.open_window()
             install_all_listeners()
             moe_data.start()
+            refresh()
+        else:
+            # Window already open (or not in battle) -> just re-push so a live mode switch
+            # (e.g. always-on off, Alt-peek on) re-evaluates the visible flag immediately.
             refresh()
     except Exception:
         LOG_CURRENT_EXCEPTION()

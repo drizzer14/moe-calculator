@@ -59,6 +59,31 @@ def test_every_shipped_language_covers_all_keys():
             u"language %s is missing keys: %s" % (code, _KEYS - set(S._PANEL[code])))
 
 
+# --- battleAltKey (the "show only while Alt held" peek setting) --------------
+
+def test_battle_alt_key_present_in_master_and_col1():
+    assert u"battleAltKey" in S._PANEL[u"en"]
+    assert u"battleAltKey" in S.COL1_KEYS
+    en = S.resolve(u"en")
+    assert en[u"battleAltKey"][u"label"] == u"Battle Widget on Alt Key"
+    assert u"ttHeader" in en[u"battleAltKey"] and u"ttBody" in en[u"battleAltKey"]
+
+
+def test_battle_alt_key_keeps_alt_literal_in_every_language():
+    # "Alt" is a keyboard key -- it must NOT be translated in any shipped language. Assert the
+    # literal token appears in the label, header and body of every block.
+    for code in S._PANEL:
+        entry = S._PANEL[code][u"battleAltKey"]
+        assert u"Alt" in entry[u"label"], u"%s label lost 'Alt'" % code
+        assert u"Alt" in entry[u"ttHeader"], u"%s header lost 'Alt'" % code
+        assert u"Alt" in entry[u"ttBody"], u"%s body lost 'Alt'" % code
+
+
+def test_battle_alt_key_ukrainian_translated():
+    uk = S.resolve(u"uk")
+    assert uk[u"battleAltKey"][u"label"] == u"Віджет у бою по клавіші Alt"
+
+
 # --- _norm -----------------------------------------------------------------
 
 def test_norm_cases():

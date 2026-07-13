@@ -145,15 +145,23 @@ def build_battle_model(snapshot):
 
 
 def battle_bar_visible(in_battle, has_vehicle, is_spectating=False, overlay_open=False,
-                       enabled=True):
+                       enabled=True, alt_mode=False, alt_held=False):
     """Whether the in-battle overlay should render. Pure/engine-free so it unit-tests on
     plain inputs: a player vehicle must be readable and combat must be active, and we must
     NOT be spectating another player. While spectating (postmortem free-look), the tank
     identity/thresholds follow the observed vehicle but the damage stats stay ours, so the
     percent/delta is meaningless -- hide it. `overlay_open` is a hard override: while WG's
     full-stats scoreboard family (Tab / personal missions / reserves) is up, hide the
-    readout so it does not clutter the full-screen scoreboard. `enabled` is the "Battle Widget
-    Enabled" setting -- a hard override so a live toggle-off hides the overlay. Defaults keep
-    prior callers unchanged."""
-    return (bool(enabled) and bool(has_vehicle) and bool(in_battle)
+    readout so it does not clutter the full-screen scoreboard.
+
+    Two settings decide whether the overlay is "active" at all:
+    - `enabled` is the "Battle Widget Enabled" setting -- always-on.
+    - `alt_mode` is the "Battle Widget on Alt Key" peek setting -- shows the overlay only while
+      `alt_held` (Alt currently down).
+    They are combined with a SOFT-GATE: `enabled` wins, so the Alt-peek mode has no effect while
+    the always-on widget is enabled (MSA can't grey the checkbox out, so we make its value inert
+    here). Defaults keep prior callers unchanged."""
+    base = (bool(has_vehicle) and bool(in_battle)
             and not bool(is_spectating) and not bool(overlay_open))
+    active = bool(enabled) or (bool(alt_mode) and bool(alt_held))
+    return base and active

@@ -76,7 +76,7 @@ def _row(label, header=None, body=None):
 # Ordered key list for the single column -- the wire order of the controls in the MSA
 # template. Used by mod_settings to walk a stored template in lockstep. There is no second
 # column (COL2_KEYS empty), unlike the sibling's position steppers.
-COL1_KEYS = (u"garageWidget", u"battleWidget")
+COL1_KEYS = (u"garageWidget", u"battleWidget", u"battleAltKey")
 COL2_KEYS = ()
 
 
@@ -92,6 +92,10 @@ _PANEL = {
             u"Battle Widget Enabled", u"Battle widget",
             u"Shows the live Marks of Excellence overlay during battle. Uncheck to "
             u"hide it."),
+        u"battleAltKey": _row(
+            u"Battle Widget on Alt Key", u"Battle widget (Alt)",
+            u"Shows the live Marks of Excellence overlay only while the Alt key is "
+            u"held. Has no effect while Battle Widget Enabled is on."),
     },
 
     u"de": {
@@ -102,6 +106,10 @@ _PANEL = {
         u"battleWidget": _row(
             u"Gefechts-Widget aktiviert", u"Gefechts-Widget",
             u"Zeigt die Live-Marken-Anzeige im Gefecht. Zum Ausblenden abwählen."),
+        u"battleAltKey": _row(
+            u"Gefechts-Widget auf Alt-Taste", u"Gefechts-Widget (Alt)",
+            u"Zeigt die Live-Marken-Anzeige nur, solange die Alt-Taste gehalten wird. "
+            u"Ohne Wirkung, wenn „Gefechts-Widget aktiviert“ an ist."),
     },
 
     u"fr": {
@@ -113,6 +121,11 @@ _PANEL = {
             u"Widget de bataille activé", u"Widget de bataille",
             u"Affiche la superposition des marques d'excellence en direct pendant la "
             u"bataille. Décochez pour la masquer."),
+        u"battleAltKey": _row(
+            u"Widget de bataille sur la touche Alt", u"Widget de bataille (Alt)",
+            u"Affiche la superposition des marques d'excellence en direct uniquement "
+            u"tant que la touche Alt est maintenue. Sans effet lorsque « Widget de "
+            u"bataille activé » est activé."),
     },
 
     u"es": {
@@ -124,6 +137,11 @@ _PANEL = {
             u"Widget de batalla activado", u"Widget de batalla",
             u"Muestra la superposición de marcas de excelencia en directo durante la "
             u"batalla. Desmarca para ocultarla."),
+        u"battleAltKey": _row(
+            u"Widget de batalla con la tecla Alt", u"Widget de batalla (Alt)",
+            u"Muestra la superposición de marcas de excelencia en directo solo mientras "
+            u"se mantiene pulsada la tecla Alt. No tiene efecto cuando «Widget de "
+            u"batalla activado» está activo."),
     },
 
     u"it": {
@@ -135,6 +153,11 @@ _PANEL = {
             u"Widget di battaglia attivo", u"Widget di battaglia",
             u"Mostra la sovrapposizione dei marchi di merito in tempo reale durante la "
             u"battaglia. Deseleziona per nasconderla."),
+        u"battleAltKey": _row(
+            u"Widget di battaglia con il tasto Alt", u"Widget di battaglia (Alt)",
+            u"Mostra la sovrapposizione dei marchi di merito in tempo reale solo mentre "
+            u"si tiene premuto il tasto Alt. Nessun effetto quando «Widget di battaglia "
+            u"attivo» è attivo."),
     },
 
     u"pl": {
@@ -146,6 +169,10 @@ _PANEL = {
             u"Widżet w bitwie włączony", u"Widżet w bitwie",
             u"Pokazuje nakładkę znaków doskonałości na żywo podczas bitwy. Odznacz, aby "
             u"ukryć."),
+        u"battleAltKey": _row(
+            u"Widżet w bitwie na klawiszu Alt", u"Widżet w bitwie (Alt)",
+            u"Pokazuje nakładkę znaków doskonałości na żywo tylko podczas przytrzymania "
+            u"klawisza Alt. Nie działa, gdy „Widżet w bitwie włączony“ jest włączony."),
     },
 
     u"cs": {
@@ -157,6 +184,10 @@ _PANEL = {
             u"Widget v bitvě zapnutý", u"Widget v bitvě",
             u"Zobrazuje živý překryv znaků cti během bitvy. Zrušením zaškrtnutí jej "
             u"skryjete."),
+        u"battleAltKey": _row(
+            u"Widget v bitvě na klávese Alt", u"Widget v bitvě (Alt)",
+            u"Zobrazuje živý překryv znaků cti pouze při podržení klávesy Alt. Nemá "
+            u"účinek, když je zapnuto „Widget v bitvě zapnutý“."),
     },
 
     u"ru": {
@@ -168,6 +199,10 @@ _PANEL = {
             u"Виджет в бою включён", u"Виджет в бою",
             u"Показывает наложение отметок классности в реальном времени в бою. Снимите "
             u"галочку, чтобы скрыть."),
+        u"battleAltKey": _row(
+            u"Виджет в бою по клавише Alt", u"Виджет в бою (Alt)",
+            u"Показывает наложение отметок классности в реальном времени только пока "
+            u"удерживается клавиша Alt. Не действует, когда включён «Виджет в бою»."),
     },
 
     u"uk": {
@@ -179,6 +214,10 @@ _PANEL = {
             u"Віджет у бою увімкнено", u"Віджет у бою",
             u"Показує накладання позначок класності в реальному часі в бою. Зніміть "
             u"позначку, щоб сховати."),
+        u"battleAltKey": _row(
+            u"Віджет у бою по клавіші Alt", u"Віджет у бою (Alt)",
+            u"Показує накладання позначок класності в реальному часі лише поки "
+            u"утримується клавіша Alt. Не діє, коли увімкнено «Віджет у бою»."),
     },
 
     u"hu": {
@@ -190,6 +229,11 @@ _PANEL = {
             u"Csata-widget engedélyezve", u"Csata-widget",
             u"Megjeleníti az élő kiválósági jelek átfedést a csatában. Vedd ki a pipát az "
             u"elrejtéshez."),
+        u"battleAltKey": _row(
+            u"Csata-widget az Alt billentyűre", u"Csata-widget (Alt)",
+            u"Csak az Alt billentyű nyomva tartása közben jeleníti meg az élő kiválósági "
+            u"jelek átfedést. Nincs hatása, ha a „Csata-widget engedélyezve“ be van "
+            u"kapcsolva."),
     },
 
     u"tr": {
@@ -201,6 +245,10 @@ _PANEL = {
             u"Savaş widget'ı etkin", u"Savaş widget'ı",
             u"Savaş sırasında canlı üstünlük işaretleri katmanını gösterir. Gizlemek için "
             u"işareti kaldır."),
+        u"battleAltKey": _row(
+            u"Alt tuşuyla savaş widget'ı", u"Savaş widget'ı (Alt)",
+            u"Canlı üstünlük işaretleri katmanını yalnızca Alt tuşu basılı tutulurken "
+            u"gösterir. „Savaş widget'ı etkin“ açıkken etkisi yoktur."),
     },
 }
 

@@ -245,3 +245,34 @@ def test_battle_bar_visible_disabled_setting_hides():
     # Default (enabled) preserves prior behavior.
     assert battle_bar_visible(True, True, enabled=True) is True
     assert battle_bar_visible(True, True) is True
+
+
+# --- Alt-key peek mode -------------------------------------------------------
+
+def test_battle_bar_visible_alt_mode_follows_held():
+    # Always-on off, Alt-peek on: the overlay tracks whether Alt is held.
+    assert battle_bar_visible(True, True, enabled=False, alt_mode=True, alt_held=True) is True
+    assert battle_bar_visible(True, True, enabled=False, alt_mode=True, alt_held=False) is False
+
+
+def test_battle_bar_visible_alt_mode_off_never_shows():
+    # Both modes off: overlay never shows, regardless of Alt.
+    assert battle_bar_visible(True, True, enabled=False, alt_mode=False, alt_held=True) is False
+    assert battle_bar_visible(True, True, enabled=False, alt_mode=False, alt_held=False) is False
+
+
+def test_battle_bar_visible_enabled_wins_soft_gate():
+    # Soft-gate: while the always-on widget is enabled the Alt-peek value is ignored -- the
+    # overlay stays visible even when Alt is NOT held.
+    assert battle_bar_visible(True, True, enabled=True, alt_mode=True, alt_held=False) is True
+    assert battle_bar_visible(True, True, enabled=True, alt_mode=True, alt_held=True) is True
+
+
+def test_battle_bar_visible_alt_mode_still_respects_base_guards():
+    # The base guards (vehicle/combat/spectating/scoreboard) override Alt-peek too.
+    assert battle_bar_visible(True, False, enabled=False, alt_mode=True, alt_held=True) is False
+    assert battle_bar_visible(False, True, enabled=False, alt_mode=True, alt_held=True) is False
+    assert battle_bar_visible(True, True, is_spectating=True,
+                              enabled=False, alt_mode=True, alt_held=True) is False
+    assert battle_bar_visible(True, True, overlay_open=True,
+                              enabled=False, alt_mode=True, alt_held=True) is False
