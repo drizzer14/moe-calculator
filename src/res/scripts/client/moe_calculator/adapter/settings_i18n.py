@@ -76,7 +76,7 @@ def _row(label, header=None, body=None):
 # Ordered key list for the single column -- the wire order of the controls in the MSA
 # template. Used by mod_settings to walk a stored template in lockstep. There is no second
 # column (COL2_KEYS empty), unlike the sibling's position steppers.
-COL1_KEYS = (u"garageWidget", u"battleWidget", u"battleAltKey")
+COL1_KEYS = (u"garageWidget", u"battleWidget", u"battleAltKey", u"countedAssist")
 COL2_KEYS = ()
 
 
@@ -96,6 +96,11 @@ _PANEL = {
             u"Battle Widget on Alt Key", u"Battle widget (Alt)",
             u"Shows the live Marks of Excellence overlay only while the Alt key is "
             u"held. Has no effect while Battle Widget Enabled is on."),
+        u"countedAssist": _row(
+            u"Enable Counted Assistance", u"Counted assistance",
+            u"Adds a third row to the battle overlay showing your counted assistance: the "
+            u"higher of tracking, spotting or stun assist, with an icon for whichever is "
+            u"leading. Off by default."),
     },
 
     u"de": {
@@ -110,6 +115,12 @@ _PANEL = {
             u"Gefechts-Widget auf Alt-Taste", u"Gefechts-Widget (Alt)",
             u"Zeigt die Live-Marken-Anzeige nur, solange die Alt-Taste gehalten wird. "
             u"Ohne Wirkung, wenn „Gefechts-Widget aktiviert“ an ist."),
+        u"countedAssist": _row(
+            u"Angerechnete Unterstützung aktiviert", u"Angerechnete Unterstützung",
+            u"Fügt der Gefechtsanzeige eine dritte Zeile mit deiner angerechneten "
+            u"Unterstützung hinzu: dem höheren Wert aus Ketten-, Aufklärungs- oder "
+            u"Betäubungsunterstützung, mit einem Symbol für den führenden Wert. "
+            u"Standardmäßig aus."),
     },
 
     u"fr": {
@@ -126,6 +137,12 @@ _PANEL = {
             u"Affiche la superposition des marques d'excellence en direct uniquement "
             u"tant que la touche Alt est maintenue. Sans effet lorsque « Widget de "
             u"bataille activé » est activé."),
+        u"countedAssist": _row(
+            u"Assistance comptabilisée activée", u"Assistance comptabilisée",
+            u"Ajoute une troisième ligne à la superposition de bataille indiquant votre "
+            u"assistance comptabilisée : la plus élevée entre l'assistance par chenilles, "
+            u"par détection ou par étourdissement, avec une icône pour celle qui domine. "
+            u"Désactivé par défaut."),
     },
 
     u"es": {
@@ -142,6 +159,12 @@ _PANEL = {
             u"Muestra la superposición de marcas de excelencia en directo solo mientras "
             u"se mantiene pulsada la tecla Alt. No tiene efecto cuando «Widget de "
             u"batalla activado» está activo."),
+        u"countedAssist": _row(
+            u"Asistencia contada activada", u"Asistencia contada",
+            u"Añade una tercera fila a la superposición de batalla que muestra tu "
+            u"asistencia contada: la mayor entre la asistencia por orugas, por detección "
+            u"o por aturdimiento, con un icono para la que predomine. Desactivado por "
+            u"defecto."),
     },
 
     u"it": {
@@ -158,6 +181,12 @@ _PANEL = {
             u"Mostra la sovrapposizione dei marchi di merito in tempo reale solo mentre "
             u"si tiene premuto il tasto Alt. Nessun effetto quando «Widget di battaglia "
             u"attivo» è attivo."),
+        u"countedAssist": _row(
+            u"Assistenza conteggiata attiva", u"Assistenza conteggiata",
+            u"Aggiunge una terza riga alla sovrapposizione di battaglia che mostra la tua "
+            u"assistenza conteggiata: la più alta tra assistenza ai cingoli, "
+            u"all'avvistamento o allo stordimento, con un'icona per quella prevalente. "
+            u"Disattivato per impostazione predefinita."),
     },
 
     u"pl": {
@@ -173,6 +202,11 @@ _PANEL = {
             u"Widżet w bitwie na klawiszu Alt", u"Widżet w bitwie (Alt)",
             u"Pokazuje nakładkę znaków doskonałości na żywo tylko podczas przytrzymania "
             u"klawisza Alt. Nie działa, gdy „Widżet w bitwie włączony“ jest włączony."),
+        u"countedAssist": _row(
+            u"Zaliczone wsparcie włączone", u"Zaliczone wsparcie",
+            u"Dodaje trzeci wiersz nakładki bitewnej pokazujący twoje zaliczone wsparcie: "
+            u"wyższą z wartości wsparcia przez unieruchomienie, wykrycie lub ogłuszenie, z "
+            u"ikoną dla przeważającej. Domyślnie wyłączone."),
     },
 
     u"cs": {
@@ -188,6 +222,11 @@ _PANEL = {
             u"Widget v bitvě na klávese Alt", u"Widget v bitvě (Alt)",
             u"Zobrazuje živý překryv znaků cti pouze při podržení klávesy Alt. Nemá "
             u"účinek, když je zapnuto „Widget v bitvě zapnutý“."),
+        u"countedAssist": _row(
+            u"Započtená asistence zapnuta", u"Započtená asistence",
+            u"Přidá do bojového překryvu třetí řádek zobrazující tvou započtenou "
+            u"asistenci: vyšší z asistence pásy, průzkumem nebo omráčením, s ikonou pro "
+            u"převažující. Ve výchozím nastavení vypnuto."),
     },
 
     u"ru": {
@@ -203,6 +242,11 @@ _PANEL = {
             u"Виджет в бою по клавише Alt", u"Виджет в бою (Alt)",
             u"Показывает наложение отметок классности в реальном времени только пока "
             u"удерживается клавиша Alt. Не действует, когда включён «Виджет в бою»."),
+        u"countedAssist": _row(
+            u"Засчитанное содействие включено", u"Засчитанное содействие",
+            u"Добавляет в наложение боя третью строку с вашим засчитанным содействием: "
+            u"большее из содействия гусеницами, разведкой или оглушением, со значком для "
+            u"преобладающего. По умолчанию выключено."),
     },
 
     u"uk": {
@@ -218,6 +262,11 @@ _PANEL = {
             u"Віджет у бою по клавіші Alt", u"Віджет у бою (Alt)",
             u"Показує накладання позначок класності в реальному часі лише поки "
             u"утримується клавіша Alt. Не діє, коли увімкнено «Віджет у бою»."),
+        u"countedAssist": _row(
+            u"Увімкнути зараховану допомогу", u"Зарахована допомога",
+            u"Додає третій рядок до накладання в бою: показує зараховану допомогу — більше "
+            u"з допомоги гусеницями, засвітом чи оглушенням, з піктограмою відповідного "
+            u"типу. Вимкнено за замовчуванням."),
     },
 
     u"hu": {
@@ -234,6 +283,11 @@ _PANEL = {
             u"Csak az Alt billentyű nyomva tartása közben jeleníti meg az élő kiválósági "
             u"jelek átfedést. Nincs hatása, ha a „Csata-widget engedélyezve“ be van "
             u"kapcsolva."),
+        u"countedAssist": _row(
+            u"Beszámított segítés engedélyezve", u"Beszámított segítés",
+            u"Egy harmadik sort ad a csataátfedéshez, amely a beszámított segítésedet "
+            u"mutatja: a lánctalpas, felderítő vagy kábító segítés közül a nagyobbat, a "
+            u"vezető típus ikonjával. Alapértelmezetten kikapcsolva."),
     },
 
     u"tr": {
@@ -249,6 +303,11 @@ _PANEL = {
             u"Alt tuşuyla savaş widget'ı", u"Savaş widget'ı (Alt)",
             u"Canlı üstünlük işaretleri katmanını yalnızca Alt tuşu basılı tutulurken "
             u"gösterir. „Savaş widget'ı etkin“ açıkken etkisi yoktur."),
+        u"countedAssist": _row(
+            u"Sayılan yardım etkin", u"Sayılan yardım",
+            u"Savaş katmanına, sayılan yardımını gösteren üçüncü bir satır ekler: palet, "
+            u"tespit veya sersemletme yardımından en yükseği, öndeki için bir simgeyle. "
+            u"Varsayılan olarak kapalı."),
     },
 }
 

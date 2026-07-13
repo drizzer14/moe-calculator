@@ -79,3 +79,19 @@ def test_snapshot_carries_gating_flags(monkeypatch):
     snap = ba.build_battle_snapshot()
     assert snap.is_spectating is True
     assert snap.in_battle is True
+
+
+def test_snapshot_carries_assist_split(monkeypatch):
+    # The server battle-events summary split (track, spot) rides into the snapshot.
+    _patch_reads(monkeypatch)
+    monkeypatch.setattr(ba, "_read_assist_split", lambda: (900, 400))
+    snap = ba.build_battle_snapshot()
+    assert snap.track_assist == 900 and snap.spot_assist == 400
+
+
+def test_snapshot_assist_split_defaults_zero(monkeypatch):
+    # With the client closed _read_assist_split fails soft to (0, 0) -> snapshot carries 0/0
+    # (the merged live `assist` covers combined damage until the split arrives).
+    _patch_reads(monkeypatch)
+    snap = ba.build_battle_snapshot()
+    assert snap.track_assist == 0 and snap.spot_assist == 0

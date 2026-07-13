@@ -4,6 +4,8 @@ function B64($p){ [Convert]::ToBase64String([IO.File]::ReadAllBytes($p)) }
 $bg   = B64 "$dir\bg_clean.jpg"
 $mark = B64 "$ico\personal_missions_30__quest_type__128x128__icon_battle_condition_barrel_mark.png"
 $imp  = B64 "$ico\personal_missions_30__quest_type__128x128__icon_battle_condition_improve.png"
+# Row-3 counted-assistance glyph: spotting = radio-waves (icon_battle_condition_assist_radio).
+$asst = B64 "$ico\personal_missions_30__quest_type__128x128__icon_battle_condition_assist_radio.png"
 $cnrg = B64 "$fdir\UniversCnRg.ttf"
 $cnbd = B64 "$fdir\UniversCnBold.ttf"
 # Real game font extracted from gui/flash/fontlib.swf (tools/dev/swf_font_to_ttf.py):
@@ -59,6 +61,7 @@ $tpl = @'
     background-repeat:no-repeat;background-position:center;background-size:var(--icozoom);filter:var(--icofilter)}
   .mb-ico.dmg::after{background-image:url("data:image/png;base64,__MARK__")}
   .mb-ico.pct::after{background-image:url("data:image/png;base64,__IMP__")}
+  .mb-ico.ast::after{background-image:url("data:image/png;base64,__ASST__")}
   .mb-sep,.mb-avg,.mb-delta{margin-left:var(--valml)}
   .mb-value{font-size:var(--valfs);font-weight:var(--valwt);letter-spacing:var(--valls);color:#fff;text-shadow:var(--numsh)}
   .mb-sep{font-size:var(--sepfs);font-weight:var(--sepwt);color:rgba(237,230,217,.45);text-shadow:var(--numsh)}
@@ -110,13 +113,14 @@ $tpl = @'
   <div id="moe-battle-root">
     <div class="mb-row"><span class="mb-ico dmg"></span><span class="mb-value mb-cd"></span><span class="mb-sep">/</span><span class="mb-value mb-avg">2,718</span></div>
     <div class="mb-row"><span class="mb-ico pct"></span><span class="mb-value mb-pct">84.73%</span><span class="mb-delta"></span></div>
+    <div class="mb-row"><span class="mb-ico ast"></span><span class="mb-value mb-ast">974</span></div>
   </div>
   <div id="panelGuide"></div>
   <div id="loupe"><div class="loupelab">DITHER MAGNIFIER</div><div id="loupeSwatch"><div id="loupeDither"></div></div><div id="loupeCap"></div></div>
 </div></div>
 <div class="panel">
-  <h1>In-battle overlay &mdash; tuner v4</h1>
-  <p class="sub">Real 4K frame @0.42&times;, real markup, calibrated 1&thinsp;rem&asymp;2.0&thinsp;px @3840 (measured off our live 13rem MoEBattle value). The backdrop is a fixed two-layer stack: a dark <b>background gradient</b> (with a left clip) under the <b>dots</b> dither (with its own fade) &mdash; both always on. Font toggle: <b>MoEBattle</b> is the actual game font (from <code>fontlib.swf</code>) vs the <b>Univers</b> lookalike. Sliders pair with number boxes; values drop into <code>MoEBattle.css</code>. <b>5-digit shift</b> (new): WG&rsquo;s efficiency panel widens a digit once a total passes 9999 &mdash; dial <b>Shift right</b> until the box clears the red panel guide; that logical-px number is <code>BATTLE_ANCHOR_X_SHIFT</code>.</p>
+  <h1>In-battle overlay &mdash; tuner v5 (3 rows)</h1>
+  <p class="sub">Now shows all <b>three</b> rows &mdash; damage, percent, and the counted-assistance row (icon: spotting/radio, sample 974). Use <b>Layout &rarr; Row gap</b> to close the spacing; the value drops into <code>.mb-row { margin-bottom }</code> in <code>MoEBattle.css</code>. Real 4K frame @0.42&times;, real markup, calibrated 1&thinsp;rem&asymp;2.0&thinsp;px @3840 (measured off our live 13rem MoEBattle value). The backdrop is a fixed two-layer stack: a dark <b>background gradient</b> (with a left clip) under the <b>dots</b> dither (with its own fade) &mdash; both always on. Font toggle: <b>MoEBattle</b> is the actual game font (from <code>fontlib.swf</code>) vs the <b>Univers</b> lookalike. Sliders pair with number boxes; values drop into <code>MoEBattle.css</code>. <b>5-digit shift</b> (new): WG&rsquo;s efficiency panel widens a digit once a total passes 9999 &mdash; dial <b>Shift right</b> until the box clears the red panel guide; that logical-px number is <code>BATTLE_ANCHOR_X_SHIFT</code>.</p>
   <div class="seg" id="fontSeg"><button data-f="MoEBattle" class="on">MoEBattle (real game font)</button><button data-f="UniversCn">Univers (lookalike)</button></div>
   <div class="seg" id="caseSeg"><button data-c="above" class="on">DMG &gt; avg</button><button data-c="equal">= avg</button><button data-c="below">&lt; avg</button></div>
   <div class="row2"><label><input type="checkbox" id="cBounds"> show bounds</label><label><input type="checkbox" id="cWide" checked> 5-digit values</label><label><input type="checkbox" id="cGuide" checked> panel guide</label></div>
@@ -366,7 +370,7 @@ $tpl = @'
 </script>
 '@
 
-$tpl=$tpl.Replace('__BG__',$bg).Replace('__MARK__',$mark).Replace('__IMP__',$imp).Replace('__CNRG__',$cnrg).Replace('__CNBD__',$cnbd).Replace('__ZNRG__',$znrg).Replace('__ZNBD__',$znbd)
+$tpl=$tpl.Replace('__BG__',$bg).Replace('__MARK__',$mark).Replace('__IMP__',$imp).Replace('__ASST__',$asst).Replace('__CNRG__',$cnrg).Replace('__CNBD__',$cnbd).Replace('__ZNRG__',$znrg).Replace('__ZNBD__',$znbd)
 $out="$dir\overlay_preview.html"
 [IO.File]::WriteAllText($out,$tpl,(New-Object System.Text.UTF8Encoding($false)))
 Write-Output ("wrote {0} ({1:N0} bytes)" -f $out,(Get-Item $out).Length)

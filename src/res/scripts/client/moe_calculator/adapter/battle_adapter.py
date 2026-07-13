@@ -114,6 +114,84 @@ def read_efficiency_totals():
         return 0, 0, 0, 0
 
 
+def _feedback_ctrl():
+    """The battle-feedback adaptor (sessionProvider.shared.feedback), or None. It caches the
+    server-authoritative battle-events summary that splits track vs spot assist."""
+    sp = _session_provider()
+    if sp is None or sp.shared is None:
+        return None
+    return sp.shared.feedback
+
+
+def _read_assist_split_log():
+    """(track, spot) assisted damage from the personal-efficiency controller's per-event log
+    (getLoogedEfficiency) -- the LIVE source: it appends on every assist event, so the split is
+    populated from the first spot/track (this is what WG's own damage-log panel reads live). Each
+    entry carries getBattleEventType() (RADIO_ASSIST=spot / TRACK_ASSIST=track) + getDamage(). The
+    log is a capped deque (deque maxlen), so in a very long/heavy battle old entries can evict and
+    this under-counts the total -- the summary read below corrects that once it arrives. Fail-soft
+    to (0, 0)."""
+    try:
+        from gui.battle_control.battle_constants import PERSONAL_EFFICIENCY_TYPE as PE
+        import BattleFeedbackCommon
+        BET = BattleFeedbackCommon.BATTLE_EVENT_TYPE
+        ctrl = _efficiency_ctrl()
+        if ctrl is None:
+            return 0, 0
+        entries = _safe(lambda: ctrl.getLoogedEfficiency(PE.ASSIST_DAMAGE), None)
+        if not entries:
+            return 0, 0
+        track = spot = 0
+        for d in entries:
+            et = _safe_int(lambda: d.getBattleEventType(), 0)
+            dmg = _safe_int(lambda: d.getDamage(), 0)
+            if et == BET.TRACK_ASSIST:
+                track += dmg
+            elif et == BET.RADIO_ASSIST:
+                spot += dmg
+        return track, spot
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+        return 0, 0
+
+
+def _read_assist_split_summary():
+    """(track, spot) assisted damage from the server battle-events summary on
+    sessionProvider.shared.feedback. Whole-battle and exact (unlike the capped log), but only
+    delivered PERIODICALLY by the server, so it lags the live log early on -- and stays (0, 0)
+    until the first summary arrives. Its public getter merges track+spot, so we read the
+    BattleSummaryFeedbackEvent's private slots by their name-mangled attribute. Fail-soft to
+    (0, 0)."""
+    try:
+        from gui.battle_control.battle_constants import FEEDBACK_EVENT_ID
+        fb = _feedback_ctrl()
+        if fb is None:
+            return 0, 0
+        evt = _safe(lambda: fb.getCachedEvent(FEEDBACK_EVENT_ID.DAMAGE_LOG_SUMMARY), None)
+        if evt is None:
+            return 0, 0
+        track = _safe_int(
+            lambda: getattr(evt, "_BattleSummaryFeedbackEvent__trackAssistDamage"), 0)
+        spot = _safe_int(
+            lambda: getattr(evt, "_BattleSummaryFeedbackEvent__radioAssistDamage"), 0)
+        return track, spot
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+        return 0, 0
+
+
+def _read_assist_split():
+    """(track, spot) assisted damage this battle. The controller merges spot+track into one
+    ASSIST_DAMAGE bucket, so we recover the split from two live sources and combine them per-type
+    by MAX: the per-event LOG (live from the first assist, but its deque is capped) and the server
+    SUMMARY (whole-battle exact, but only periodic). The max means the live log drives the readout
+    immediately, the exact summary takes over once it lands, and neither source ever makes a total
+    regress. Fail-soft to (0, 0)."""
+    t_log, s_log = _read_assist_split_log()
+    t_sum, s_sum = _read_assist_split_summary()
+    return max(t_log, t_sum), max(s_log, s_sum)
+
+
 def _player_vehicle_descr():
     """The player's controlled arena vehicle descriptor (has .type.compactDescr = intCD),
     or None. Sourced from the observed/controlled vehicle so it also works while spectating
@@ -209,6 +287,7 @@ def build_battle_snapshot():
             return bt.BattleSnapshot(has_vehicle=False, in_battle=_in_battle())
 
         damage, assist, stun = _read_efficiency()
+        track_assist, spot_assist = _read_assist_split()
         # Career baseline. The dossier engine_adapter._read_moe uses is a LOBBY resource --
         # getVehicleDossier returns None in battle, so this reads (0, 0.0) here. Fall back to
         # the baseline snapshotted while the tank was in the garage (see baseline_cache).
@@ -237,6 +316,8 @@ def build_battle_snapshot():
             nation=nation,
             damage=damage,
             assist=assist,
+            track_assist=track_assist,
+            spot_assist=spot_assist,
             stun=stun,
             team_damage=0,          # no team-damage efficiency bucket live; documented caveat
             pre_avg_damage=pre_avg,

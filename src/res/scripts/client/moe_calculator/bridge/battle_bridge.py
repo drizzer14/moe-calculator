@@ -118,6 +118,17 @@ def _on_efficiency_updated(*args, **kwargs):
         LOG_CURRENT_EXCEPTION()
 
 
+def _on_summary_feedback(*args, **kwargs):
+    # feedback.onPlayerSummaryFeedbackReceived(event): the server pushed a fresh battle-events
+    # summary -- the source of the track/spot assist split (counted-assistance row). Coalesce a
+    # push so the row updates promptly. (push() re-reads the cached summary either way; this just
+    # makes it timely rather than waiting for the next efficiency tick.)
+    try:
+        _schedule_refresh()
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+
+
 def _on_observed_vehicle_changed(*args, **kwargs):
     # vehicleState.onVehicleControlling / onPostMortemSwitched: the observed vehicle changed
     # (died into postmortem, or cycled to another spectated ally). Re-push so the overlay
@@ -219,6 +230,12 @@ def _efficiency_holder():
     return battle_adapter._efficiency_ctrl()  # None until the controller exists -> skipped
 
 
+def _feedback_holder():
+    # sessionProvider.shared.feedback -- the BattleFeedbackAdaptor whose battle-events summary
+    # carries the track/spot assist split. None until the arena spins it up -> _arm retries.
+    return battle_adapter._feedback_ctrl()
+
+
 def _vehicle_state_holder():
     # sessionProvider.shared.vehicleState -- the OBSERVED_VEHICLE_STATE controller. None until
     # the arena spins it up -> _arm skips and retries next mount.
@@ -247,6 +264,9 @@ _LISTENERS = (
     ("avatar teardown", _player_events_holder, "onAvatarBecomeNonPlayer", _on_teardown),
     ("arena period", _player_events_holder, "onArenaPeriodChange", _on_arena_period_changed),
     ("efficiency", _efficiency_holder, "onTotalEfficiencyUpdated", _on_efficiency_updated),
+    # Server battle-events summary -> the track/spot assist split (counted-assistance row).
+    ("summary feedback", _feedback_holder, "onPlayerSummaryFeedbackReceived",
+     _on_summary_feedback),
     # Observed-vehicle changes drive the spectate hide/reveal (postmortem free-look).
     ("observed vehicle", _vehicle_state_holder, "onVehicleControlling",
      _on_observed_vehicle_changed),
@@ -404,9 +424,11 @@ def push(rvm):
                                      enabled=mod_settings.battle_enabled(),
                                      alt_mode=mod_settings.battle_alt_key_enabled(),
                                      alt_held=_alt_held)
-        LOG_DEBUG("[moe-battle] push visible=%s spectating=%s scoreboard=%s alt=%s cd=%d pct=%.1f delta=%.2f data=%s baseline=%s" % (
+        assist_visible = mod_settings.counted_assistance_enabled()
+        LOG_DEBUG("[moe-battle] push visible=%s spectating=%s scoreboard=%s alt=%s cd=%d pct=%.1f delta=%.2f data=%s baseline=%s assist=%d/%s(on=%s)" % (
             visible, snap.is_spectating, overlay_open, _alt_held, model.combined_damage,
-            model.cur_percent, model.pct_delta, model.has_data, model.has_baseline))
+            model.cur_percent, model.pct_delta, model.has_data, model.has_baseline,
+            model.counted_assist, model.assist_kind, assist_visible))
         with rvm.transaction() as tx:
             tx.setVisible(visible)
             tx.setCombinedDamage(model.combined_damage)
@@ -415,6 +437,9 @@ def push(rvm):
             tx.setPctDelta(model.pct_delta)
             tx.setHasData(model.has_data)
             tx.setHasBaseline(model.has_baseline)
+            tx.setCountedAssist(model.counted_assist)
+            tx.setAssistKind(model.assist_kind)
+            tx.setAssistVisible(assist_visible)
     except Exception:
         LOG_CURRENT_EXCEPTION()
 

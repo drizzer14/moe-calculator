@@ -7,8 +7,9 @@ import pytest
 
 from moe_calculator.bridge import mod_settings
 from moe_calculator.bridge.mod_settings import (
-    merge_settings, DEFAULTS, GARAGE_KEY, BATTLE_KEY, BATTLE_ALT_KEY, LINKAGE,
-    battle_alt_key_enabled, battle_enabled)
+    merge_settings, DEFAULTS, GARAGE_KEY, BATTLE_KEY, BATTLE_ALT_KEY,
+    COUNTED_ASSIST_KEY, LINKAGE, battle_alt_key_enabled, battle_enabled,
+    counted_assistance_enabled)
 
 
 @pytest.fixture(autouse=True)
@@ -20,36 +21,46 @@ def _restore_settings():
 
 
 def test_defaults_when_empty_or_none():
-    # No saved store (fresh install / MSA absent) -> both widgets on, Alt-peek off (opt-in).
+    # No saved store (fresh install / MSA absent) -> both widgets on, Alt-peek and the
+    # counted-assistance row off (both opt-in).
     assert merge_settings(None) == DEFAULTS
     assert merge_settings({}) == DEFAULTS
-    assert DEFAULTS == {GARAGE_KEY: True, BATTLE_KEY: True, BATTLE_ALT_KEY: False}
+    assert DEFAULTS == {GARAGE_KEY: True, BATTLE_KEY: True, BATTLE_ALT_KEY: False,
+                        COUNTED_ASSIST_KEY: False}
 
 
 def test_overlays_known_keys():
-    out = merge_settings({GARAGE_KEY: False, BATTLE_KEY: True, BATTLE_ALT_KEY: True})
-    assert out == {GARAGE_KEY: False, BATTLE_KEY: True, BATTLE_ALT_KEY: True}
-    out2 = merge_settings({GARAGE_KEY: True, BATTLE_KEY: False, BATTLE_ALT_KEY: False})
-    assert out2 == {GARAGE_KEY: True, BATTLE_KEY: False, BATTLE_ALT_KEY: False}
+    out = merge_settings({GARAGE_KEY: False, BATTLE_KEY: True, BATTLE_ALT_KEY: True,
+                          COUNTED_ASSIST_KEY: True})
+    assert out == {GARAGE_KEY: False, BATTLE_KEY: True, BATTLE_ALT_KEY: True,
+                   COUNTED_ASSIST_KEY: True}
+    out2 = merge_settings({GARAGE_KEY: True, BATTLE_KEY: False, BATTLE_ALT_KEY: False,
+                           COUNTED_ASSIST_KEY: False})
+    assert out2 == {GARAGE_KEY: True, BATTLE_KEY: False, BATTLE_ALT_KEY: False,
+                    COUNTED_ASSIST_KEY: False}
 
 
 def test_partial_dict_fills_missing_with_defaults():
     # Only one key present -> the others fall back to their defaults.
     out = merge_settings({GARAGE_KEY: False})
-    assert out == {GARAGE_KEY: False, BATTLE_KEY: True, BATTLE_ALT_KEY: False}
+    assert out == {GARAGE_KEY: False, BATTLE_KEY: True, BATTLE_ALT_KEY: False,
+                   COUNTED_ASSIST_KEY: False}
 
 
 def test_unknown_keys_ignored():
     out = merge_settings({GARAGE_KEY: False, "bogus": 123, "settingsVersion": 9})
-    assert out == {GARAGE_KEY: False, BATTLE_KEY: True, BATTLE_ALT_KEY: False}
+    assert out == {GARAGE_KEY: False, BATTLE_KEY: True, BATTLE_ALT_KEY: False,
+                   COUNTED_ASSIST_KEY: False}
     assert "bogus" not in out
 
 
 def test_values_coerced_to_bool():
-    out = merge_settings({GARAGE_KEY: 0, BATTLE_KEY: 1, BATTLE_ALT_KEY: 1})
+    out = merge_settings({GARAGE_KEY: 0, BATTLE_KEY: 1, BATTLE_ALT_KEY: 1,
+                          COUNTED_ASSIST_KEY: 1})
     assert out[GARAGE_KEY] is False
     assert out[BATTLE_KEY] is True
     assert out[BATTLE_ALT_KEY] is True
+    assert out[COUNTED_ASSIST_KEY] is True
 
 
 def test_non_dict_input_degrades_to_defaults():
@@ -73,6 +84,16 @@ def test_battle_alt_key_default_off_and_getter():
     assert battle_alt_key_enabled() is True
     mod_settings._apply({BATTLE_ALT_KEY: 0})
     assert battle_alt_key_enabled() is False
+
+
+def test_counted_assistance_default_off_and_getter():
+    # The counted-assistance row ships OFF (opt-in) and the getter tracks live changes.
+    mod_settings._seed(DEFAULTS)
+    assert counted_assistance_enabled() is False
+    mod_settings._apply({COUNTED_ASSIST_KEY: True})
+    assert counted_assistance_enabled() is True
+    mod_settings._apply({COUNTED_ASSIST_KEY: 0})
+    assert counted_assistance_enabled() is False
 
 
 # --- the foreign-broadcast bug: a payload with none of our keys must NOT reset us ----------

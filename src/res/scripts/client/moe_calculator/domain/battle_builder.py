@@ -2,14 +2,16 @@
 """Turn a BattleSnapshot into a BattleMoEModel. Pure and engine-free.
 
 The four in-battle readouts (see TASKS/in-battle-moe-panel.md):
-  1. live combined damage  C = damage + max(assist, stun) - team_damage   (WG #15060: MAX)
+  1. live combined damage  C = damage + max(track, spot, stun) - team_damage   (WG #15060: MAX)
   2. projected moving-average combined damage  avgWithCD = prevAvg + k*(C - prevAvg)  (EWMA)
   3. current percent  = the MoE percentile of avgWithCD, interpolated over the per-tank
      combined-damage stops [(0,0),(65,D1),(85,D2),(95,D3),(100,D100)]
   4. percent delta    = current percent - pre-battle standing percentile   (signed)
 
-Metrics 2-4 ride on the EWMA coefficient k (community-reverse-engineered, not WG-confirmed);
-metric 1 can over-count when a tank earns both spot AND track assist (merged live).
+Metrics 2-4 ride on the EWMA coefficient k (community-reverse-engineered, not WG-confirmed).
+The assist component of combined damage is the HIGHER of tracking / spotting / stun (see
+counted_assistance) -- WG credits the greatest stream, not the sum; the server battle-events
+summary supplies the track/spot split (adapter/battle_adapter._read_assist_split).
 """
 from moe_calculator.domain import battle_types as bt
 from moe_calculator.domain.constants import EWMA_K, MARK_PERCENTS
@@ -24,13 +26,45 @@ def _clamp(value, lo, hi):
     return lo if value < lo else hi if value > hi else value
 
 
-def combined_damage(damage, assist, stun, team_damage):
-    """Live combined damage: direct + MAX(assist, stun) - team damage, clamped >= 0.
+def counted_assistance(track, spot, stun, merged_assist=0):
+    """The single assist stream that counts toward MoE this battle, and which one it is.
 
-    MAX (not sum) of the assist streams per WG support #15060."""
-    c = (int(damage or 0)
-         + max(int(assist or 0), int(stun or 0))
-         - int(team_damage or 0))
+    MoE credits the HIGHER of assisted damage vs stun (not their sum) -- and within assisted
+    damage, the higher of tracking vs spotting (not their sum). So the counted value is
+    max(track, spot, stun); `kind` is whichever wins, and selects the overlay row's icon.
+
+    `merged_assist` is the personal-efficiency controller's spot+track MERGED total, used only
+    as a fallback: before the server split summary is delivered (battle start), track and spot
+    are both 0 while merged_assist may already be > 0. In that window we credit merged_assist as
+    the assist component (kind 'assist', generic icon) so combined damage never under-counts.
+
+    Returns (value, kind), kind in {'track', 'spot', 'stun', 'assist'}. kind is 'assist' when
+    value is 0 (the row hides then). Tie-breaks: stun wins only when strictly greatest; between
+    tracking and spotting, spotting wins a tie."""
+    t = int(track or 0)
+    s = int(spot or 0)
+    st = int(stun or 0)
+    m = int(merged_assist or 0)
+    if t == 0 and s == 0 and m > 0:
+        assist_val, assist_kind = m, "assist"
+    else:
+        assist_val = t if t > s else s
+        assist_kind = "track" if t > s else "spot"
+    if st > assist_val:
+        return st, "stun"
+    if assist_val <= 0:
+        return 0, "assist"
+    return assist_val, assist_kind
+
+
+def combined_damage(damage, track, spot, stun, team_damage, merged_assist=0):
+    """Live combined damage: direct + counted assistance - team damage, clamped >= 0.
+
+    Counted assistance = max(track, spot, stun) -- WG credits the HIGHER assist stream, not the
+    sum (support #15060) -- with `merged_assist` as the pre-split fallback (see
+    counted_assistance)."""
+    counted, _kind = counted_assistance(track, spot, stun, merged_assist)
+    c = int(damage or 0) + int(counted or 0) - int(team_damage or 0)
     return c if c > 0 else 0
 
 
@@ -102,8 +136,13 @@ def build_battle_model(snapshot):
     """Compose the four in-battle readouts from the snapshot. Always returns a model;
     visibility is decided separately by battle_bar_visible()."""
     thresholds = snapshot.thresholds or {}
-    cd = combined_damage(snapshot.damage, snapshot.assist, snapshot.stun,
-                         snapshot.team_damage)
+    merged_assist = getattr(snapshot, "assist", 0)
+    counted, assist_kind = counted_assistance(
+        getattr(snapshot, "track_assist", 0), getattr(snapshot, "spot_assist", 0),
+        snapshot.stun, merged_assist)
+    cd = combined_damage(snapshot.damage, getattr(snapshot, "track_assist", 0),
+                         getattr(snapshot, "spot_assist", 0), snapshot.stun,
+                         snapshot.team_damage, merged_assist=merged_assist)
     proj = ewma_project(snapshot.pre_avg_damage, cd)
 
     # Whether we have a CAREER baseline to project from. A >0 pre_avg/pre_percentile is an
@@ -137,6 +176,8 @@ def build_battle_model(snapshot):
 
     return bt.BattleMoEModel(
         combined_damage=cd,
+        counted_assist=counted,
+        assist_kind=assist_kind,
         proj_avg_damage=proj,
         cur_percent=cur_percent,
         pct_delta=pct_delta,

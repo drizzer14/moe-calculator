@@ -13,8 +13,13 @@ class BattleSnapshot(object):
 
     Live-combat components (this battle so far, from the personal-efficiency controller):
     - `damage`       : direct damage dealt.
-    - `assist`       : assisted damage -- spot + track MERGED live (only post-battle splits
-                       them), so the combined-damage figure derived from it is approximate.
+    - `assist`       : assisted damage -- spot + track MERGED live from the personal-efficiency
+                       controller (used only as a fallback for the combined-damage assist
+                       component before the split summary arrives).
+    - `track_assist` : tracking-assist damage, split out (server battle-events summary).
+    - `spot_assist`  : spotting/radio-assist damage, split out (server battle-events summary).
+                       track/spot are 0 until the first summary is delivered (battle start) or on
+                       a replay where the event never arrives -- `assist` covers that window.
     - `stun`         : stun-assisted damage (tracked separately live).
     - `team_damage`  : friendly-fire dealt (subtracted from combined damage); 0 when the
                        live controller exposes no team-damage bucket.
@@ -39,6 +44,7 @@ class BattleSnapshot(object):
                        the observed tank while the stats stay ours, so the readout is bogus.
     """
     def __init__(self, vehicle_int_cd=0, nation="", damage=0, assist=0, stun=0,
+                 track_assist=0, spot_assist=0,
                  team_damage=0, pre_avg_damage=0, pre_percentile=0.0, thresholds=None,
                  has_vehicle=True, in_battle=True, is_spectating=False,
                  baseline_known=False):
@@ -46,6 +52,8 @@ class BattleSnapshot(object):
         self.nation = nation
         self.damage = damage
         self.assist = assist
+        self.track_assist = track_assist
+        self.spot_assist = spot_assist
         self.stun = stun
         self.team_damage = team_damage
         self.pre_avg_damage = pre_avg_damage
@@ -61,6 +69,10 @@ class BattleMoEModel(object):
     """Output of build_battle_model(): the four in-battle readout values.
 
     - `combined_damage` : live combined damage this battle (CD).
+    - `counted_assist`  : the single assist stream that counts toward MoE this battle --
+                          max(track, spot, stun). Feeds the optional third overlay row.
+    - `assist_kind`     : which stream that is -- 'track' | 'spot' | 'stun', or 'assist' when
+                          `counted_assist` is 0 (row is hidden then). Selects the row's icon.
     - `proj_avg_damage` : projected moving-average combined damage folding in this CD (EWMA).
     - `cur_percent`     : "where you'd stand if the battle ended now" (0.0..100.0), ANCHORED
                           to WG's real career standing: pre_percentile + this battle's interp
@@ -78,8 +90,10 @@ class BattleMoEModel(object):
                           keeping only the live combined_damage.
     """
     def __init__(self, combined_damage, proj_avg_damage, cur_percent, pct_delta,
-                 has_data=False, has_baseline=False):
+                 has_data=False, has_baseline=False, counted_assist=0, assist_kind="assist"):
         self.combined_damage = combined_damage
+        self.counted_assist = counted_assist
+        self.assist_kind = assist_kind
         self.proj_avg_damage = proj_avg_damage
         self.cur_percent = cur_percent
         self.pct_delta = pct_delta

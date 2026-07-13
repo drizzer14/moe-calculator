@@ -84,6 +84,25 @@ def test_battle_alt_key_ukrainian_translated():
     assert uk[u"battleAltKey"][u"label"] == u"Віджет у бою по клавіші Alt"
 
 
+# --- countedAssist (the "Enable Counted Assistance" third-row setting) --------
+
+def test_counted_assist_present_in_master_and_col1():
+    assert u"countedAssist" in S._PANEL[u"en"]
+    # Appended LAST -- matches the fourth CheckBox's position in mod_settings._template().
+    assert u"countedAssist" in S.COL1_KEYS
+    assert S.COL1_KEYS[-1] == u"countedAssist"
+    en = S.resolve(u"en")
+    assert en[u"countedAssist"][u"label"] == u"Enable Counted Assistance"
+    assert u"ttHeader" in en[u"countedAssist"] and u"ttBody" in en[u"countedAssist"]
+
+
+def test_counted_assist_ukrainian_translated():
+    uk = S.resolve(u"uk")
+    en = S.resolve(u"en")
+    assert uk[u"countedAssist"][u"label"] == u"Увімкнути зараховану допомогу"
+    assert uk[u"countedAssist"][u"label"] != en[u"countedAssist"][u"label"]
+
+
 # --- _norm -----------------------------------------------------------------
 
 def test_norm_cases():

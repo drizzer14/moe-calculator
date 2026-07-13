@@ -30,7 +30,7 @@ MOD_DISPLAY_NAME = "14th_ua's MoE Calculator"
 # Bump ONLY when the control layout / varName set changes (the host wipes saved values to
 # defaults on a bump). Localizing text is text-only -- it does NOT bump this (the stored
 # template text is refreshed in place by _sync_template_text instead).
-SETTINGS_VERSION = 2
+SETTINGS_VERSION = 3
 
 GARAGE_KEY = "garage_widget_enabled"
 BATTLE_KEY = "battle_widget_enabled"
@@ -39,11 +39,15 @@ BATTLE_KEY = "battle_widget_enabled"
 # battle_bar_visible's soft-gate). MSA 1.7.0 has no per-control disabled field, so the checkbox
 # stays clickable; its value simply has no effect while BATTLE_KEY is on.
 BATTLE_ALT_KEY = "battle_widget_alt_key"
+# Optional third in-battle row: "counted assistance" = the higher of tracking / spotting / stun
+# assist this battle (the assist that MoE credits). Opt-in (default OFF).
+COUNTED_ASSIST_KEY = "counted_assistance_enabled"
 
-# The two widgets ship ON; the Alt-peek mode ships OFF (opt-in). merge_settings only ever
-# overlays these known keys, so an MSA store from a newer/older template can never introduce or
-# drop a flag we act on.
-DEFAULTS = {GARAGE_KEY: True, BATTLE_KEY: True, BATTLE_ALT_KEY: False}
+# The two widgets ship ON; the Alt-peek mode and the counted-assistance row ship OFF (opt-in).
+# merge_settings only ever overlays these known keys, so an MSA store from a newer/older template
+# can never introduce or drop a flag we act on.
+DEFAULTS = {GARAGE_KEY: True, BATTLE_KEY: True, BATTLE_ALT_KEY: False,
+            COUNTED_ASSIST_KEY: False}
 
 # Live flag state (seeded from MSA in register(); defaults until then / if MSA is absent).
 _settings = dict(DEFAULTS)
@@ -86,6 +90,11 @@ def battle_alt_key_enabled():
     Independent of battle_enabled(): the consumer (battle_bar_visible) applies the soft-gate
     so this is ignored while battle_enabled() is on."""
     return bool(_settings.get(BATTLE_ALT_KEY, False))
+
+
+def counted_assistance_enabled():
+    """Whether the optional in-battle "counted assistance" row is enabled (default False)."""
+    return bool(_settings.get(COUNTED_ASSIST_KEY, False))
 
 
 def add_change_listener(fn):
@@ -156,6 +165,13 @@ def _template():
                 "value": DEFAULTS[BATTLE_ALT_KEY],
                 "tooltip": t["battleAltKey"]["tooltip"],
                 "varName": BATTLE_ALT_KEY,
+            },
+            {
+                "type": "CheckBox",
+                "text": t["countedAssist"]["text"],
+                "value": DEFAULTS[COUNTED_ASSIST_KEY],
+                "tooltip": t["countedAssist"]["tooltip"],
+                "varName": COUNTED_ASSIST_KEY,
             },
         ],
         "column2": [],

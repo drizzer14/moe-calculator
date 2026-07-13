@@ -41,7 +41,11 @@
 html,
 body {
     width: 340rem;
-    height: 130rem;   /* tall enough for the in-box top offset below + 2 rows (no clip) */
+    /* Tall enough for the in-box top offset below + up to 3 rows (no clip). +22rem over the old
+       130rem (2-row) value = one row's net pitch (row box 33rem, margin-bottom -11rem overlap),
+       for the optional counted-assistance row. Keep snug -- leftover box area still hit-tests, so
+       do not over-grow. Live-calibration item (no hot-reload for this window). */
+    height: 152rem;
     margin: 0;
     padding: 0;
     background: transparent;
@@ -79,7 +83,7 @@ body {
     align-items: center;
     white-space: nowrap;
     padding: 8rem 32rem;
-    margin-bottom: -11rem;              /* negative pitch overlaps the airy row padding */
+    margin-bottom: -12rem;              /* negative pitch overlaps the airy row padding */
 }
 
 /* WG's efficiency-panel halftone = a fine CHECKER dither. Gameface does NOT tile a
@@ -175,6 +179,13 @@ body {
 }
 .mb-ico.dmg::after { background-image: url(img://gui/maps/icons/personal_missions_30/quest_type/128x128/icon_battle_condition_barrel_mark.png); }
 .mb-ico.pct::after { background-image: url(img://gui/maps/icons/personal_missions_30/quest_type/128x128/icon_battle_condition_improve.png); }
+/* Row 3 assist glyph -- switched by the leading stream (JS toggles trk/spot/stun on .mb-ico.ast).
+   Base is the generic assist icon (used in the rare pre-split merged-fallback case, kind 'assist');
+   the per-kind rules (3 classes) win by specificity. */
+.mb-ico.ast::after      { background-image: url(img://gui/maps/icons/personal_missions_30/quest_type/128x128/icon_battle_condition_assist.png); }
+.mb-ico.ast.trk::after  { background-image: url(img://gui/maps/icons/personal_missions_30/quest_type/128x128/icon_battle_condition_assist_track.png); }
+.mb-ico.ast.spot::after { background-image: url(img://gui/maps/icons/personal_missions_30/quest_type/128x128/icon_battle_condition_assist_radio.png); }
+.mb-ico.ast.stun::after { background-image: url(img://gui/maps/icons/personal_missions_30/quest_type/128x128/icon_battle_condition_assist_stun.png); }
 
 /* Inter-element gap (icon->value handled by the icon's own margin above). */
 .mb-sep,

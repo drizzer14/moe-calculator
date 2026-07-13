@@ -4,8 +4,8 @@ Python 3 (no game engine) because domain/battle_builder imports zero game symbol
 in-battle MoE math is pure and unit-testable with the client closed."""
 from moe_calculator.domain import battle_types as bt
 from moe_calculator.domain.battle_builder import (
-    combined_damage, damage_to_percent, ewma_project, build_battle_model,
-    battle_bar_visible)
+    combined_damage, counted_assistance, damage_to_percent, ewma_project,
+    build_battle_model, battle_bar_visible)
 from moe_calculator.domain.constants import EWMA_K
 
 
@@ -21,26 +21,66 @@ def _bsnap(**kw):
     return bt.BattleSnapshot(**base)
 
 
+# --- counted_assistance ------------------------------------------------------
+
+def test_counted_assistance_picks_highest_stream():
+    assert counted_assistance(700, 400, 300) == (700, "track")   # tracking leads
+    assert counted_assistance(400, 700, 300) == (700, "spot")    # spotting leads
+    assert counted_assistance(400, 300, 900) == (900, "stun")    # stun leads
+
+
+def test_counted_assistance_tie_breaks():
+    # track vs spot tie -> spotting wins.
+    assert counted_assistance(500, 500, 0) == (500, "spot")
+    # stun only wins when STRICTLY greater, so a tie keeps the assist stream.
+    assert counted_assistance(0, 600, 600) == (600, "spot")
+    assert counted_assistance(600, 0, 600) == (600, "track")
+
+
+def test_counted_assistance_zero_is_generic():
+    # Total 0 -> value 0 + generic kind (the row hides in this case).
+    assert counted_assistance(0, 0, 0) == (0, "assist")
+
+
+def test_counted_assistance_merged_fallback_before_split():
+    # Split not delivered yet (track/spot 0) but merged assist known -> credit merged as the
+    # assist component with the generic 'assist' kind, so combined damage never under-counts.
+    assert counted_assistance(0, 0, 0, 800) == (800, "assist")
+    # stun still wins when strictly greater than the merged assist.
+    assert counted_assistance(0, 0, 900, 800) == (900, "stun")
+    # once the real split arrives it takes over from the merged fallback.
+    assert counted_assistance(700, 100, 0, 800) == (700, "track")
+
+
+def test_counted_assistance_handles_none():
+    assert counted_assistance(None, None, None) == (0, "assist")
+
+
 # --- combined_damage ---------------------------------------------------------
 
 def test_combined_damage_takes_max_not_sum():
-    # assist 500 dominates stun 300 -> +500, NOT +800 (WG #15060: max of streams).
-    assert combined_damage(2000, 500, 300, 0) == 2500
-    # stun dominates
-    assert combined_damage(2000, 100, 700, 0) == 2700
+    # tracking 500 dominates spotting 300 and stun 0 -> +500, NOT +800 (WG #15060: max).
+    assert combined_damage(2000, 500, 300, 0, 0) == 2500
+    # stun dominates the assist streams
+    assert combined_damage(2000, 100, 200, 700, 0) == 2700
 
 
 def test_combined_damage_subtracts_team_damage():
-    assert combined_damage(2000, 500, 0, 300) == 2200
+    assert combined_damage(2000, 500, 0, 0, 300) == 2200
 
 
 def test_combined_damage_clamps_non_negative():
-    assert combined_damage(0, 0, 0, 500) == 0
-    assert combined_damage(100, 0, 0, 999) == 0
+    assert combined_damage(0, 0, 0, 0, 500) == 0
+    assert combined_damage(100, 0, 0, 0, 999) == 0
 
 
 def test_combined_damage_handles_none():
-    assert combined_damage(None, None, None, None) == 0
+    assert combined_damage(None, None, None, None, None) == 0
+
+
+def test_combined_damage_merged_fallback():
+    # track/spot 0 but the merged live assist is known -> counted as the assist component.
+    assert combined_damage(2000, 0, 0, 0, 0, merged_assist=500) == 2500
 
 
 # --- damage_to_percent -------------------------------------------------------
@@ -113,6 +153,29 @@ def test_build_battle_model_four_metrics():
     # 4) delta IS the increment (self-consistent interp scale, not mixed vs WG rating)
     assert round(m.pct_delta, 2) == round(inc, 2)
     assert m.has_data is True
+
+
+def test_build_battle_model_counted_assist_from_split():
+    # The split feeds both the counted-assist row and combined damage: max(track, spot, stun),
+    # NOT the merged spot+track sum. Here track 900 leads.
+    m = build_battle_model(_bsnap(track_assist=900, spot_assist=400, stun=300, assist=1300))
+    assert m.counted_assist == 900
+    assert m.assist_kind == "track"
+    assert m.combined_damage == 2000 + 900       # split max, not the merged 1300
+
+
+def test_build_battle_model_counted_assist_stun_leads():
+    m = build_battle_model(_bsnap(track_assist=100, spot_assist=200, stun=800, assist=300))
+    assert m.counted_assist == 800
+    assert m.assist_kind == "stun"
+
+
+def test_build_battle_model_counted_assist_merged_fallback():
+    # Split not delivered yet -> value falls back to the merged live assist + generic kind.
+    m = build_battle_model(_bsnap(track_assist=0, spot_assist=0, stun=0, assist=600))
+    assert m.counted_assist == 600
+    assert m.assist_kind == "assist"
+    assert m.combined_damage == 2000 + 600
 
 
 def test_build_battle_model_zero_damage_drags_below_career():

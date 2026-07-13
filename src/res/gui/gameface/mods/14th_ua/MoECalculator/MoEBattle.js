@@ -93,6 +93,12 @@ function ensureRoot() {
         '  <span class="mb-ico pct"></span>' +
         '  <span class="mb-value mb-pct"></span>' +
         '  <span class="mb-delta">(<span class="mb-delta-num"></span>)</span>' +
+        '</div>' +
+        // Row 3 (optional): [assist icon]  <counted assistance>. The icon switches with the
+        // leading stream (track/spot/stun); gated by the setting + hidden while the total is 0.
+        '<div class="mb-row mb-row-assist">' +
+        '  <span class="mb-ico ast"></span>' +
+        '  <span class="mb-value mb-ast"></span>' +
         '</div>';
     document.body.appendChild(root);
     return root;
@@ -147,6 +153,25 @@ function render(model) {
         root.querySelector(".mb-pct").textContent = DASH + "%";
         deltaNum.textContent = DASH;
         colourBySign(deltaNum, 0);                // no sign -> white
+    }
+
+    // Row 3: counted assistance = the higher of tracking / spotting / stun this battle, with an
+    // icon for whichever leads. Independent of the baseline (live server data, like the CD).
+    // Shown only when the "Enable Counted Assistance" setting is on (data.assistVisible) AND the
+    // total is > 0 -- the row stays hidden until any assist is earned. An absent flag (older
+    // Python push) is falsy -> row stays hidden.
+    const assistRow = root.querySelector(".mb-row-assist");
+    const counted = data.countedAssist || 0;
+    if (data.assistVisible && counted > 0) {
+        assistRow.style.display = "";
+        root.querySelector(".mb-ast").textContent = thousands(counted);
+        const ico = assistRow.querySelector(".mb-ico");
+        const kind = data.assistKind || "";
+        ico.classList.toggle("trk", kind === "track");
+        ico.classList.toggle("spot", kind === "spot");
+        ico.classList.toggle("stun", kind === "stun");
+    } else {
+        assistRow.style.display = "none";
     }
 }
 

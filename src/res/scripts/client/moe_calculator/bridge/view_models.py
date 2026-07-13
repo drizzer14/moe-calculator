@@ -107,7 +107,7 @@ class BattleMoEVM(ViewModel):
     ViewModel (the JS reads it with a root ModelObserver(), NOT via a nested submodel).
     Flat (no ticks array) -- the four readouts + gating flags. Read-only (no reverse-channel
     commands). Indices are hand-maintained to match the _addXProperty order; JS reads by NAME."""
-    def __init__(self, properties=7, commands=0):
+    def __init__(self, properties=10, commands=0):
         super(BattleMoEVM, self).__init__(properties=properties, commands=commands)
 
     def _initialize(self):
@@ -121,6 +121,11 @@ class BattleMoEVM(ViewModel):
         self._addBoolProperty("hasData", False)          # 5  threshold table usable (percent real)
         self._addBoolProperty("hasBaseline", False)      # 6  career baseline present; false (replay/
                                                          #    relogin) -> proj/percent/delta dashed out
+        self._addNumberProperty("countedAssist", 0)      # 7  counted assistance = max(track, spot, stun)
+        self._addStringProperty("assistKind", "assist")  # 8  which stream leads: track|spot|stun|assist
+                                                         #    (selects the third-row icon)
+        self._addBoolProperty("assistVisible", False)    # 9  "Enable Counted Assistance" setting; JS also
+                                                         #    hides the row while countedAssist == 0
 
     def setVisible(self, v):
         self._setBool(0, v)
@@ -142,3 +147,12 @@ class BattleMoEVM(ViewModel):
 
     def setHasBaseline(self, v):
         self._setBool(6, v)
+
+    def setCountedAssist(self, v):
+        self._setNumber(7, v)
+
+    def setAssistKind(self, v):
+        self._setString(8, v)
+
+    def setAssistVisible(self, v):
+        self._setBool(9, v)
