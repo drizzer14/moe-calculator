@@ -1,5 +1,5 @@
 ==============================================================
- 14th_ua's MoE Calculator  -  World of Tanks mod (EU 2.3.0.1)
+ 14th_ua's MoE Calculator  -  World of Tanks mod (EU 2.3.1.0)
  by 14th_ua                 version {VERSION}
 ==============================================================
 
@@ -29,10 +29,10 @@ WHAT IT DOES
 INSTALL  (2 steps)
     1) Extract this archive into your World of Tanks folder, so the
        files land in:
-           <World of Tanks>\mods\2.3.0.1\
+           <World of Tanks>\mods\2.3.1.0\
     2) Fully restart the game client (exit and relaunch).
 
-    The version folder (2.3.0.1) must match your installed client
+    The version folder (2.3.1.0) must match your installed client
     version. If yours differs, move the .wotmod files into the
     matching mods\<your-version>\ folder.
 
@@ -69,10 +69,10 @@ UNINSTALL
 ВСТАНОВЛЕННЯ  (2 кроки)
     1) Розпакуйте архів у теку World of Tanks так, щоб файли
        потрапили в:
-           <World of Tanks>\mods\2.3.0.1\
+           <World of Tanks>\mods\2.3.1.0\
     2) Повністю перезапустіть клієнт гри (вихід і повторний запуск).
 
-    Тека версії (2.3.0.1) має збігатися з версією вашого клієнта.
+    Тека версії (2.3.1.0) має збігатися з версією вашого клієнта.
     Якщо вона інша - перемістіть файли .wotmod у теку
     mods\<ваша-версія>\, що відповідає вашій версії.
 

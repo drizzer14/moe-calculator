@@ -19,18 +19,18 @@ plays out.
 
 | Requirement | Detail |
 |-------------|--------|
-| **Game** | World of Tanks **EU (Wargaming)** client, version **2.3.0.1**. Built and tested against this version. |
+| **Game** | World of Tanks **EU (Wargaming)** client, version **2.3.1.0**. Built and tested against this version. |
 | **Dependency** | **OpenWG GameFace** (required). The installer sets this up for you; for a manual install you add it yourself. |
 | **Optional** | **ModsSettingsAPI** — adds the in-game settings panel for turning the Garage and Battle widgets on/off. The installer adds it if missing; without it the mod still runs with both widgets enabled. |
 
-This build targets the Wargaming EU/global client (version 2.3.0.1).
+This build targets the Wargaming EU/global client (version 2.3.1.0).
 
 ---
 
 ## Install with the installer (recommended)
 
 1. Close World of Tanks completely (exit the Game Center launcher too).
-2. Run **`MoECalculator-Setup-0.3.0.exe`**.
+2. Run **`MoECalculator-Setup-1.0.0.exe`**.
 3. Confirm your World of Tanks folder when the installer shows it — the folder that
    contains `version.xml`. The installer detects it automatically in most cases.
 4. If a newer version is available on GitHub, the installer offers to download and run the
@@ -52,20 +52,20 @@ installer. OpenWG GameFace and ModsSettingsAPI stay in place for other mods that
 2. Open your World of Tanks folder and the version-matched mods folder inside it:
 
    ```
-   <World of Tanks>\mods\2.3.0.1\
+   <World of Tanks>\mods\2.3.1.0\
    ```
 
    The folder name matches your installed client version. After a game update the version
    changes and you move the mod into the new version folder.
 
-3. Copy **`com.14th_ua.moe_calculator_0.3.0.wotmod`** into that folder.
+3. Copy **`com.14th_ua.moe_calculator_1.0.0.wotmod`** into that folder.
 4. Delete any older version of this mod from the same folder first.
 5. *(Optional)* Add **ModsSettingsAPI** (`izeberg.modssettingsapi`) into the same folder to
    get the in-game settings panel. Without it the mod runs with both widgets enabled.
 6. Fully restart the game client: exit completely and relaunch.
 
-The `mods\2.3.0.1\` folder then holds the OpenWG GameFace `.wotmod`,
-`com.14th_ua.moe_calculator_0.3.0.wotmod`, and (optionally) the ModsSettingsAPI `.wotmod`.
+The `mods\2.3.1.0\` folder then holds the OpenWG GameFace `.wotmod`,
+`com.14th_ua.moe_calculator_1.0.0.wotmod`, and (optionally) the ModsSettingsAPI `.wotmod`.
 
 ---
 
@@ -96,7 +96,7 @@ Changes apply immediately. Without ModsSettingsAPI both widgets are simply alway
 **The bar / overlay doesn't show up.**
 - Confirm OpenWG GameFace is installed in the same `mods\<version>\` folder.
 - Confirm the `.wotmod` is in the folder matching your client version (for example
-  `mods\2.3.0.1\`).
+  `mods\2.3.1.0\`).
 - Check that no loose copy of the mod sits under `res_mods\<version>\scripts\client\`, which
   would override the packaged mod. Keep only the `.wotmod` in `mods\<version>\`.
 - Fully restart the client after installing.
@@ -115,8 +115,8 @@ Changes apply immediately. Without ModsSettingsAPI both widgets are simply alway
 ## Uninstalling
 
 Remove the mod through its Windows **Apps & features** entry, or delete
-`com.14th_ua.moe_calculator_0.3.0.wotmod` from `mods\<version>\`, then restart the client.
+`com.14th_ua.moe_calculator_1.0.0.wotmod` from `mods\<version>\`, then restart the client.
 
 ---
 
-*Mod by 14th_ua. Built for WoT EU 2.3.0.1.*
+*Mod by 14th_ua. Built for WoT EU 2.3.1.0.*

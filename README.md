@@ -38,7 +38,7 @@ alongside the minimap and battle markers.
 
 | Requirement | Detail |
 |-------------|--------|
-| **Game** | World of Tanks **EU 2.3.0.1** (Wargaming global client). Built and tested against this version. |
+| **Game** | World of Tanks **EU 2.3.1.0** (Wargaming global client). Built and tested against this version. |
 | **Required** | **OpenWG GameFace** 1.1.6+ — install it first, or the widget will not appear. From [wgmods.net](https://wgmods.net) or [gitlab.com/openwg/wot.gameface](https://gitlab.com/openwg/wot.gameface). |
 
 ## Download & install
@@ -130,7 +130,7 @@ Building, deploying, testing, and the repo layout are documented in
 
 | Вимога | Деталі |
 |--------|--------|
-| **Гра** | World of Tanks **EU 2.3.0.1** (глобальний клієнт Wargaming). Зібрано й перевірено для цієї версії. |
+| **Гра** | World of Tanks **EU 2.3.1.0** (глобальний клієнт Wargaming). Зібрано й перевірено для цієї версії. |
 | **Обов'язково** | **OpenWG GameFace** 1.1.6+ — встановіть першим, інакше віджет не з'явиться. З [wgmods.net](https://wgmods.net) або [gitlab.com/openwg/wot.gameface](https://gitlab.com/openwg/wot.gameface). |
 
 ## Завантаження та встановлення

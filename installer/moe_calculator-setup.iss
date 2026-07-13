@@ -14,8 +14,8 @@
 ;         .wotmod already built into ..\dist by build\build_wotmod.py).
 
 #define ModId         "com.14th_ua.moe_calculator"
-#define ModVersion    "0.3.0"
-#define ModWotmod     "com.14th_ua.moe_calculator_0.3.0.wotmod"
+#define ModVersion    "1.0.0"
+#define ModWotmod     "com.14th_ua.moe_calculator_1.0.0.wotmod"
 #define OpenWgWotmod  "net.openwg.gameface_1.1.6.wotmod"
 #define MsaWotmod     "izeberg.modssettingsapi_1.7.0.wotmod"
 ; Used by the GitHub update check (see [Code]): the Atom feed + release-asset URLs
