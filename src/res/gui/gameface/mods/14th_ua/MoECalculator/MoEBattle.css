@@ -65,7 +65,9 @@ body {
        down within the box by (78.8-76.3)vh = 2.5vh = 27 logical px; at 1rem == 1 logical px
        (calibrated 2.0 px/rem @3840) that is 27rem. This is exactly the overlay tuner's emitted
        `#moe-battle-root { top: … }` value -- keep them in lockstep. */
-    top: 27rem;
+    /* +0.5rem (~+1px @3840) over the tuner's 27rem: measured against WG's efficiency panel the
+       overlay baselines sat a constant ~1px high; this drops them onto the native rows. */
+    top: 27.5rem;
     z-index: 9000;
     pointer-events: none;               /* never steal battle input -- info-only overlay */
     font-family: "MoEBattle", "Arial Narrow", sans-serif;
@@ -83,6 +85,9 @@ body {
     align-items: center;
     white-space: nowrap;
     padding: 8rem 32rem;
+    /* -12rem is the calibrated pitch: it lands the overlay row pitch (~44px @3840) on WG's own
+       efficiency-panel pitch. -11rem (pitch +1rem) overshoots and drifts the rows apart -- keep
+       -12rem. Residual vertical alignment vs the native panel is handled by #moe-battle-root top. */
     margin-bottom: -12rem;              /* negative pitch overlaps the airy row padding */
 }
 
