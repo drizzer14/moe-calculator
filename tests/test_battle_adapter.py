@@ -5,10 +5,20 @@ imports BigWorld at top (stubbed in conftest); each test monkeypatches the adapt
 read seams so the snapshot-assembly logic is exercisable with the client closed."""
 from moe_calculator.adapter import battle_adapter as ba
 from moe_calculator.adapter import baseline_cache
+from moe_calculator.adapter import calib_cache
+from moe_calculator.domain.constants import EWMA_K
 
 
 def teardown_function(_):
     baseline_cache.clear()
+    calib_cache.clear()
+
+
+def _no_disk_calib(monkeypatch):
+    """Keep the k-calibration cache off real disk in these tests: start clean and stub the
+    disk-touching mutator to a no-op. current_k stays fail-soft (returns EWMA_K)."""
+    calib_cache.clear()
+    monkeypatch.setattr(calib_cache, "complete", lambda *a, **k: None)
 
 
 def _patch_reads(monkeypatch, cd=1073, eff=(2000, 500, 0), thr=None,
@@ -24,6 +34,7 @@ def _patch_reads(monkeypatch, cd=1073, eff=(2000, 500, 0), thr=None,
     # In battle the lobby dossier is None -> engine_adapter._read_moe returns zeros; the
     # baseline must come from the garage cache instead.
     monkeypatch.setattr(ba.engine_adapter, "_read_moe", lambda c: (0, 0.0, 0))
+    _no_disk_calib(monkeypatch)
 
 
 def test_snapshot_falls_back_to_garage_baseline(monkeypatch):
@@ -95,3 +106,27 @@ def test_snapshot_assist_split_defaults_zero(monkeypatch):
     _patch_reads(monkeypatch)
     snap = ba.build_battle_snapshot()
     assert snap.track_assist == 0 and snap.spot_assist == 0
+
+
+def test_snapshot_k_from_calib_cache(monkeypatch):
+    # The learned per-account EWMA coefficient rides into the snapshot from calib_cache.
+    _patch_reads(monkeypatch)
+    monkeypatch.setattr(ba.calib_cache, "current_k", lambda: 0.03)
+    snap = ba.build_battle_snapshot()
+    assert snap.k == 0.03
+
+
+def test_snapshot_k_defaults_when_calib_raises(monkeypatch):
+    # A raising current_k must not break the snapshot assembly: the whole body is guarded, so
+    # it fails soft (a hidden-vehicle snapshot is acceptable). It must simply not raise.
+    _patch_reads(monkeypatch)
+
+    def boom():
+        raise RuntimeError("calib cache down")
+
+    monkeypatch.setattr(ba.calib_cache, "current_k", boom)
+    snap = ba.build_battle_snapshot()   # must not raise
+    assert snap is not None
+    # Fail-soft: either the guarded body degraded to a hidden snapshot (default k) or the
+    # field carries the default; either way k stays the community default, never junk.
+    assert snap.k == EWMA_K

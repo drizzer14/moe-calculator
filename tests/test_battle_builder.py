@@ -182,6 +182,11 @@ def test_ewma_project_folds_cd_toward_average():
     assert ewma_project(2000, 1000) == int(round(2000 + EWMA_K * -1000))  # 1980
 
 
+def test_ewma_project_honors_explicit_k():
+    # An explicit k overrides the community default: prev + k*(cd-prev) with k=0.04.
+    assert ewma_project(2000, 3000, 0.04) == int(round(2000 + 0.04 * 1000))   # 2040
+
+
 def test_ewma_project_new_tank_zero_baseline():
     assert ewma_project(0, 3000) == int(round(EWMA_K * 3000))             # 59
 
@@ -212,6 +217,28 @@ def test_build_battle_model_four_metrics():
     # 4) delta IS the increment (self-consistent curve scale, not mixed vs WG rating)
     assert round(m.pct_delta, 2) == round(inc, 2)
     assert m.has_data is True
+
+
+def test_build_battle_model_uses_snapshot_k():
+    # The projection rides snapshot.k: a learned k=0.04 (well above the community default)
+    # projects an above-average battle HIGHER than the default-k projection.
+    m_k = build_battle_model(_bsnap(k=0.04))
+    m_default = build_battle_model(_bsnap())
+    assert m_k.proj_avg_damage == int(round(1800 + 0.04 * (2500 - 1800)))      # 1828
+    assert m_k.proj_avg_damage != m_default.proj_avg_damage                    # distinct from default k
+
+
+def test_build_battle_model_default_k_unchanged():
+    # A snapshot with no explicit k still projects with the community EWMA_K default.
+    m = build_battle_model(_bsnap())
+    assert m.proj_avg_damage == int(round(1800 + EWMA_K * (2500 - 1800)))      # 1814
+
+
+def test_build_battle_model_falsy_k_falls_back_to_default():
+    # A falsy/0 k (junk from disk that slipped through) degrades to the community default,
+    # never a no-op projection.
+    m = build_battle_model(_bsnap(k=0))
+    assert m.proj_avg_damage == int(round(1800 + EWMA_K * (2500 - 1800)))      # 1814
 
 
 def test_build_battle_model_anchor_holds_when_proj_equals_pre_avg():

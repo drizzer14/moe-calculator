@@ -28,6 +28,7 @@ from moe_calculator.domain import battle_types as bt
 from moe_calculator.adapter import engine_adapter
 from moe_calculator.adapter import moe_data
 from moe_calculator.adapter import baseline_cache
+from moe_calculator.adapter import calib_cache
 
 
 def _session_provider():
@@ -326,7 +327,8 @@ def build_battle_snapshot():
             has_vehicle=True,
             in_battle=_in_battle(),
             is_spectating=_is_spectating(),
-            baseline_known=baseline_known)
+            baseline_known=baseline_known,
+            k=calib_cache.current_k())
     except Exception:
         LOG_CURRENT_EXCEPTION()
         return bt.BattleSnapshot(has_vehicle=False, in_battle=False)

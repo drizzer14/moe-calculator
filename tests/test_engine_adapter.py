@@ -4,12 +4,28 @@
 behavior by monkeypatching the adapter's own seam functions (_read_moe, moe_data,
 g_currentVehicle) rather than the lazy dossier machinery. Mirrors the test_i18n.py fake
 pattern."""
+import pytest
+
 from moe_calculator.adapter import engine_adapter as ea
 from moe_calculator.adapter import baseline_cache
+from moe_calculator.adapter import calib_cache
 
 
 def teardown_function(_):
     baseline_cache.clear()
+    calib_cache.clear()
+
+
+@pytest.fixture(autouse=True)
+def _no_disk_calib(monkeypatch):
+    """Neutralize the k-calibration disk touch build_snapshot now makes: start from a clean
+    cache and record complete() calls in-memory so no test hits real disk. Returns the call
+    log so a test can assert complete was invoked with (int_cd, avg_damage)."""
+    calib_cache.clear()
+    calls = []
+    monkeypatch.setattr(calib_cache, "complete",
+                        lambda int_cd, avg_after: calls.append((int_cd, avg_after)))
+    return calls
 
 
 class _Veh(object):
@@ -32,7 +48,7 @@ def test_build_snapshot_no_vehicle_hides(monkeypatch):
     assert snap.has_vehicle is False
 
 
-def test_build_snapshot_happy_path_and_remembers_baseline(monkeypatch):
+def test_build_snapshot_happy_path_and_remembers_baseline(monkeypatch, _no_disk_calib):
     monkeypatch.setattr(ea, "g_currentVehicle", _CV(present=True, item=_Veh()))
     monkeypatch.setattr(ea, "_read_moe", lambda cd: (2, 73.7, 1800))
     monkeypatch.setattr(ea.moe_data, "get_thresholds",
@@ -47,6 +63,8 @@ def test_build_snapshot_happy_path_and_remembers_baseline(monkeypatch):
     assert snap.thresholds == {1: 1, 2: 2, 3: 3, 100: 4}
     # The career baseline is snapshotted for the in-battle overlay (garage -> battle bridge).
     assert baseline_cache.get(1073) == (73.7, 1800)
+    # A normal garage read finishes any pending k sample with (int_cd, movingAvgDamage).
+    assert _no_disk_calib == [(1073, 1800)]
 
 
 def test_build_snapshot_estimates_when_request_errored(monkeypatch):

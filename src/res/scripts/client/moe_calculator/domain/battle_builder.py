@@ -183,7 +183,7 @@ def build_battle_model(snapshot):
     cd = combined_damage(snapshot.damage, getattr(snapshot, "track_assist", 0),
                          getattr(snapshot, "spot_assist", 0), snapshot.stun,
                          snapshot.team_damage, merged_assist=merged_assist)
-    proj = ewma_project(snapshot.pre_avg_damage, cd)
+    proj = ewma_project(snapshot.pre_avg_damage, cd, getattr(snapshot, "k", EWMA_K) or EWMA_K)
 
     # Whether we have a CAREER baseline to project from. A >0 pre_avg/pre_percentile is an
     # obvious yes; a GENUINE 0 baseline also counts when the garage read the tank this session

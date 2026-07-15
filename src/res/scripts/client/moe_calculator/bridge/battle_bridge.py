@@ -17,6 +17,7 @@ import BigWorld
 from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_DEBUG
 from moe_calculator.adapter import battle_adapter
 from moe_calculator.adapter import battle_input
+from moe_calculator.adapter import calib_cache
 from moe_calculator.adapter import moe_data
 from moe_calculator.domain.battle_builder import build_battle_model, battle_bar_visible
 from moe_calculator.domain.constants import EFFICIENCY_WIDE_THRESHOLD
@@ -71,6 +72,13 @@ _in_battle = False
 _alt_held = False
 
 
+# Last trustworthy in-battle observation (vehicle_int_cd, avg_before, combined_damage) captured
+# in push(); each push overwrites, so at teardown this holds the FINAL combined damage. Flushed
+# to calib_cache.remember_pending at teardown so the next garage read can finish the k sample.
+# Reset on each mount. None = nothing worth capturing this battle.
+_last_obs = None
+
+
 # --- engine event subscriptions ---------------------------------------------
 # Handlers are module-level (stable identity) so the membership-checked _arm is idempotent.
 
@@ -78,10 +86,12 @@ def _on_mount_refresh(*args, **kwargs):
     # Avatar ready -> we're in a battle: open the overlay window, (re)arm the efficiency
     # listener, kick the thresholds loader, and push the initial model. Reset the played-tank
     # record so this battle promotes its vehicle exactly once (see push).
-    global _battle_recorded, _last_wide, _in_battle
+    global _battle_recorded, _last_wide, _in_battle, _last_obs
     try:
         _in_battle = True
         _battle_recorded = False
+        # Drop any observation left from a prior battle so this battle captures its own.
+        _last_obs = None
         # Re-evaluate the 5-digit shift from scratch this battle (totals reset to 0).
         _last_wide = None
         # Clear any scoreboard flag left over from a prior battle / relogin / replay teardown,
@@ -143,9 +153,15 @@ def _on_observed_vehicle_changed(*args, **kwargs):
 def _on_teardown(*args, **kwargs):
     # Avatar became non-player (battle exit) -> tear down the overlay window; the next
     # battle mount re-opens it. The event lists are rebuilt by the arena teardown regardless.
-    global _in_battle
+    global _in_battle, _last_obs
     try:
         _in_battle = False
+        # Flush the final battle observation so the next garage read can finish the k sample.
+        # (The overlay stays up through AFTERBATTLE, which freezes stats, so _last_obs holds
+        # the final combined damage.) Guarded upstream by remember_pending.
+        if _last_obs is not None:
+            calib_cache.remember_pending(*_last_obs)
+        _last_obs = None
         battle_view.close_window()
     except Exception:
         LOG_CURRENT_EXCEPTION()
@@ -414,10 +430,18 @@ def push(rvm):
     """Recompute the in-battle MoE model and write it into rvm."""
     if rvm is None:
         return
+    global _last_obs
     try:
         snap = battle_adapter.build_battle_snapshot()
         _record_played_tank(snap)
         model = build_battle_model(snap)
+        # Stash this battle's k-calibration observation while the state is trustworthy (own
+        # vehicle, real baseline, real combined damage). Each push overwrites, so at teardown
+        # _last_obs holds the FINAL combined damage. Guarded by the surrounding try/except so a
+        # capture failure never breaks the push.
+        if (snap.has_vehicle and not snap.is_spectating and model.has_baseline
+                and model.has_data and model.combined_damage > 0):
+            _last_obs = (snap.vehicle_int_cd, snap.pre_avg_damage, model.combined_damage)
         overlay_open = bool(_open_overlays)
         visible = battle_bar_visible(snap.in_battle, snap.has_vehicle, snap.is_spectating,
                                      overlay_open=overlay_open,
