@@ -87,7 +87,10 @@ before every release** (it is part of the gate, alongside `check_version.py`), a
 
 ## Release state
 
-**v0.1.0 through v0.3.0 are published** on `github.com/drizzer14/moe-calculator` (`origin/main`).
+**v0.1.0 through v1.1.0 are published** on `github.com/drizzer14/moe-calculator` (`origin/main`).
+The **1.0.0** release retargeted the mod to WoT client **2.3.1.0** (major bump) and added the
+Alt-key peek mode + Counted Assistance row; **1.1.0** is a patch-level polish of the in-battle
+overlay row/backdrop alignment (shipped as a minor bump by choice).
 Both channels now ship the **same single build** (WG-API threshold source): the GitHub release
 carries `MoECalculator-Setup-<ver>.exe` + the bare `.wotmod`, and `MoECalculator_<ver>.zip`
 (same `.wotmod` + vendor deps) is uploaded manually to
