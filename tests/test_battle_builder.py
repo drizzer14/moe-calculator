@@ -2,11 +2,14 @@
 """Tests for the engine-free in-battle domain layer. Like test_builder.py these run on
 Python 3 (no game engine) because domain/battle_builder imports zero game symbols -- the
 in-battle MoE math is pure and unit-testable with the client closed."""
+import pytest
+
 from moe_calculator.domain import battle_types as bt
 from moe_calculator.domain.battle_builder import (
     combined_damage, counted_assistance, damage_to_percent, ewma_project,
-    build_battle_model, battle_bar_visible)
+    build_battle_model, battle_bar_visible, _fit_from_thresholds, _smooth_percent)
 from moe_calculator.domain.constants import EWMA_K
+from moe_calculator.domain import moe_estimate as me
 
 
 # A clean threshold set (round numbers) so interpolation asserts stay exact.
@@ -116,6 +119,60 @@ def test_damage_to_percent_partial_or_degenerate_thresholds():
     assert damage_to_percent(2000, {1: 2000, 2: 1000, 3: 3000, 100: 4000}) == 0.0
 
 
+# --- smooth curve (_fit_from_thresholds + _smooth_percent) -------------------
+
+def _thr_from_normal(mu, sigma):
+    """Build a {1,2,3,100} threshold table whose stops lie exactly on a normal(mu, sigma):
+    D1@65th, D2@85th, D3@95th, D100@99th (the goalpost percentile the fit uses)."""
+    return {
+        1: int(round(mu + sigma * me.inv_norm_cdf(0.65))),
+        2: int(round(mu + sigma * me.inv_norm_cdf(0.85))),
+        3: int(round(mu + sigma * me.inv_norm_cdf(0.95))),
+        100: int(round(mu + sigma * me.inv_norm_cdf(0.99))),
+    }
+
+
+def test_fit_from_thresholds_recovers_marks():
+    # A table built from a known normal must map its own stops back to 65/85/95 (and the
+    # goalpost to ~99) under the fitted curve.
+    thr = _thr_from_normal(1500.0, 800.0)
+    mu, sigma = _fit_from_thresholds(thr)
+    assert _smooth_percent(thr[1], mu, sigma) == pytest.approx(65.0, abs=0.5)
+    assert _smooth_percent(thr[2], mu, sigma) == pytest.approx(85.0, abs=0.5)
+    assert _smooth_percent(thr[3], mu, sigma) == pytest.approx(95.0, abs=0.5)
+    assert _smooth_percent(thr[100], mu, sigma) == pytest.approx(99.0, abs=0.5)
+
+
+def test_smooth_curve_beats_linear_off_mark():
+    # At an off-mark damage the smooth normal curve tracks the true percentile more closely
+    # than the piecewise-linear chords -- the whole point of the change.
+    mu, sigma = 1500.0, 800.0
+    thr = _thr_from_normal(mu, sigma)
+    d75 = int(round(mu + sigma * me.inv_norm_cdf(0.75)))    # true 75th percentile damage
+    fmu, fsigma = _fit_from_thresholds(thr)
+    smooth_err = abs(_smooth_percent(d75, fmu, fsigma) - 75.0)
+    linear_err = abs(damage_to_percent(d75, thr) - 75.0)
+    assert smooth_err < linear_err
+
+
+def test_fit_from_thresholds_none_for_unusable_tables():
+    assert _fit_from_thresholds({}) is None
+    assert _fit_from_thresholds(None) is None
+    # Non-monotonic (decreasing) damage -> negative slope -> sigma <= 0 -> None.
+    assert _fit_from_thresholds({1: 3000, 2: 2000, 3: 1000, 100: 500}) is None
+
+
+def test_fit_from_thresholds_robust_to_missing_goalpost():
+    # A table missing the D100 goalpost (0) still fits from the 3 mark points -- the smooth
+    # path is MORE robust than the linear one, which bailed on the non-increasing stop.
+    thr = _thr_from_normal(1500.0, 800.0)
+    del thr[100]
+    fit = _fit_from_thresholds(thr)
+    assert fit is not None and fit[1] > 0.0
+    # ...whereas the linear fallback degrades to no-percent for the same table.
+    assert damage_to_percent(2000, thr) == 0.0
+
+
 # --- ewma_project ------------------------------------------------------------
 
 def test_ewma_project_folds_cd_toward_average():
@@ -145,14 +202,38 @@ def test_build_battle_model_four_metrics():
     assert m.combined_damage == 2500
     # 2) projected average: 1800 + k*(2500-1800)
     assert m.proj_avg_damage == int(round(1800 + EWMA_K * 700))           # 1814
-    # 3) current percent is ANCHORED: pre_percentile + this battle's interp increment.
-    inc = damage_to_percent(m.proj_avg_damage, _THR) - damage_to_percent(1800, _THR)
+    # 3) current percent is ANCHORED: pre_percentile + this battle's SMOOTH-curve increment
+    # (the primary path for a usable table; see _fit_from_thresholds).
+    mu, sigma = _fit_from_thresholds(_THR)
+    inc = _smooth_percent(m.proj_avg_damage, mu, sigma) - _smooth_percent(1800, mu, sigma)
     assert inc > 0                                                        # above-avg battle
     assert round(m.cur_percent, 2) == round(70.0 + inc, 2)
     assert m.cur_percent > 70.0
-    # 4) delta IS the increment (self-consistent interp scale, not mixed vs WG rating)
+    # 4) delta IS the increment (self-consistent curve scale, not mixed vs WG rating)
     assert round(m.pct_delta, 2) == round(inc, 2)
     assert m.has_data is True
+
+
+def test_build_battle_model_anchor_holds_when_proj_equals_pre_avg():
+    # If this battle's combined damage equals the career average, the EWMA fold is a no-op
+    # (proj == pre_avg), so the increment is exactly 0 and cur_percent sits ON WG's real
+    # standing -- the anchor guarantee, independent of the curve's absolute value.
+    m = build_battle_model(_bsnap(damage=1800, assist=0, stun=0, team_damage=0,
+                                  pre_avg_damage=1800, pre_percentile=73.5))
+    assert m.combined_damage == 1800
+    assert m.proj_avg_damage == 1800
+    assert m.pct_delta == pytest.approx(0.0, abs=1e-9)
+    assert m.cur_percent == pytest.approx(73.5, abs=1e-9)
+
+
+def test_build_battle_model_non_monotone_thresholds_degrade():
+    # A non-monotonic table is unusable by BOTH the smooth fit (sigma<=0) and the linear
+    # fallback (non-increasing stops) -> no-percent, never a crash.
+    m = build_battle_model(_bsnap(thresholds={1: 3000, 2: 2000, 3: 1000, 100: 500}))
+    assert m.has_data is False
+    assert m.cur_percent == 0.0
+    assert m.pct_delta == 0.0
+    assert m.combined_damage == 2500        # raw damage metric still meaningful
 
 
 def test_build_battle_model_counted_assist_from_split():
@@ -184,7 +265,8 @@ def test_build_battle_model_zero_damage_drags_below_career():
     m = build_battle_model(_bsnap(damage=0, assist=0, stun=0,
                                   pre_avg_damage=1800, pre_percentile=84.7))
     assert m.proj_avg_damage == int(round(1800 * (1 - EWMA_K)))           # 1764
-    inc = damage_to_percent(m.proj_avg_damage, _THR) - damage_to_percent(1800, _THR)
+    mu, sigma = _fit_from_thresholds(_THR)
+    inc = _smooth_percent(m.proj_avg_damage, mu, sigma) - _smooth_percent(1800, mu, sigma)
     assert inc < 0                                                        # 0-damage drags down
     assert round(m.cur_percent, 2) == round(84.7 + inc, 2)
     assert m.cur_percent < 84.7

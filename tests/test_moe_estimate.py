@@ -38,6 +38,34 @@ def test_inv_norm_cdf_clamps_extremes():
     assert me.inv_norm_cdf(1.0) > 5.0
 
 
+# --- norm_cdf (forward CDF, inverse of inv_norm_cdf) --------------------------
+
+@pytest.mark.parametrize("p,z", sorted(_KNOWN.items()))
+def test_norm_cdf_matches_known(p, z):
+    # Phi(z) == p for the reference (p, z) pairs.
+    assert me.norm_cdf(z) == pytest.approx(p, abs=1e-6)
+
+
+def test_norm_cdf_zero_is_half():
+    assert me.norm_cdf(0.0) == pytest.approx(0.5, abs=1e-12)
+
+
+def test_norm_cdf_symmetry():
+    for z in (0.25, 0.8, 1.5, 2.5):
+        assert me.norm_cdf(-z) == pytest.approx(1.0 - me.norm_cdf(z), abs=1e-12)
+
+
+def test_norm_cdf_round_trips_inverse():
+    for p in (0.05, 0.35, 0.65, 0.9, 0.99):
+        assert me.norm_cdf(me.inv_norm_cdf(p)) == pytest.approx(p, abs=1e-6)
+
+
+def test_norm_cdf_extremes_dont_raise():
+    # Far tails clamp to ~0 / ~1 without overflow.
+    assert 0.0 <= me.norm_cdf(-40.0) < 1e-6
+    assert 1.0 - 1e-6 < me.norm_cdf(40.0) <= 1.0
+
+
 # --- fit_mu_sigma -------------------------------------------------------------
 
 def test_fit_recovers_known_mu_sigma():

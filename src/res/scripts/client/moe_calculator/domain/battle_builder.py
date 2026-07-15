@@ -4,8 +4,11 @@
 The four in-battle readouts (see TASKS/in-battle-moe-panel.md):
   1. live combined damage  C = damage + max(track, spot, stun) - team_damage   (WG #15060: MAX)
   2. projected moving-average combined damage  avgWithCD = prevAvg + k*(C - prevAvg)  (EWMA)
-  3. current percent  = the MoE percentile of avgWithCD, interpolated over the per-tank
-     combined-damage stops [(0,0),(65,D1),(85,D2),(95,D3),(100,D100)]
+  3. current percent  = WG's real career standing (pre_percentile) + this battle's increment
+     f(avgWithCD) - f(prevAvg), where f maps combined damage to percentile. PRIMARY f is a
+     normal curve fitted to the per-tank thresholds (matches WG's smooth distribution shape);
+     FALLBACK f is a piecewise-linear interp over the stops [(0,0),(65,D1),(85,D2),(95,D3),
+     (100,D100)] for tables the fit can't use.
   4. percent delta    = current percent - pre-battle standing percentile   (signed)
 
 Metrics 2-4 ride on the EWMA coefficient k (community-reverse-engineered, not WG-confirmed).
@@ -14,7 +17,8 @@ counted_assistance) -- WG credits the greatest stream, not the sum; the server b
 summary supplies the track/spot split (adapter/battle_adapter._read_assist_split).
 """
 from moe_calculator.domain import battle_types as bt
-from moe_calculator.domain.constants import EWMA_K, MARK_PERCENTS
+from moe_calculator.domain.constants import EWMA_K, MARK_PERCENTS, GOALPOST_PERCENTILE
+from moe_calculator.domain.moe_estimate import norm_cdf, fit_mu_sigma
 from moe_calculator.domain.rounding import iround_half_away
 
 
@@ -113,11 +117,47 @@ def _interp_percent(damage, stops):
 
 def damage_to_percent(damage, thresholds):
     """Combined damage -> MoE percentile via the per-tank distribution stops. Returns 0.0
-    when the threshold table is missing/unusable (no data source for the percentile)."""
+    when the threshold table is missing/unusable (no data source for the percentile).
+
+    LINEAR fallback path -- retained for tables the smooth fit can't use (see
+    _fit_from_thresholds). The primary in-battle path is the smooth curve (_smooth_percent)."""
     stops = _threshold_stops(thresholds)
     if stops is None:
         return 0.0
     return _interp_percent(damage, stops)
+
+
+def _fit_from_thresholds(thresholds):
+    """Fit a normal (mu, sigma) to the per-tank threshold points so combined damage maps to
+    percent along WG's smooth distribution SHAPE instead of straight chords. The stops are
+    points on the tank's combined-damage -> percentile curve: (D1,0.65),(D2,0.85),(D3,0.95)
+    and the goalpost D100 mapped to the 99th percentile (NOT 100 -- Phi^-1(1) is +infinity;
+    mirrors moe_estimate._targets). Returns (mu, sigma) or None when the table is
+    missing/unusable or the fit is degenerate (fit fails / non-increasing -> sigma <= 0)."""
+    if not thresholds:
+        return None
+    try:
+        d1 = int(thresholds.get(1, 0) or 0)
+        d2 = int(thresholds.get(2, 0) or 0)
+        d3 = int(thresholds.get(3, 0) or 0)
+        d100 = int(thresholds.get(100, 0) or 0)
+    except (TypeError, ValueError, AttributeError):
+        return None
+    p1, p2, p3 = MARK_PERCENTS  # 65, 85, 95
+    samples = [(d1, p1 / 100.0), (d2, p2 / 100.0), (d3, p3 / 100.0),
+               (d100, GOALPOST_PERCENTILE / 100.0)]
+    # fit_mu_sigma drops any (damage<=0, p outside (0,1)) sample itself and needs >= 2 usable
+    # spread-out points, so a missing/0 stop degrades gracefully instead of poisoning the fit.
+    fit = fit_mu_sigma(samples)
+    if fit is None or fit[1] <= 0.0:
+        return None
+    return fit
+
+
+def _smooth_percent(damage, mu, sigma):
+    """Combined `damage` -> percent (0..100) along the fitted normal curve:
+    100 * Phi((damage - mu) / sigma). Caller guarantees sigma > 0 (see _fit_from_thresholds)."""
+    return _clamp(100.0 * norm_cdf((float(damage or 0.0) - mu) / sigma), 0.0, 100.0)
 
 
 def ewma_project(prev_avg, cd, k=EWMA_K):
@@ -156,18 +196,31 @@ def build_battle_model(snapshot):
                     or (snapshot.pre_avg_damage or 0) > 0
                     or bool(getattr(snapshot, "baseline_known", False)))
 
-    stops = _threshold_stops(thresholds)
-    has_data = stops is not None
+    # The live percent is ALWAYS anchored to WG's REAL career standing (pre_percentile, from
+    # the dossier's getDamageRating) plus ONLY this battle's increment. Our damage->percent
+    # curve and WG's damageRating are different functions of damage, so their ABSOLUTE values
+    # disagree -- but that constant bias cancels in the increment f(proj) - f(pre_avg). At
+    # battle start proj == prev*(1-k), so the increment is slightly negative and we open just
+    # BELOW WG's number: the honest projection of an uncommitted (0-damage) battle, climbing as
+    # damage accrues. Anchoring stays necessary even with the smooth fit -- fit_mu_sigma is
+    # least-squares (passes through no point exactly), so f(pre_avg) != pre_percentile in
+    # general; the anchor guarantees the overlay still opens at WG's real standing.
+    #
+    # PRIMARY: the smooth normal fit, so the increment rides WG's distribution SHAPE. FALLBACK:
+    # the piecewise-linear interp over the raw stops (unchanged), for tables the fit can't use.
+    mu_sigma = _fit_from_thresholds(thresholds)
+    if mu_sigma is not None:
+        mu, sigma = mu_sigma
+        inc = (_smooth_percent(proj, mu, sigma)
+               - _smooth_percent(snapshot.pre_avg_damage, mu, sigma))
+        has_data = True
+    else:
+        stops = _threshold_stops(thresholds)
+        has_data = stops is not None
+        if has_data:
+            inc = (_interp_percent(proj, stops)
+                   - _interp_percent(snapshot.pre_avg_damage, stops))
     if has_data:
-        # Anchor the live percent to WG's REAL career standing (pre_percentile, from the
-        # dossier's getDamageRating) and add ONLY this battle's interpolation increment.
-        # Our interp curve and WG's damageRating are different functions of damage, so their
-        # ABSOLUTE values disagree by a percent or two -- but that constant bias cancels in
-        # the increment interp(proj) - interp(pre_avg). At battle start proj == prev*(1-k),
-        # so the increment is slightly negative and we open just BELOW WG's number: the
-        # honest projection of an uncommitted (0-damage) battle, climbing as damage accrues.
-        inc = (_interp_percent(proj, stops)
-               - _interp_percent(snapshot.pre_avg_damage, stops))
         cur_percent = _clamp(float(snapshot.pre_percentile or 0.0) + inc, 0.0, 100.0)
         pct_delta = inc
     else:
