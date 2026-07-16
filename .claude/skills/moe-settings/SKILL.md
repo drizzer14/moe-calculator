@@ -32,20 +32,24 @@ them without a cycle. Live state seeds from MSA in `register()`; defaults until 
 
 ## Registration — soft dep, idempotent, self-healing
 
-MSA (`izeberg.modssettingsapi`, bundled `installer/vendor/…_1.7.0.wotmod`, also shipped by Aslain)
-is a **SOFT dependency**: `register()` imports it guarded and, if absent, logs-and-returns with
-defaults intact (both widgets on) and no panel — never a crash. There is no config file of ours;
-MSA owns persistence.
+MSA (bundled `installer/vendor/aslain.modssettingsapi_1.6.4.wotmod`, import surface
+`gui.aslainMenu`; izeberg's `gui.modsSettingsApi` is only a legacy fallback) is a **SOFT
+dependency**: `register()` imports it guarded and, if absent, logs-and-returns with defaults
+intact (both widgets on) and no panel — never a crash. There is no config file of ours; MSA
+owns persistence.
 
-`register()` is **idempotent + self-healing** (`_registered` latch): our reverse-domain id
-`com.14th_ua.moe_calculator` sorts before `izeberg`'s, so MSA may not be loaded at our import time;
-a first failed attempt leaves the latch False and is retried on the first hangar mount
+`register()` is **idempotent + self-healing** (`_registered` latch): MSA may not be loaded at
+our import time (our reverse-domain id `com.14th_ua.moe_calculator` sorts early), so a first
+failed attempt leaves the latch False and is retried on the first hangar mount
 (`gameface_bridge.attach()` calls `register()` again). The entry point also subscribes the two
 feature bridges' `apply_settings` as change listeners.
 
-With Aslain installed there are TWO api objects (`gui.modsSettingsApi` + `gui.aslainMenu`);
-`_candidate_apis()` returns whichever import(s) succeed, de-duped, so reset-hooks + template-text
-sync run on both.
+With Aslain installed the mod's data lives in Aslain's own `gui.aslainMenu` object, a SEPARATE
+instance from izeberg's `gui.modsSettingsApi`. `_candidate_apis()` probes `gui.aslainMenu`
+FIRST and falls back to `gui.modsSettingsApi`, returning whichever import(s) succeed (de-duped,
+preferred first) — so `_primary_api()` (which `register()` drives through) never lets a lingering
+izeberg install win over Aslain, and reset-hooks + template-text sync still run on both when both
+are present.
 
 ## The linkage-scoped, present-keys-only `_apply` rule (load-bearing)
 

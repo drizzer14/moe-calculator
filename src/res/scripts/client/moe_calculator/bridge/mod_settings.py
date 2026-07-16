@@ -2,9 +2,10 @@
 """The two user settings -- "Garage Widget Enabled" / "Battle Widget Enabled".
 
 Surfaced as ModsSettingsAPI (MSA) checkboxes in the game's in-game mod-settings menu. MSA
-(izeberg.modssettingsapi, also shipped by Aslain's modpack) is a SOFT dependency: we import
-it guarded, and if it is absent the mod simply uses the defaults (both widgets enabled) with
-no settings panel -- never a crash. MSA owns persistence, so there is no config file of ours.
+(Aslain's gui.aslainMenu preferred, izeberg.modssettingsapi as a legacy fallback) is a SOFT
+dependency: we import it guarded, and if it is absent the mod simply uses the defaults (both
+widgets enabled) with no settings panel -- never a crash. MSA owns persistence, so there is
+no config file of ours.
 
 This module owns the flag state and fans a change out to per-feature ``apply_settings``
 callbacks (registered by the entry point). It imports NOTHING from the sibling bridges, so
@@ -179,22 +180,32 @@ def _template():
 
 
 def _candidate_apis():
-    """The settings-api instance(s) this client exposes. With Aslain installed there are TWO
-    separate objects (izeberg's gui.modsSettingsApi + Aslain's gui.aslainMenu); on a plain
-    install just izeberg's. Return whichever import(s) succeed, de-duped."""
+    """The settings-api instance(s) this client exposes, in PREFERENCE order. Aslain's
+    gui.aslainMenu is probed FIRST (that is where the user's data now lives) with izeberg's
+    gui.modsSettingsApi as the legacy fallback -- so a lingering izeberg install can never win
+    over Aslain. With both present there are TWO separate objects; on a plain install just one.
+    Return whichever import(s) succeed, de-duped, primary first."""
     apis = []
     try:
-        from gui.modsSettingsApi import g_modsSettingsApi as a
+        from gui.aslainMenu import g_modsSettingsApi as a
         apis.append(a)
     except Exception:
         pass
     try:
-        from gui.aslainMenu import g_modsSettingsApi as b
+        from gui.modsSettingsApi import g_modsSettingsApi as b
         if b not in apis:
             apis.append(b)
     except Exception:
         pass
     return apis
+
+
+def _primary_api():
+    """The preferred settings-api instance (Aslain first, else izeberg), or None if MSA is
+    absent. This is the object register() drives getModSettings/setModTemplate/registerCallback
+    through."""
+    apis = _candidate_apis()
+    return apis[0] if apis else None
 
 
 def _sync_template_text(api):
@@ -262,9 +273,8 @@ def register():
     global _registered
     if _registered:
         return
-    try:
-        from gui.modsSettingsApi import g_modsSettingsApi
-    except Exception:
+    g_modsSettingsApi = _primary_api()
+    if g_modsSettingsApi is None:
         LOG_DEBUG("[moe] ModsSettingsAPI absent -> both widgets default enabled")
         return
     try:
