@@ -22,7 +22,7 @@ this skill is the concrete file list and command set. **Two Pythons:** package w
 | `INSTALL.md` | `MoECalculator-Setup-X.Y.Z.exe`, `…_X.Y.Z.wotmod` |
 | `dist/INSTALL.txt` | prose `version X.Y.Z` (gitignored build output; checked when present) |
 
-_`X.Y.Z` is illustrative — the live canonical value is in `src/meta.xml` (currently 1.1.0)._
+_`X.Y.Z` is illustrative — the live canonical value is in `src/meta.xml` (currently 1.2.0)._
 
 - `README.md` uses `<version>` placeholders (no hard-coded number). `adapter/moe_wgapi.py`'s
   `_AGENT` string carries the project URL (no version number — nothing cosmetic to bump there).
@@ -89,10 +89,12 @@ before every release** (it is part of the gate, alongside `check_version.py`), a
 
 ## Release state
 
-**v0.1.0 through v1.1.0 are published** on `github.com/drizzer14/moe-calculator` (`origin/main`).
+**v0.1.0 through v1.2.0 are published** on `github.com/drizzer14/moe-calculator` (`origin/main`).
 The **1.0.0** release retargeted the mod to WoT client **2.3.1.0** (major bump) and added the
 Alt-key peek mode + Counted Assistance row; **1.1.0** is a patch-level polish of the in-battle
-overlay row/backdrop alignment (shipped as a minor bump by choice).
+overlay row/backdrop alignment (shipped as a minor bump by choice); **1.2.0** is a minor bump
+carrying the in-battle MoE-projection accuracy work (smooth probit curve + self-calibrating
+EWMA `k`) plus the R3 row-backdrop fix — all committed after the v1.1.0 tag but unreleased until then.
 Both channels now ship the **same single build** (WG-API threshold source): the GitHub release
 carries `MoECalculator-Setup-<ver>.exe` + the bare `.wotmod`, and `MoECalculator_<ver>.zip`
 (same `.wotmod` + vendor deps) is uploaded manually to
@@ -103,7 +105,7 @@ feed, so keep the `vX.Y.Z` tag + `MoECalculator-Setup-<ver>.exe` asset-name conv
 `wotmod-release` for the bump→tag→build→publish flow.
 
 **GitHub release title = `vX.Y.Z` (v-prefixed), strictly.** Both the tag AND the release title
-are `vX.Y.Z` (e.g. `v1.1.0`) — never the bare `X.Y.Z`. Every prior release (v0.1.0 … v1.1.0)
+are `vX.Y.Z` (e.g. `v1.2.0`) — never the bare `X.Y.Z`. Every prior release (v0.1.0 … v1.2.0)
 follows this. Create with `gh release create vX.Y.Z --title "vX.Y.Z" …`, then verify
 `gh release view vX.Y.Z --json name --jq '.name'` prints `vX.Y.Z`; fix drift with
 `gh release edit vX.Y.Z --title "vX.Y.Z"`.
