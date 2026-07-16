@@ -27,3 +27,9 @@ deploy.local.json
 
 # Dev tool staging
 tools/dev/_stage_debug/
+
+# Superpowers docs / research notes / task backlog — local working notes, not tracked
+/docs/superpowers/
+/RESEARCH.md
+/TASKS.md
+/TASKS/
