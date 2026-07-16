@@ -419,32 +419,59 @@ def test_battle_bar_visible_disabled_setting_hides():
     assert battle_bar_visible(True, True) is True
 
 
-# --- Alt-key peek mode -------------------------------------------------------
+# --- Alt-key visibility semantics (INVERTED) ---------------------------------
+# New rule (base guards vehicle/combat/spectating/scoreboard held satisfied):
+#   active == enabled and (alt_held if alt_mode else True)
+#   - master off              -> never visible.
+#   - master on, alt_mode on  -> visible ONLY while Alt held.
+#   - master on, alt_mode off -> ALWAYS visible.
+# The "Show on Alt Key" child no longer overrides the master; it now GATES an
+# already-enabled overlay down to the Alt-held window.
+
+@pytest.mark.parametrize("enabled,alt_mode,alt_held,expected", [
+    # master off -> never visible, regardless of alt_mode / alt_held.
+    (False, False, False, False),
+    (False, False, True,  False),
+    (False, True,  False, False),
+    (False, True,  True,  False),
+    # master on, alt_mode off -> ALWAYS visible (Alt irrelevant).
+    (True,  False, False, True),
+    (True,  False, True,  True),
+    # master on, alt_mode on -> visible ONLY while Alt held.
+    (True,  True,  False, False),
+    (True,  True,  True,  True),
+])
+def test_battle_bar_visible_truth_table(enabled, alt_mode, alt_held, expected):
+    # Base guards satisfied (in combat, own vehicle, not spectating, no scoreboard).
+    assert battle_bar_visible(True, True, enabled=enabled, alt_mode=alt_mode,
+                              alt_held=alt_held) is expected
+
 
 def test_battle_bar_visible_alt_mode_follows_held():
-    # Always-on off, Alt-peek on: the overlay tracks whether Alt is held.
-    assert battle_bar_visible(True, True, enabled=False, alt_mode=True, alt_held=True) is True
-    assert battle_bar_visible(True, True, enabled=False, alt_mode=True, alt_held=False) is False
-
-
-def test_battle_bar_visible_alt_mode_off_never_shows():
-    # Both modes off: overlay never shows, regardless of Alt.
-    assert battle_bar_visible(True, True, enabled=False, alt_mode=False, alt_held=True) is False
-    assert battle_bar_visible(True, True, enabled=False, alt_mode=False, alt_held=False) is False
-
-
-def test_battle_bar_visible_enabled_wins_soft_gate():
-    # Soft-gate: while the always-on widget is enabled the Alt-peek value is ignored -- the
-    # overlay stays visible even when Alt is NOT held.
-    assert battle_bar_visible(True, True, enabled=True, alt_mode=True, alt_held=False) is True
+    # Master on + Alt-peek on: the overlay tracks whether Alt is held (INVERTED semantics --
+    # the Alt child now GATES the enabled overlay rather than overriding a disabled one).
     assert battle_bar_visible(True, True, enabled=True, alt_mode=True, alt_held=True) is True
+    assert battle_bar_visible(True, True, enabled=True, alt_mode=True, alt_held=False) is False
+
+
+def test_battle_bar_visible_master_off_never_shows_even_on_alt():
+    # Master off is the hard gate: neither alt_mode nor a held Alt can reveal the overlay.
+    assert battle_bar_visible(True, True, enabled=False, alt_mode=True, alt_held=True) is False
+    assert battle_bar_visible(True, True, enabled=False, alt_mode=False, alt_held=True) is False
+
+
+def test_battle_bar_visible_alt_mode_off_shows_at_all_times():
+    # Master on + Alt-peek OFF -> shown at all times; a held Alt makes no difference.
+    assert battle_bar_visible(True, True, enabled=True, alt_mode=False, alt_held=False) is True
+    assert battle_bar_visible(True, True, enabled=True, alt_mode=False, alt_held=True) is True
 
 
 def test_battle_bar_visible_alt_mode_still_respects_base_guards():
-    # The base guards (vehicle/combat/spectating/scoreboard) override Alt-peek too.
-    assert battle_bar_visible(True, False, enabled=False, alt_mode=True, alt_held=True) is False
-    assert battle_bar_visible(False, True, enabled=False, alt_mode=True, alt_held=True) is False
+    # The base guards (vehicle/combat/spectating/scoreboard) override the Alt-held window too:
+    # even with the overlay enabled + Alt held, a failing base guard keeps it hidden.
+    assert battle_bar_visible(True, False, enabled=True, alt_mode=True, alt_held=True) is False
+    assert battle_bar_visible(False, True, enabled=True, alt_mode=True, alt_held=True) is False
     assert battle_bar_visible(True, True, is_spectating=True,
-                              enabled=False, alt_mode=True, alt_held=True) is False
+                              enabled=True, alt_mode=True, alt_held=True) is False
     assert battle_bar_visible(True, True, overlay_open=True,
-                              enabled=False, alt_mode=True, alt_held=True) is False
+                              enabled=True, alt_mode=True, alt_held=True) is False

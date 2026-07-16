@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-"""The two user settings -- "Garage Widget Enabled" / "Battle Widget Enabled".
+"""The four user settings, laid out as two columns in the MSA panel: an "In-Battle Widget"
+master (column 1) grouped with its "Show on Alt Key" + "Counted Assistance" children, and a
+standalone "In-Garage Widget" checkbox (column 2).
 
 Surfaced as ModsSettingsAPI (MSA) checkboxes in the game's in-game mod-settings menu. MSA
 (Aslain's gui.aslainMenu preferred, izeberg.modssettingsapi as a legacy fallback) is a SOFT
@@ -31,14 +33,15 @@ MOD_DISPLAY_NAME = "14th_ua's MoE Calculator"
 # Bump ONLY when the control layout / varName set changes (the host wipes saved values to
 # defaults on a bump). Localizing text is text-only -- it does NOT bump this (the stored
 # template text is refreshed in place by _sync_template_text instead).
-SETTINGS_VERSION = 3
+SETTINGS_VERSION = 4
 
 GARAGE_KEY = "garage_widget_enabled"
 BATTLE_KEY = "battle_widget_enabled"
-# The in-battle overlay's "peek" mode: show it only while Alt is held. Mutually exclusive with
-# BATTLE_KEY -- when the always-on battle widget is enabled this flag is ignored (see
-# battle_bar_visible's soft-gate). MSA 1.7.0 has no per-control disabled field, so the checkbox
-# stays clickable; its value simply has no effect while BATTLE_KEY is on.
+# The in-battle overlay's Alt-key mode, a CHILD of BATTLE_KEY (grouped under it via
+# createControlsGroup): show the overlay only while Alt is held; when off the overlay is shown
+# at all times. It has effect ONLY while BATTLE_KEY is on -- with the master off the overlay is
+# never shown, so the child is inert (and MSA greys it out under the group). See
+# battle_bar_visible: active == battle_enabled and (alt_held if alt_mode else True).
 BATTLE_ALT_KEY = "battle_widget_alt_key"
 # Optional third in-battle row: "counted assistance" = the higher of tracking / spotting / stun
 # assist this battle (the assist that MoE credits). Opt-in (default OFF).
@@ -136,46 +139,54 @@ def _apply(saved):
             _settings[key] = bool(saved[key])
 
 
+def _checkbox(key, rendered):
+    """One MSA CheckBox descriptor. `varName` matches a DEFAULTS key so the dict MSA returns
+    maps straight through merge_settings; text/tooltip come from settings_i18n (English
+    fallback per key)."""
+    return {
+        "type": "CheckBox",
+        "text": rendered["text"],
+        "value": DEFAULTS[key],
+        "tooltip": rendered["tooltip"],
+        "varName": key,
+    }
+
+
+def _grouped_column1(master, children):
+    """Column 1 = the "In-Battle Widget" master with its two indented children, greyed out
+    while the master is off.
+
+    Prefer Aslain's templates.createControlsGroup(master, children, indent=True) -- it returns
+    the flat [master, child1, child2] list and binds each child to the master (a masterVarName
+    key = master's varName; the panel disables + indents the children while the master is off).
+    FEATURE-DETECT + degrade: if that helper is absent (older MSA / izeberg fallback) we set
+    masterVarName by hand -- which is exactly what the helper does -- so the children still list
+    under the master and older builds that ignore the key simply show them as plain checkboxes."""
+    try:
+        from gui.aslainMenu import templates
+        return templates.createControlsGroup(master, children, indent=True)
+    except Exception:
+        for child in children:
+            child["masterVarName"] = master["varName"]
+        return [master] + list(children)
+
+
 def _template():
-    """The MSA panel descriptor: two checkboxes, both defaulting on. `varName` matches our
-    DEFAULTS keys so the dict MSA returns maps straight through merge_settings. Every visible
-    label/tooltip comes from settings_i18n at the client's language (English fallback)."""
+    """The MSA panel descriptor. Column 1 is the "In-Battle Widget" master grouped with its
+    "Show on Alt Key" + "Counted Assistance" children; column 2 is the standalone "In-Garage
+    Widget" checkbox. Every visible label/tooltip comes from settings_i18n at the client's
+    language (English fallback)."""
     t = settings_i18n.panel_text()
+    battle_master = _checkbox(BATTLE_KEY, t["battleWidget"])
+    battle_alt = _checkbox(BATTLE_ALT_KEY, t["battleAltKey"])
+    counted = _checkbox(COUNTED_ASSIST_KEY, t["countedAssist"])
+    garage = _checkbox(GARAGE_KEY, t["garageWidget"])
     return {
         "modDisplayName": MOD_DISPLAY_NAME,
         "enabled": True,
         "settingsVersion": SETTINGS_VERSION,
-        "column1": [
-            {
-                "type": "CheckBox",
-                "text": t["garageWidget"]["text"],
-                "value": DEFAULTS[GARAGE_KEY],
-                "tooltip": t["garageWidget"]["tooltip"],
-                "varName": GARAGE_KEY,
-            },
-            {
-                "type": "CheckBox",
-                "text": t["battleWidget"]["text"],
-                "value": DEFAULTS[BATTLE_KEY],
-                "tooltip": t["battleWidget"]["tooltip"],
-                "varName": BATTLE_KEY,
-            },
-            {
-                "type": "CheckBox",
-                "text": t["battleAltKey"]["text"],
-                "value": DEFAULTS[BATTLE_ALT_KEY],
-                "tooltip": t["battleAltKey"]["tooltip"],
-                "varName": BATTLE_ALT_KEY,
-            },
-            {
-                "type": "CheckBox",
-                "text": t["countedAssist"]["text"],
-                "value": DEFAULTS[COUNTED_ASSIST_KEY],
-                "tooltip": t["countedAssist"]["tooltip"],
-                "varName": COUNTED_ASSIST_KEY,
-            },
-        ],
-        "column2": [],
+        "column1": _grouped_column1(battle_master, [battle_alt, counted]),
+        "column2": [garage],
     }
 
 

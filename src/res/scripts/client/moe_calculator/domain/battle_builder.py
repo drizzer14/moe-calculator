@@ -249,13 +249,14 @@ def battle_bar_visible(in_battle, has_vehicle, is_spectating=False, overlay_open
     readout so it does not clutter the full-screen scoreboard.
 
     Two settings decide whether the overlay is "active" at all:
-    - `enabled` is the "Battle Widget Enabled" setting -- always-on.
-    - `alt_mode` is the "Battle Widget on Alt Key" peek setting -- shows the overlay only while
-      `alt_held` (Alt currently down).
-    They are combined with a SOFT-GATE: `enabled` wins, so the Alt-peek mode has no effect while
-    the always-on widget is enabled (MSA can't grey the checkbox out, so we make its value inert
-    here). Defaults keep prior callers unchanged."""
+    - `enabled` is the "In-Battle Widget" master setting. When off, the overlay is NEVER
+      shown -- it is the hard gate.
+    - `alt_mode` is the "Show on Alt Key" child setting. While the master is on it decides HOW
+      the overlay shows: with `alt_mode` on the overlay appears only while `alt_held` (Alt
+      currently down); with `alt_mode` off it is shown at all times.
+    i.e. active == enabled and (alt_held if alt_mode else True). The child is inert while the
+    master is off. Defaults keep prior callers unchanged."""
     base = (bool(has_vehicle) and bool(in_battle)
             and not bool(is_spectating) and not bool(overlay_open))
-    active = bool(enabled) or (bool(alt_mode) and bool(alt_held))
+    active = bool(enabled) and (bool(alt_held) if bool(alt_mode) else True)
     return base and active

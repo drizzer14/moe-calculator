@@ -3,13 +3,17 @@
 must be correct without the game: it turns whatever ModsSettingsAPI hands back (or nothing)
 into the booleans the bridges read. The MSA registration/glue is not unit-tested (it needs
 the client)."""
+import sys
+import types
+
 import pytest
 
 from moe_calculator.bridge import mod_settings
 from moe_calculator.bridge.mod_settings import (
     merge_settings, DEFAULTS, GARAGE_KEY, BATTLE_KEY, BATTLE_ALT_KEY,
-    COUNTED_ASSIST_KEY, LINKAGE, battle_alt_key_enabled, battle_enabled,
-    counted_assistance_enabled)
+    COUNTED_ASSIST_KEY, LINKAGE, SETTINGS_VERSION, battle_alt_key_enabled,
+    battle_enabled, counted_assistance_enabled)
+from moe_calculator.adapter import settings_i18n
 
 
 @pytest.fixture(autouse=True)
@@ -131,3 +135,122 @@ def test_on_changed_ignores_foreign_linkage():
     # Our own linkage applies.
     mod_settings._on_changed(LINKAGE, {BATTLE_KEY: True})
     assert battle_enabled() is True
+
+
+# --- _template() structure (two columns + grouped In-Battle master/children) --------------
+# _template() is buildable game-closed: settings_i18n.panel_text() falls back to English (no
+# `helpers`), and _grouped_column1 hits its FALLBACK branch (gui.aslainMenu absent) which is
+# exactly the manual masterVarName binding we assert below.
+
+def _varnames(controls):
+    return [c["varName"] for c in controls]
+
+
+def test_template_settings_version_is_4():
+    assert SETTINGS_VERSION == 4
+    assert mod_settings._template()["settingsVersion"] == 4
+
+
+def test_template_column1_is_grouped_master_and_two_children():
+    tmpl = mod_settings._template()
+    col1 = tmpl["column1"]
+    # Exactly three controls, in order: In-Battle master, Alt child, counted-assist child.
+    assert _varnames(col1) == [BATTLE_KEY, BATTLE_ALT_KEY, COUNTED_ASSIST_KEY]
+
+
+def test_template_column2_is_standalone_garage():
+    tmpl = mod_settings._template()
+    assert _varnames(tmpl["column2"]) == [GARAGE_KEY]
+
+
+def test_template_children_bind_to_battle_master():
+    # The two children carry masterVarName == the battle master's varName so MSA groups +
+    # greys them out under the master. Proven via the manual-binding fallback branch (no
+    # gui.aslainMenu under pytest -- see _grouped_column1).
+    col1 = mod_settings._template()["column1"]
+    _master, alt_child, counted_child = col1
+    assert alt_child["masterVarName"] == BATTLE_KEY
+    assert counted_child["masterVarName"] == BATTLE_KEY
+    # The master itself is NOT bound to anything.
+    assert "masterVarName" not in col1[0]
+
+
+def test_template_checkbox_defaults_match_defaults_dict():
+    # Each control's initial `value` mirrors its DEFAULTS entry (varName == DEFAULTS key).
+    tmpl = mod_settings._template()
+    for c in tmpl["column1"] + tmpl["column2"]:
+        assert c["type"] == "CheckBox"
+        assert c["value"] == DEFAULTS[c["varName"]]
+
+
+def test_grouped_column1_uses_aslain_helper_when_present(monkeypatch):
+    # When Aslain's templates.createControlsGroup exists, _grouped_column1 delegates to it
+    # (master, children, indent=True) instead of the manual fallback.
+    calls = {}
+
+    def _fake_group(master, children, indent=False):
+        calls["args"] = (master, list(children), indent)
+        return ["GROUPED", master] + list(children)
+
+    fake_templates = types.ModuleType("gui.aslainMenu.templates")
+    fake_templates.createControlsGroup = _fake_group
+    fake_aslain = types.ModuleType("gui.aslainMenu")
+    fake_aslain.templates = fake_templates
+    fake_gui = types.ModuleType("gui")
+    fake_gui.aslainMenu = fake_aslain
+    monkeypatch.setitem(sys.modules, "gui", fake_gui)
+    monkeypatch.setitem(sys.modules, "gui.aslainMenu", fake_aslain)
+    monkeypatch.setitem(sys.modules, "gui.aslainMenu.templates", fake_templates)
+
+    master = {"varName": BATTLE_KEY}
+    children = [{"varName": BATTLE_ALT_KEY}, {"varName": COUNTED_ASSIST_KEY}]
+    out = mod_settings._grouped_column1(master, children)
+    assert out[0] == "GROUPED"                      # the helper's return is used verbatim
+    assert calls["args"] == (master, children, True)  # called with indent=True
+    # The helper owns the binding, so we did NOT set masterVarName by hand here.
+    assert "masterVarName" not in children[0]
+
+
+# --- COL*_KEYS stay in lockstep with the built template order (so _sync_template_text walks
+# the stored template correctly) -----------------------------------------------------------
+
+def test_col_keys_lockstep_with_template_order():
+    # _sync_template_text zips tmpl[col] with settings_i18n.COL*_KEYS and writes panel_text()[key]
+    # onto each control. That only lands text on the right control if the built template's column
+    # order matches the key tuples. Prove it: each control's rendered text == panel_text()[key].
+    tmpl = mod_settings._template()
+    text = settings_i18n.panel_text()
+    for col, keys in (("column1", settings_i18n.COL1_KEYS),
+                      ("column2", settings_i18n.COL2_KEYS)):
+        controls = tmpl[col]
+        assert len(controls) == len(keys), (
+            "%s length drifted from COL keys" % col)
+        for control, key in zip(controls, keys):
+            assert control["text"] == text[key]["text"]
+            assert control.get("tooltip") == text[key].get("tooltip")
+
+
+def test_sync_template_text_walks_built_template_in_lockstep():
+    # End-to-end for the sync path: build a stored template exactly as register() would, drift
+    # every control's text, then _sync_template_text must restore each to panel_text()[key] --
+    # proving the COL*_KEYS walk lands the right string on the right control.
+    tmpl = mod_settings._template()
+    for c in tmpl["column1"] + tmpl["column2"]:
+        c["text"] = u"STALE"
+        c["tooltip"] = u"STALE"
+    saved = {"called": False}
+
+    class _FakeApi(object):
+        state = {"templates": {LINKAGE: tmpl}}
+
+        def saveState(self):
+            saved["called"] = True
+
+    mod_settings._sync_template_text(_FakeApi())
+    text = settings_i18n.panel_text()
+    for col, keys in (("column1", settings_i18n.COL1_KEYS),
+                      ("column2", settings_i18n.COL2_KEYS)):
+        for control, key in zip(tmpl[col], keys):
+            assert control["text"] == text[key]["text"]
+            assert control["tooltip"] == text[key]["tooltip"]
+    assert saved["called"] is True   # something changed -> state persisted

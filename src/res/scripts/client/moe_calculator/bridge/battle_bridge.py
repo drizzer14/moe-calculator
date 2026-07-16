@@ -67,8 +67,8 @@ _in_battle = False
 
 
 # Whether Alt is currently held, as reported by the event-driven battle_input hook. Drives the
-# "Battle Widget on Alt Key" peek mode: the overlay's visible flag follows this while that mode
-# is on (and the always-on widget is off). Whether the mode CARES is decided in battle_bar_visible.
+# "Show on Alt Key" mode: while the In-Battle Widget master is on AND that mode is on, the
+# overlay's visible flag follows this. Whether the mode CARES is decided in battle_bar_visible.
 _alt_held = False
 
 
@@ -97,11 +97,11 @@ def _on_mount_refresh(*args, **kwargs):
         # Clear any scoreboard flag left over from a prior battle / relogin / replay teardown,
         # so a stale key can never keep the fresh battle's overlay hidden.
         _open_overlays.clear()
-        if not (mod_settings.battle_enabled() or mod_settings.battle_alt_key_enabled()):
-            # Neither the always-on widget nor the Alt-peek mode is on -> don't open the window
-            # this battle. A live enable of either opens it mid-battle (see apply_settings);
-            # _in_battle stays True so that path fires. When only Alt-peek is on we DO open the
-            # window here (kept hidden until Alt is held -- see push/battle_bar_visible).
+        if not mod_settings.battle_enabled():
+            # The In-Battle Widget master is off -> the overlay is never shown, so don't open
+            # the window this battle (the "Show on Alt Key" child is inert while the master is
+            # off). A live enable opens it mid-battle (see apply_settings); _in_battle stays
+            # True so that path fires.
             return
         battle_view.open_window()
         install_all_listeners()
@@ -471,13 +471,13 @@ def push(rvm):
 def apply_settings():
     """Apply the battle-overlay settings live (the mod_settings change callback).
 
-    The window must exist whenever EITHER the always-on "Battle Widget Enabled" or the
-    "Battle Widget on Alt Key" peek mode is on. Neither on -> close it if open. Either on while
-    in a battle -> open it now (arm + kick data + push) so the toggle takes effect without
-    waiting for the next battle. (Under Alt-peek the window opens but stays hidden until Alt is
-    held -- push/battle_bar_visible decides the visible flag.)"""
+    The window must exist whenever the "In-Battle Widget" master is on (the "Show on Alt Key"
+    child is inert while the master is off, so it never opens the window on its own). Master off
+    -> close it if open. Master on while in a battle -> open it now (arm + kick data + push) so
+    the toggle takes effect without waiting for the next battle. (Under the Alt-key mode the
+    window opens but stays hidden until Alt is held -- push/battle_bar_visible decides visible.)"""
     try:
-        if not (mod_settings.battle_enabled() or mod_settings.battle_alt_key_enabled()):
+        if not mod_settings.battle_enabled():
             if battle_view.active_view() is not None:
                 battle_view.close_window()
             return
@@ -488,7 +488,7 @@ def apply_settings():
             refresh()
         else:
             # Window already open (or not in battle) -> just re-push so a live mode switch
-            # (e.g. always-on off, Alt-peek on) re-evaluates the visible flag immediately.
+            # (e.g. Alt-key mode toggled) re-evaluates the visible flag immediately.
             refresh()
     except Exception:
         LOG_CURRENT_EXCEPTION()

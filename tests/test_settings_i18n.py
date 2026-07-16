@@ -34,7 +34,8 @@ def test_resolve_de_differs_from_english():
     de = S.resolve(u"de")
     assert set(de.keys()) == _KEYS
     assert de[u"garageWidget"][u"label"] != en[u"garageWidget"][u"label"]
-    assert de[u"garageWidget"][u"label"] == u"Garage-Widget aktiviert"
+    assert de[u"garageWidget"][u"label"] == u"Garage-Widget"
+    assert en[u"garageWidget"][u"label"] == u"In-Garage Widget"
 
 
 def test_resolve_unknown_is_full_english():
@@ -64,9 +65,14 @@ def test_every_shipped_language_covers_all_keys():
 def test_battle_alt_key_present_in_master_and_col1():
     assert u"battleAltKey" in S._PANEL[u"en"]
     assert u"battleAltKey" in S.COL1_KEYS
+    # The Alt child is the SECOND column-1 control -- between the master and counted assist.
+    assert S.COL1_KEYS[1] == u"battleAltKey"
     en = S.resolve(u"en")
-    assert en[u"battleAltKey"][u"label"] == u"Battle Widget on Alt Key"
+    assert en[u"battleAltKey"][u"label"] == u"Show on Alt Key"
     assert u"ttHeader" in en[u"battleAltKey"] and u"ttBody" in en[u"battleAltKey"]
+    # New INVERTED meaning: peek while held; when off, shown at all times.
+    assert u"only while the Alt key is held" in en[u"battleAltKey"][u"ttBody"]
+    assert u"shown at all times" in en[u"battleAltKey"][u"ttBody"]
 
 
 def test_battle_alt_key_keeps_alt_literal_in_every_language():
@@ -81,25 +87,28 @@ def test_battle_alt_key_keeps_alt_literal_in_every_language():
 
 def test_battle_alt_key_ukrainian_translated():
     uk = S.resolve(u"uk")
-    assert uk[u"battleAltKey"][u"label"] == u"Віджет у бою по клавіші Alt"
+    en = S.resolve(u"en")
+    assert uk[u"battleAltKey"][u"label"] == u"Показувати по клавіші Alt"
+    assert uk[u"battleAltKey"][u"label"] != en[u"battleAltKey"][u"label"]
 
 
 # --- countedAssist (the "Enable Counted Assistance" third-row setting) --------
 
 def test_counted_assist_present_in_master_and_col1():
     assert u"countedAssist" in S._PANEL[u"en"]
-    # Appended LAST -- matches the fourth CheckBox's position in mod_settings._template().
+    # LAST control in column 1 -- the second child under the In-Battle master in
+    # mod_settings._template() ([battle master, alt child, counted child]).
     assert u"countedAssist" in S.COL1_KEYS
     assert S.COL1_KEYS[-1] == u"countedAssist"
     en = S.resolve(u"en")
-    assert en[u"countedAssist"][u"label"] == u"Enable Counted Assistance"
+    assert en[u"countedAssist"][u"label"] == u"Counted Assistance"
     assert u"ttHeader" in en[u"countedAssist"] and u"ttBody" in en[u"countedAssist"]
 
 
 def test_counted_assist_ukrainian_translated():
     uk = S.resolve(u"uk")
     en = S.resolve(u"en")
-    assert uk[u"countedAssist"][u"label"] == u"Увімкнути зараховану допомогу"
+    assert uk[u"countedAssist"][u"label"] == u"Зарахована допомога"
     assert uk[u"countedAssist"][u"label"] != en[u"countedAssist"][u"label"]
 
 
@@ -183,4 +192,4 @@ def test_panel_text_uses_client_language(monkeypatch):
     fake.getClientLanguage = lambda: u"de"
     monkeypatch.setitem(sys.modules, u"helpers", fake)
     t = S.panel_text()
-    assert t[u"garageWidget"][u"text"] == u"Garage-Widget aktiviert"
+    assert t[u"garageWidget"][u"text"] == u"Garage-Widget"
