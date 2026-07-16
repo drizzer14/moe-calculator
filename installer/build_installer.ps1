@@ -23,7 +23,7 @@ $ErrorActionPreference = 'Stop'
 $InstallerDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot     = Split-Path -Parent $InstallerDir
 $Iss          = Join-Path $InstallerDir 'moe_calculator-setup.iss'
-$ModWotmod    = Join-Path $RepoRoot 'dist\com.14th_ua.moe_calculator_1.1.0.wotmod'
+$ModWotmod    = Join-Path $RepoRoot 'dist\com.14th_ua.moe_calculator_1.2.0.wotmod'
 $OpenWg       = Join-Path $InstallerDir 'vendor\net.openwg.gameface_1.1.6.wotmod'
 $Msa          = Join-Path $InstallerDir 'vendor\izeberg.modssettingsapi_1.7.0.wotmod'
 
