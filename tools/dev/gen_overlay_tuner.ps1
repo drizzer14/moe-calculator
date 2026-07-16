@@ -35,19 +35,25 @@ $tpl = @'
     background:#000 url("data:image/jpeg;base64,__BG__") center/cover no-repeat;box-shadow:0 10px 40px rgba(0,0,0,.5);outline:1px solid var(--line)}
   /* ---- overlay (mirrors MoEBattle.css; per-row gradient; MARGIN spacing -- flex gap is
          NOT supported in this Coherent build, verified against WG production CSS) ---- */
-  /* z-index:0 makes root a stacking context so the ::after underlay's z-index:-1 stays scoped
-     here (mirrors the mod, where position:fixed + z-index:9000 does the same) */
-  #moe-battle-root{position:absolute;left:var(--left);top:var(--top);display:flex;flex-direction:column;
+  /* BLOCK stack + explicit width (mirrors the mod): display:block computes each row's border-box
+     deterministically, and the explicit width gives the .mb-backdrop children a known box for
+     width:100%. z-index:0 makes root a stacking context so each backdrop's ::after z-index:-1
+     stays scoped (the mod uses position:absolute + z-index:9000 for the same). */
+  #moe-battle-root{position:absolute;left:var(--left);top:var(--top);display:block;width:var(--rootw);
     font-family:var(--fam);z-index:0}
   .mb-row{position:relative;display:flex;flex-direction:row;align-items:center;white-space:nowrap;
-    padding:var(--rpv) var(--rph);margin-bottom:var(--rowmb)}
-  /* gradient on a masked ::before layer so the left soft-clip fades the BACKDROP only, not the numbers */
-  .mb-row::before{content:"";position:absolute;left:0;top:0;right:0;bottom:0;background:var(--rowgrad);
+    padding:var(--rpv) var(--rph);z-index:1}
+  /* BACKDROPS -- root-anchored siblings (NOT .mb-row pseudos), one per row, with an EXPLICIT
+     height and a fixed per-index top (set in apply()). This mirrors the mod's drift fix: every
+     backdrop resolves against the ONE root origin, so nothing accumulates down the stack, and the
+     explicit height never collapses the way a top+bottom dual anchor does. */
+  .mb-backdrop{position:absolute;left:0;width:100%;height:var(--bdh);z-index:0}
+  /* checker dither on ::before -- fills the backdrop's explicit box (width/height:100%). */
+  .mb-backdrop::before{content:"";position:absolute;left:0;top:0;width:100%;height:100%;background:var(--rowgrad);
     background-size:var(--rowbgsize,auto);background-position:var(--rowbgpos,0 0);opacity:var(--rowop,1);
     image-rendering:pixelated;-webkit-mask:var(--rowmask);mask:var(--rowmask)}
-  /* optional dark radial UNDERLAY behind the checker (Dots mode): z-index:-1 keeps it below
-     both the checker ::before and the numbers */
-  .mb-row::after{content:"";position:absolute;left:0;top:0;right:0;bottom:0;z-index:-1;
+  /* dark radial UNDERLAY on ::after (z-index:-1 keeps it below the checker within this backdrop). */
+  .mb-backdrop::after{content:"";position:absolute;left:0;top:0;width:100%;height:100%;z-index:-1;
     background:var(--uggrad,none);-webkit-mask:var(--ugmask,none);mask:var(--ugmask,none)}
   .mb-row>span{position:relative}
   /* icon = a transparent, positioned box: the GLYPH rides on ::after (painted on top) while the
@@ -111,6 +117,9 @@ $tpl = @'
 </style>
 <div class="stagewrap"><div class="stage" id="stage">
   <div id="moe-battle-root">
+    <div class="mb-backdrop mb-bd-1"></div>
+    <div class="mb-backdrop mb-bd-2"></div>
+    <div class="mb-backdrop mb-bd-3"></div>
     <div class="mb-row"><span class="mb-ico dmg"></span><span class="mb-value mb-cd"></span><span class="mb-sep">/</span><span class="mb-value mb-avg">2,718</span></div>
     <div class="mb-row"><span class="mb-ico pct"></span><span class="mb-value mb-pct">84.73%</span><span class="mb-delta"></span></div>
     <div class="mb-row"><span class="mb-ico ast"></span><span class="mb-value mb-ast">974</span></div>
@@ -119,8 +128,8 @@ $tpl = @'
   <div id="loupe"><div class="loupelab">DITHER MAGNIFIER</div><div id="loupeSwatch"><div id="loupeDither"></div></div><div id="loupeCap"></div></div>
 </div></div>
 <div class="panel">
-  <h1>In-battle overlay &mdash; tuner v5 (3 rows)</h1>
-  <p class="sub">Now shows all <b>three</b> rows &mdash; damage, percent, and the counted-assistance row (icon: spotting/radio, sample 974). Use <b>Layout &rarr; Row gap</b> to close the spacing; the value drops into <code>.mb-row { margin-bottom }</code> in <code>MoEBattle.css</code>. Real 4K frame @0.42&times;, real markup, calibrated 1&thinsp;rem&asymp;2.0&thinsp;px @3840 (measured off our live 13rem MoEBattle value). The backdrop is a fixed two-layer stack: a dark <b>background gradient</b> (with a left clip) under the <b>dots</b> dither (with its own fade) &mdash; both always on. Font toggle: <b>MoEBattle</b> is the actual game font (from <code>fontlib.swf</code>) vs the <b>Univers</b> lookalike. Sliders pair with number boxes; values drop into <code>MoEBattle.css</code>. <b>5-digit shift</b> (new): WG&rsquo;s efficiency panel widens a digit once a total passes 9999 &mdash; dial <b>Shift right</b> until the box clears the red panel guide; that logical-px number is <code>BATTLE_ANCHOR_X_SHIFT</code>.</p>
+  <h1>In-battle overlay &mdash; tuner v6 (3 rows, root-anchored backdrops)</h1>
+  <p class="sub">Now shows all <b>three</b> rows &mdash; damage, percent, and the counted-assistance row (icon: spotting/radio, sample 974). Backdrops are <b>root-anchored</b> <code>.mb-backdrop</code> siblings (the drift fix), NOT per-row pseudos: use <b>Layout &rarr; Row pitch</b> + <b>Backdrop height</b> to place/size them; the tops are computed per index (<code>-6 / pitch-6 / 2&middot;pitch-6</code>) and drop into <code>.mb-bd-1/2/3</code> in <code>MoEBattle.css</code>. Real 4K frame @0.42&times;, real markup, calibrated 1&thinsp;rem&asymp;2.0&thinsp;px @3840 (measured off our live 13rem MoEBattle value). The backdrop is a fixed two-layer stack: a dark <b>background gradient</b> (with a left clip) under the <b>dots</b> dither (with its own fade) &mdash; both always on. Font toggle: <b>MoEBattle</b> is the actual game font (from <code>fontlib.swf</code>) vs the <b>Univers</b> lookalike. Sliders pair with number boxes; values drop into <code>MoEBattle.css</code>. <b>5-digit shift</b>: WG&rsquo;s efficiency panel widens a digit once a total passes 9999 &mdash; dial <b>Shift right</b> until the box clears the red panel guide; that logical-px number is <code>BATTLE_ANCHOR_X_SHIFT</code>.</p>
   <div class="seg" id="fontSeg"><button data-f="MoEBattle" class="on">MoEBattle (real game font)</button><button data-f="UniversCn">Univers (lookalike)</button></div>
   <div class="seg" id="caseSeg"><button data-c="above" class="on">DMG &gt; avg</button><button data-c="equal">= avg</button><button data-c="below">&lt; avg</button></div>
   <div class="row2"><label><input type="checkbox" id="cBounds"> show bounds</label><label><input type="checkbox" id="cWide" checked> 5-digit values</label><label><input type="checkbox" id="cGuide" checked> panel guide</label></div>
@@ -158,10 +167,14 @@ $tpl = @'
       {id:"deltaSize",label:"Delta size (rem)",min:6,max:40,step:0.5,val:14},
       {id:"deltaWeight",label:"Delta weight",min:300,max:700,step:100,val:600}]],
     ["Layout",[
-      {id:"rowGap",label:"Row gap / margin-bottom (rem)",min:-40,max:40,step:0.5,val:-11},
+      // Row PITCH = the block-flow row box height (padding-box). Drives the per-index backdrop
+      // tops (.mb-bd-N top = N*pitch + pitch/2 - bdH/2). Keep it == 2*rowPadV + content so the
+      // backdrops track the rows. Backdrop HEIGHT is the explicit blob height (was 21+2*6=33).
+      {id:"rowPitch",label:"Row pitch (rem)",min:8,max:60,step:0.5,val:21},
+      {id:"bdH",label:"Backdrop height (rem)",min:8,max:80,step:0.5,val:30},
       {id:"icoGap",label:"Icon→text gap (rem)",min:-40,max:40,step:0.5,val:4},
       {id:"valGap",label:"Value gap (rem)",min:-30,max:30,step:0.5,val:4.5},
-      {id:"rowPadV",label:"Row pad vert (rem)",min:0,max:30,step:0.5,val:8},
+      {id:"rowPadV",label:"Row pad vert (rem)",min:0,max:30,step:0.5,val:2},
       {id:"rowPadH",label:"Row pad horiz (rem)",min:0,max:80,step:0.5,val:32}]],
     ["Icons",[
       {id:"icoSize",label:"Icon size (rem)",min:8,max:60,step:0.5,val:17},
@@ -173,8 +186,8 @@ $tpl = @'
       // GRADIENT of the glow colour -- not a drop-shadow. Size = the glow box (rem); spread =
       // where the gradient fades to transparent (%); alpha = inner intensity.
       {id:"icoGlowSize",label:"Glow size (rem)",min:0,max:120,step:1,val:40},
-      {id:"icoGlowSpread",label:"Glow spread (%)",min:0,max:100,step:1,val:60},
-      {id:"icoGlowAlpha",label:"Glow alpha",min:0,max:1,step:0.01,val:0.9},
+      {id:"icoGlowSpread",label:"Glow spread (%)",min:0,max:100,step:1,val:73},
+      {id:"icoGlowAlpha",label:"Glow alpha",min:0,max:1,step:0.01,val:0.5},
       {id:"icoGlowColor",label:"Glow colour",color:true,val:"#ffcd5a"}]],
     ["Dots (checker dither)",[
       // checker.png is a 2x2-cell tile at CELL game-px, tiled 1:1 (background-size:auto ->
@@ -184,24 +197,24 @@ $tpl = @'
       // radial mask (fade shape size/centre + solid-to/gone-by below).
       {id:"cellPx",label:"Cell size (game px @3840)",min:1,max:8,step:1,val:2},
       {id:"loupeZoom",label:"Magnifier zoom (px / game-px)",min:1,max:10,step:1,val:5},
-      {id:"dotAlpha",label:"Strength (opacity)",min:0,max:1,step:0.01,val:0.2},
-      {id:"gradRX",label:"Fade shape size X (%)",min:0,max:250,step:1,val:223},
-      {id:"gradRY",label:"Fade shape size Y (%)",min:0,max:250,step:1,val:120},
-      {id:"gradCX",label:"Fade centre X (%)",min:0,max:100,step:1,val:32},
+      {id:"dotAlpha",label:"Strength (opacity)",min:0,max:1,step:0.01,val:0.1},
+      {id:"gradRX",label:"Fade shape size X (%)",min:0,max:250,step:1,val:30},
+      {id:"gradRY",label:"Fade shape size Y (%)",min:0,max:250,step:1,val:150},
+      {id:"gradCX",label:"Fade centre X (%)",min:0,max:100,step:1,val:15},
       {id:"gradCY",label:"Fade centre Y (%)",min:0,max:100,step:1,val:50},
       {id:"dotMaskIn",label:"Fade: solid to (%)",min:0,max:100,step:1,val:0},
-      {id:"dotMaskOut",label:"Fade: gone by (%)",min:0,max:120,step:1,val:27}]],
+      {id:"dotMaskOut",label:"Fade: gone by (%)",min:0,max:120,step:1,val:35}]],
     ["Background gradient (underlay)",[
       // The dark radial blob painted BEHIND the checker (::after, z-index:-1) -- the backdrop
       // that "worked before". Its own size/centre/alpha; its left edge fades via the clip below.
-      {id:"ugRX",label:"Size X (%)",min:0,max:250,step:1,val:50},
-      {id:"ugRY",label:"Size Y (%)",min:0,max:250,step:1,val:50},
-      {id:"ugCX",label:"Centre X (%)",min:0,max:100,step:1,val:50},
-      {id:"ugCY",label:"Centre Y (%)",min:0,max:100,step:1,val:48},
-      {id:"ug1a",label:"Inner alpha",min:0,max:1,step:0.01,val:0.4},
+      {id:"ugRX",label:"Size X (%)",min:0,max:250,step:1,val:32},
+      {id:"ugRY",label:"Size Y (%)",min:0,max:250,step:1,val:73},
+      {id:"ugCX",label:"Centre X (%)",min:0,max:100,step:1,val:22},
+      {id:"ugCY",label:"Centre Y (%)",min:0,max:100,step:1,val:53},
+      {id:"ug1a",label:"Inner alpha",min:0,max:1,step:0.01,val:0.3},
       {id:"ug1p",label:"Inner pos (%)",min:0,max:100,step:1,val:0},
       {id:"ug2a",label:"Outer alpha",min:0,max:1,step:0.01,val:0},
-      {id:"ug2p",label:"Outer pos (%)",min:0,max:100,step:1,val:58},
+      {id:"ug2p",label:"Outer pos (%)",min:0,max:100,step:1,val:60},
       {id:"clipStart",label:"Left clip start (%)",min:0,max:100,step:1,val:13},
       {id:"clipEnd",label:"Left clip end (%)",min:0,max:100,step:1,val:22}]],
     ["Number shadow",[
@@ -274,8 +287,15 @@ $tpl = @'
     S.setProperty("--fam",'"'+famv+'","Arial Narrow",sans-serif');
     // --left = base anchor + the 5-digit shift (shiftPx is LOGICAL px == rem == PXREM stage-px).
     S.setProperty("--left",(st.left*PXVW + st.shiftPx*PXREM).toFixed(1)+"px");S.setProperty("--top",(st.top*PXVH).toFixed(1)+"px");
-    S.setProperty("--rowmb",rem(st.rowGap));S.setProperty("--valml",rem(st.valGap));
+    S.setProperty("--rootw",rem(340));S.setProperty("--bdh",rem(st.bdH));S.setProperty("--valml",rem(st.valGap));
     S.setProperty("--icomr",rem(st.icoGap));S.setProperty("--rpv",rem(st.rowPadV));S.setProperty("--rph",rem(st.rowPadH));
+    // Per-index backdrop tops from the block-flow pitch: row N centre = N*pitch + pitch/2, top =
+    // centre - bdH/2. Mirrors the mod's .mb-bd-1/2/3 constants (-6 / pitch-6 / 2*pitch-6 at 21/33).
+    var bdTop=function(n){return rem(n*st.rowPitch + st.rowPitch/2 - st.bdH/2);};
+    var bds=r.querySelectorAll(".mb-backdrop");
+    if(bds[0])bds[0].style.top=bdTop(0);
+    if(bds[1])bds[1].style.top=bdTop(1);
+    if(bds[2])bds[2].style.top=bdTop(2);
     // Backdrop = fixed two-layer stack: dots dither (::before) over background gradient (::after).
     var tile=(st.cellPx*2*SCALE).toFixed(3)+"px";
     S.setProperty("--rowgrad",ckBg(true));S.setProperty("--rowbgsize",tile+" "+tile);S.setProperty("--rowbgpos","0 0");S.setProperty("--rowop",st.dotAlpha);S.setProperty("--rowmask",dotMask());updateLoupe();
@@ -314,14 +334,18 @@ $tpl = @'
     // ::before = dots dither (with its own radial fade mask). UNPREFIXED mask only -- WG's own
     // Gameface CSS uses `mask` and never `-webkit-mask`, so the copied CSS is deploy-ready.
     var beforeBody="  /* checker.png = "+st.cellPx+"px cells @3840 -- regen: python tools/dev/gen_checker.py --cell "+st.cellPx+" */\n  background: "+ckBg(false)+";\n  background-size: auto;\n  background-position: 0px 0px;\n  image-rendering: pixelated;\n  opacity: "+st.dotAlpha+";\n  mask: "+dotMask()+";\n";
-    // ::after = background gradient underlay (z-index:-1 scoped by root's own z-index), left-clipped.
-    var afterBlock=".mb-row::after {\n  content: \"\";\n  position: absolute; left: 0; top: 0; right: 0; bottom: 0;\n  z-index: -1;\n  background: "+ugGrad()+";\n"+((rowMask()!=="none")?("  mask: "+rowMask()+";\n"):"")+"}\n";
-    return "/* MARGIN spacing -- flex gap is unsupported in Gameface */\n"+
-      "#moe-battle-root {\n  left: "+st.left+"vw;\n  top: "+st.top+"vh;\n  font-family: "+famcss+";\n  padding: 0;\n}\n"+
-      ".mb-row {\n  position: relative;\n  padding: "+st.rowPadV+"rem "+st.rowPadH+"rem;\n  margin-bottom: "+st.rowGap+"rem;\n}\n"+
-      ".mb-row::before {\n  content: \"\";\n  position: absolute; left: 0; top: 0; right: 0; bottom: 0;\n"+beforeBody+"}\n"+
+    // ::after = background gradient underlay (z-index:-1 scoped by the backdrop's own z-index), left-clipped.
+    var afterBlock=".mb-backdrop::after {\n  content: \"\";\n  position: absolute; left: 0; top: 0; width: 100%; height: 100%;\n  z-index: -1;\n  background: "+ugGrad()+";\n"+((rowMask()!=="none")?("  mask: "+rowMask()+";\n"):"")+"}\n";
+    // Per-index backdrop tops from the block-flow pitch (see apply()).
+    function bdTopN(n){return (n*st.rowPitch + st.rowPitch/2 - st.bdH/2);}
+    return "/* Root-anchored backdrops (drift fix) -- position is Python-driven (window.move):\n"+
+      "   the mod ships left:0; top:33.5rem; the vw/vh here is only for the 5-digit-shift preview. */\n"+
+      "#moe-battle-root {\n  display: block;\n  width: 340rem;\n  font-family: "+famcss+";\n  padding: 0;\n}\n"+
+      ".mb-backdrop {\n  position: absolute; left: 0; width: 100%;\n  height: "+st.bdH+"rem;\n  z-index: 0;\n}\n"+
+      ".mb-bd-1 { top: "+bdTopN(0)+"rem; }\n.mb-bd-2 { top: "+bdTopN(1)+"rem; }\n.mb-bd-3 { top: "+bdTopN(2)+"rem; }\n"+
+      ".mb-backdrop::before {\n  content: \"\";\n  position: absolute; left: 0; top: 0; width: 100%; height: 100%;\n"+beforeBody+"}\n"+
       afterBlock+
-      ".mb-row > span { position: relative; }\n"+
+      ".mb-row {\n  position: relative;\n  padding: "+st.rowPadV+"rem "+st.rowPadH+"rem;\n  z-index: 1;\n}\n"+
       "/* Icon glow = a radial-gradient background element (::before) BEHIND the glyph, in the glow\n"+
       "   colour -- replaces the drop-shadow. The glyph rides on ::after so it paints on top; set its\n"+
       "   background-image per row (the mod sets it inline in MoEBattle.js). */\n"+

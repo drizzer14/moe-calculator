@@ -81,6 +81,13 @@ function ensureRoot() {
     root = document.createElement("div");
     root.id = "moe-battle-root";
     root.innerHTML =
+        // Backdrops FIRST (source order = paint order): one root-anchored .mb-backdrop per row,
+        // behind the z-index:1 rows. They are siblings of the rows (NOT .mb-row pseudos) so each
+        // resolves against the ONE root origin -- the fix for the per-row abspos drift; see the
+        // CSS. .mb-bd-3 is toggled with the assist row in render().
+        '<div class="mb-backdrop mb-bd-1"></div>' +
+        '<div class="mb-backdrop mb-bd-2"></div>' +
+        '<div class="mb-backdrop mb-bd-3"></div>' +
         // Row 1: [dmg icon]  <live dmg> / <projected avg>
         '<div class="mb-row">' +
         '  <span class="mb-ico dmg"></span>' +
@@ -161,9 +168,11 @@ function render(model) {
     // total is > 0 -- the row stays hidden until any assist is earned. An absent flag (older
     // Python push) is falsy -> row stays hidden.
     const assistRow = root.querySelector(".mb-row-assist");
+    const bd3 = root.querySelector(".mb-bd-3");           // its backdrop, toggled in lockstep
     const counted = data.countedAssist || 0;
     if (data.assistVisible && counted > 0) {
         assistRow.style.display = "";
+        bd3.style.display = "";
         root.querySelector(".mb-ast").textContent = thousands(counted);
         const ico = assistRow.querySelector(".mb-ico");
         const kind = data.assistKind || "";
@@ -172,6 +181,7 @@ function render(model) {
         ico.classList.toggle("stun", kind === "stun");
     } else {
         assistRow.style.display = "none";
+        bd3.style.display = "none";
     }
 }
 

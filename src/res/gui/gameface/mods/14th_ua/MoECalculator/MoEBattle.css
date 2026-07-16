@@ -74,34 +74,42 @@ body {
        text baseline 6rem. Adding 6rem here puts row 1's baseline back exactly where it was, and
        because the pitch is unchanged (21rem) every lower row lands on its old baseline too. */
     top: 33.5rem;
+    /* Explicit box so the backdrops (see .mb-backdrop) size with width:100% against a KNOWN
+       width -- never left:0;right:0, which is a dual horizontal anchor Coherent resolves as
+       unreliably as the vertical one. Matches html/body width. */
+    width: 340rem;
     z-index: 9000;
     pointer-events: none;               /* never steal battle input -- info-only overlay */
     font-family: "MoEBattle", "Arial Narrow", sans-serif;
     padding: 0;
-    /* BLOCK stacking, NOT flex-column. Removing the negative margin (see .mb-row) killed the big
-       drift, but a smaller one survived: each lower row's abspos backdrop (::before dots /
-       ::after shadow) still sat progressively HIGHER than its text. Signature = the in-flow
-       numerals stack at the true 21rem pitch while each row's pseudo ORIGIN creeps up. That is a
-       Gameface flex-COLUMN quirk -- the abspos containing-block origin it gives each stacked flex
-       ITEM is under-counted per item, so the correct `top/bottom: -6rem` resolve against a
-       drifting origin. Block flow computes each .mb-row's border-box position deterministically
-       (the reliable path; flex is the buggy subsystem here -- gap unsupported, negative-margin
-       drift), so the pseudos realign with the text. Each .mb-row is still a flex ROW internally. */
+    /* BLOCK stacking, NOT flex-column. This alone did NOT fully fix the backdrop drift: removing
+       the negative margin (see .mb-row) killed the big drift and block flow killed most of the
+       rest, but a residual survived -- each lower row's backdrop still crept HIGHER than its text,
+       and the -6rem/-6rem dual constraint let the blob collapse SHORT. Root cause of the residual:
+       the backdrops were abspos pseudos ON each .mb-row, and .mb-row is itself display:flex, so
+       Coherent still under-counted the per-row abspos containing-block ORIGIN (flex is the buggy
+       subsystem -- gap unsupported, negative-margin drift) AND would not reliably stretch a box
+       between top AND bottom. FIX: the backdrops are no longer per-row pseudos -- they are
+       root-anchored .mb-backdrop siblings (see below) with a fixed per-index top + explicit
+       height, so every backdrop resolves against the ONE origin that already renders row 1
+       correctly and nothing accumulates. Keep display:block (each .mb-row is still a flex ROW
+       internally); do NOT move the backdrops back onto .mb-row. */
     display: block;
 }
 
-/* One line = [icon] [value] ... . The soft dark shape behind the row is painted on a masked
-   ::before layer so the left edge fades the BACKDROP only (not the numerals).
+/* One line = [icon] [value] ... . The soft dark shape behind each row is painted by a
+   root-anchored .mb-backdrop sibling (see below), NOT by this row's pseudos -- the row only
+   carries content and rides ABOVE the backdrops (z-index:1).
 
    PITCH VIA PADDING, NOT NEGATIVE MARGIN (bug fix): rows used to be an airy 8rem-padded box
    pulled together with margin-bottom:-12rem to reach WG's ~44px (21rem) pitch. In Gameface
    the negative margin's overlap is NOT applied identically to the in-flow numerals and to the
-   absolutely-positioned backdrop pseudos, so each successive row's dots+shadow drifted UP
-   relative to its text (cumulative down the stack; row 1 correct). Standards browsers align
-   them perfectly, which is exactly why this only shows in-client. Fix: no negative margin --
-   the padding box IS the 21rem pitch (2rem top+bottom over the ~17rem icon/value line), so
-   rows tile with zero overlap and nothing accumulates. The blob keeps its old size/position
-   via a negative pseudo inset (see ::before/::after) + the +6rem #moe-battle-root nudge. */
+   absolutely-positioned backdrops, so each successive row's dots+shadow drifted UP relative to
+   its text (cumulative down the stack; row 1 correct). Standards browsers align them perfectly,
+   which is exactly why this only shows in-client. Fix: no negative margin -- the padding box IS
+   the 21rem pitch (2rem top+bottom over the ~17rem icon/value line), so rows tile with zero
+   overlap. The backdrops keep their size/position via the fixed .mb-bd-N tops + the +6rem
+   #moe-battle-root nudge. */
 .mb-row {
     position: relative;
     display: flex;
@@ -111,58 +119,86 @@ body {
     /* 2rem vertical => box height = pitch = 21rem (the old 33rem box minus the 12rem overlap);
        no margin-bottom, so consecutive rows abut with no overlap for Gameface to mishandle. */
     padding: 2rem 32rem;
+    z-index: 1;                         /* content above the z-index:0 .mb-backdrop layers */
 }
+
+/* THE BACKDROPS -- root-anchored, NOT per-row pseudos (drift fix; see #moe-battle-root).
+   One .mb-backdrop div per row, a DIRECT child of #moe-battle-root, so every backdrop's abspos
+   containing block is the ROOT -- the single origin that already renders row 1 correctly -- with
+   an EXPLICIT height (never a top+bottom dual stretch, which Coherent collapses short). The
+   per-index top is a constant off the fixed 21rem pitch: row N content-centre = N*21 + 10.5,
+   backdrop top = centre - height/2 = centre - 15 (height is now 30rem).
+     row 1: 10.5 - 15 = -4.5
+     row 2: 31.5 - 15 = 16.5
+     row 3: 52.5 - 15 = 37.5   (JS toggles .mb-bd-3 in lockstep with the assist row)
+   30rem = the 21rem row box + 2*4.5rem bleed (R2 tune: was 33rem/6rem bleed). JS (ensureRoot)
+   emits these BEFORE the rows so source order = paint order (backdrops behind the z-index:1 rows). */
+.mb-backdrop {
+    position: absolute;
+    left: 0;
+    width: 100%;                        /* resolves against #moe-battle-root's explicit 340rem */
+    height: 30rem;                      /* EXPLICIT -- no top/bottom dual anchor to collapse */
+    z-index: 0;
+}
+.mb-bd-1 { top: -4.5rem; }
+.mb-bd-2 { top: 16.5rem; }
+.mb-bd-3 { top: 37.5rem; }
 
 /* WG's efficiency-panel halftone = a fine CHECKER dither. Gameface does NOT tile a
    gradient via background-size (it renders one gradient = a smooth blob), so we tile a
    small RASTER checker.png sibling instead (rasters DO tile -- proven by the garage
    progressbar). The tile is natively FINE (4px tile = 2x2 cells at 2px) so background-size:auto
    paints ~2px cells directly -- WG's dither, crisp, no sub-pixel rem-scaling. opacity sets
-   strength; image-rendering keeps cells crisp; the radial MASK fades it to a blob. Regenerate
-   via tools/dev/gen_checker.py. checker.png loads as a bare sibling (font/card_border scheme). */
-.mb-row::before {
+   strength; image-rendering keeps cells crisp; the radial MASK fades it to a blob. Fills its
+   parent's EXPLICIT box via width/height:100% (single anchor, no stretch). Regenerate via
+   tools/dev/gen_checker.py. checker.png loads as a bare sibling (font/card_border scheme). */
+.mb-backdrop::before {
     content: "";
     position: absolute;
     left: 0;
-    right: 0;
-    /* -6rem: the row box is now the tight 21rem pitch (see .mb-row), so overflow the backdrop
-       6rem past the box top AND bottom to restore the original 33rem-tall blob. Symmetric, so
-       it stays centred on the row's text; the negative margin that used to drift lower rows is
-       gone, so every row now reads centred like row 1. (33rem blob = 21rem box + 2*6rem.) */
-    top: -6rem;
-    bottom: -6rem;
+    top: 0;
+    width: 100%;
+    height: 100%;
     background: url(checker.png) repeat;
     background-size: auto;              /* native 2px cells (fine dither); subtle at opacity 0.19. rem-scaling shrank it sub-pixel -- native renders crisp in-game. */
     background-position: 0px 0px;
     image-rendering: pixelated;
-    opacity: 0.2;
+    opacity: 0.1;
     /* unprefixed mask only -- WG's own Gameface CSS uses `mask` (679x) and never `-webkit-mask`;
-       the engine honors the standard property, so the prefix is dead weight. */
-    mask: radial-gradient(223% 120% at 32% 50%, #000 0%, transparent 27%);
+       the engine honors the standard property, so the prefix is dead weight.
+       HORIZONTAL-STRETCH FIX (confirmed in-game, shot_012): the old 223% ray put the fade-out at
+       ~92% of the 340rem box (~313rem), so the dither was near-uniform across the whole wide box
+       and tailed ~150rem past even worst-case 5-digit text -- a long empty smear to the right.
+       The box stays 340rem (fits "12,718 / 12,718" with a shift), but the dither must HUG the
+       content: centre the fade at 20% (~68rem, over the icon + first digits) and end it at
+       0.32*120% = 38.4% of width (~131rem) right of centre => solid 0->~199rem, then gone. That
+       covers the icon + a 5-digit row and drops the tail. */
+    /* R2 (user tune): halve the HORIZONTAL reach (120%->60% ray => fade ends ~133rem instead of
+       ~199rem) and grow the VERTICAL radius (120%->155%) so each band is a touch taller. */
+    mask: radial-gradient(30% 150% at 15% 50%, #000 0%, transparent 35%);
 }
 
-/* Dark radial UNDERLAY -- the pre-dither backdrop shape, layered back BEHIND the checker.
-   z-index:-1 drops it under both the checker ::before and the numerals; it stays scoped to
-   this row because #moe-battle-root (position:absolute + z-index:9000) is its stacking context.
+/* Dark radial UNDERLAY -- the pre-dither backdrop shape, layered BEHIND the checker within this
+   backdrop's local stacking context (.mb-backdrop is z-index:0). z-index:-1 drops it under the
+   checker ::before; the whole .mb-backdrop sits under the z-index:1 rows, so text stays on top.
    Its own size/centre/alpha (independent of the dither); left edge soft-clipped by the mask.
    Tuned in the overlay tuner ("Gradient underlay" + "Left clip"). */
-.mb-row::after {
+.mb-backdrop::after {
     content: "";
     position: absolute;
     left: 0;
-    right: 0;
-    /* Same -6rem overflow as ::before so the dark shadow keeps its original 33rem height,
-       centred on the row's text (no negative-margin drift on lower rows). */
-    top: -6rem;
-    bottom: -6rem;
+    top: 0;
+    width: 100%;
+    height: 100%;
     z-index: -1;
-    background: radial-gradient(50% 50% at 50% 48%, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0) 58%);
+    /* HORIZONTAL-STRETCH FIX (see ::before): this dark blob used to be centred at mid-box (50% =
+       170rem), so its right half spilled to ~270rem and fed the same right-tail smear. Pull its
+       centre left to 28% (~95rem, under the numbers) and tighten so it fades to nothing by
+       0.60*45% = 27% of width (~92rem) right of centre => ends ~187rem, matching the dither above.
+       The left edge is still soft-clipped by the linear mask below. */
+    /* R2 (user tune): match the dither -- halve horizontal reach (45%->22%) + taller (55%->72%). */
+    background: radial-gradient(32% 73% at 22% 53%, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0) 60%);
     mask: linear-gradient(90deg, transparent 13%, #000 22%);
-}
-
-/* Content rides above the ::before backdrop. */
-.mb-row > span {
-    position: relative;
 }
 
 /* Icon glyph + glow. <img> is clipped in Gameface -> background-image divs. The icon box is now a
