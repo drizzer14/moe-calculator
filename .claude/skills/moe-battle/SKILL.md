@@ -1,6 +1,6 @@
 ---
 name: moe-battle
-description: Use when editing the 14th_ua MoE Calculator's IN-BATTLE live-MoE overlay — how it is hosted as a registered Gameface window over the HUD, its arena lifecycle, the BattleMoEVM channel, the combined-damage/EWMA math, the MoEBattle.js/.css/.html DOM, its colours/font/checker backdrop, or the window placement/anchors. For the hangar bar see moe-garage.
+description: Use when editing the 14th_ua MoE Calculator's IN-BATTLE live-MoE overlay — how it is hosted as a registered Gameface window over the HUD, its arena lifecycle, the Alt-key peek mode, the BattleMoEVM channel, the combined-damage/EWMA math, the Counted Assistance third row, the MoEBattle.js/.css/.html DOM, its colours/font/checker backdrop, or the window placement/anchors. Overlay visibility is settings-gated — see moe-settings. For the hangar bar see moe-garage.
 ---
 
 # MoE Calculator — in-battle overlay (feature)
@@ -34,6 +34,12 @@ off the **global** `g_playerEvents` arena hooks (they persist across battles):
 destroys it. `battle_view.open_window()`/`close_window()` keep a `_active` singleton; the view's
 `_onLoading` calls `battle_bridge.refresh()` for an immediate first paint.
 
+- **Settings-gated.** Overlay presence is gated by `mod_settings.battle_enabled()` /
+  `battle_alt_key_enabled()` (`battle_bridge.battle_bar_visible`); see `moe-settings`.
+- **Alt-key peek.** `adapter/battle_input.py` shows the overlay only while Alt is held
+  (`battle_widget_alt_key`). Mutually exclusive with always-on — soft-gated, so it's ignored while
+  `battle_enabled()` is ON.
+
 ## Data flow
 
 - **Read** — `adapter/battle_adapter.py::build_battle_snapshot()` from
@@ -52,22 +58,30 @@ destroys it. `battle_view.open_window()`/`close_window()` keep a `_active` singl
 
 ## VM slots (`bridge/view_models.py::BattleMoEVM`)
 
-`properties=7`, all **7 registered (indices 0–6)** — no free slot (a future `compact`/single-row
-flag would be index 7 + `properties=8`; RTL index 8 + `properties=9`).
-0 `visible`, 1 `combinedDamage`, 2 `projAvgDamage`, **3 `curPercent` (Real)**, **4 `pctDelta`
-(Real)**, 5 `hasData`, **6 `hasBaseline`** (career baseline present; false on the replay/relogin
-BUG-B path → JS dashes proj/%/delta). `curPercent`/`pctDelta` are `_setReal` (the Wulf int-cast
-rule — see `wotmod-architecture`).
+`properties=10`, indices 0–9: 0 `visible`, 1 `combinedDamage`, 2 `projAvgDamage`,
+**3 `curPercent` (Real)**, **4 `pctDelta` (Real)**, 5 `hasData`, **6 `hasBaseline`** (career
+baseline present; false on the replay/relogin BUG-B path → JS dashes proj/%/delta),
+**7 `countedAssist`** (Number, = `max(track, spot, stun)`), **8 `assistKind`** (String:
+`track|spot|stun|assist`, selects the row-3 icon), **9 `assistVisible`** (Bool: the "Enable
+Counted Assistance" setting; JS also hides the row while `countedAssist == 0`).
+`curPercent`/`pctDelta` must be Real — see the Wulf-decimals rule in `wotmod-architecture`.
+The next free index is 10 — any new flag (single/double-row mode, RTL) must bump `properties`
+and append; the backlog notes' "spare slot 7/8/9" assumption is obsolete.
 
 ## Front-end (`MoEBattle.js` / `.css` / `.html`)
 
 - `MoEBattleView.html` is an empty body loading `MoEBattle.css` + `MoEBattle.js`. The JS uses
   **`ModelObserver()` with NO feature name** — the observed root model **IS** `BattleMoEVM`;
   fields are read directly (`model.combinedDamage`, …), no nested submodel, no unwrap for scalars.
-- `#moe-battle-root` = two `.mb-row`s: row 1 `[dmg icon] <combinedDamage> / <projAvgDamage>`,
+- `#moe-battle-root` = two base `.mb-row`s: row 1 `[dmg icon] <combinedDamage> / <projAvgDamage>`,
   row 2 `[mark icon] <curPercent%> (<signed pctDelta>)`. Icons
   `icon_battle_condition_barrel_mark.png` (row 1) / `icon_battle_condition_improve.png` (row 2),
   from `…/personal_missions_30/quest_type/128x128/`.
+- **Row 3 — Counted Assistance (opt-in):** a third `.mb-row`, gated by `assistVisible` **and**
+  `countedAssist > 0`. Icon chosen from `assistKind` (`track`|`spot`|`stun`); value =
+  `max(track, spot, stun)` — the assist MoE credits (MAX not sum, per WG; see
+  `domain/battle_builder.py`). Enabled by the `counted_assistance_enabled` setting (default OFF);
+  see `moe-settings`.
 - **Render branch:** hidden unless `visible` **and `hasData`** (truthy guard, not `=== false` —
   a VM whose flags are still undefined before the first push must hide, not paint a `0/0` stub).
   When shown but **`hasBaseline` is false** (replay / relogin — no career baseline; BUG B), the

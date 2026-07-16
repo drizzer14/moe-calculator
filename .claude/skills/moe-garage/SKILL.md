@@ -24,6 +24,7 @@ concrete wiring. All paths under `src/res/`.
    float, nation) and `movingAvgDamage`; caches the career baseline into `baseline_cache`.
 4. **Build** — `domain/builder.py::build_model()` — three ticks at `MARK_PERCENTS=(65,85,95)`,
    fill = clamped percentile, `end_damage_required` from threshold key `100`. `bar_visible()` gates.
+   Widget presence is also gated by `mod_settings.garage_enabled()` (default ON); see `moe-settings`.
 5. **Push** — `bridge/view_models.py::MoEVM` (see slots below).
 
 **Lifecycle guard:** `attach()` caches `_active=(host_vm, rvm)` and nothing clears it (no
@@ -39,8 +40,8 @@ VM. `_arm` uses `getattr(holder, attr, None)` so a renamed WG event degrades qui
   **3 `curPercent` (Real)**, 4 `curAvgDamage`, **5 `fill` (Real)**, 6 `hasData`,
   7 `carouselRows`, 8 `carouselSmall`, 9 `ticks` (Array of `MarkTickVM`),
   **10 `endDamageRequired`**, 11 `labels` (JSON string for the tooltip).
-- **`MarkTickVM`** — `properties=5`: 0 `percent`, 1 `markCount`, 2 `damageRequired`, 3 `reached`, 4 `icon`.
-- `curPercent`/`fill` are **`_addRealProperty`+`_setReal`** on purpose: `_setNumber` int-casts and would render `73.67`→`73.00` (the `wotmod-architecture` Wulf-decimals rule).
+- **`MarkTickVM`** — `properties=4`: 0 `percent`, 1 `markCount`, 2 `damageRequired`, 3 `reached`. (No `icon` slot — the widget draws a flat glyph; the old nation-art URL was removed.)
+- `curPercent`/`fill` must be Real — see the Wulf-decimals rule in `wotmod-architecture`.
 
 ## Front-end (`MoECalculator.js` / `.css`)
 

@@ -1,6 +1,6 @@
 ---
 name: moe-calculator
-description: Use when working anywhere in the 14th_ua MoE Calculator repo and you need orientation — the mod's identity, versions, dependencies, the src/ tree, the shared cross-feature modules, the MoE data source, or the exact dev/deploy/test/REPL commands. Start here, then branch to moe-garage, moe-battle, or moe-build-release.
+description: Use when working anywhere in the 14th_ua MoE Calculator repo and you need orientation — the mod's identity, versions, dependencies, the src/ tree, the shared cross-feature modules, the MoE data source, or the exact dev/deploy/test/REPL commands. Start here, then branch to moe-garage, moe-battle, moe-settings, or moe-build-release.
 ---
 
 # 14th_ua's MoE Calculator — project map
@@ -11,13 +11,15 @@ features and the build each have their own project skill:
 
 - **`moe-garage`** — the hangar percentile-bar widget, end-to-end.
 - **`moe-battle`** — the in-battle live-MoE overlay, end-to-end.
+- **`moe-settings`** — the MSA settings panel + its 4 toggles, end-to-end.
 - **`moe-build-release`** — packaging, deploy, version files, dev loop, release.
 
 ## Identity (facts)
 
-- **Mod id:** `com.14th_ua.moe_calculator` (`src/meta.xml` is the canonical version, currently **0.2.1**).
-- **Client:** WoT **EU 2.3.0.1**. Runtime **Python 2.7** (BigWorld); tests on **Python 3.13**.
-- **Hard dep:** OpenWG GameFace ≥ 1.1.6 (`import openwg_gameface` raises if absent). No optional deps.
+- **Mod id:** `com.14th_ua.moe_calculator` (`src/meta.xml` is the canonical version, currently **1.1.0**).
+- **Client:** WoT **EU 2.3.1.0**. Runtime **Python 2.7** (BigWorld); tests on **Python 3.13**.
+- **Hard dep:** OpenWG GameFace ≥ 1.1.6 (`import openwg_gameface` raises if absent). Soft dep:
+  ModsSettingsAPI 1.7.0 (bundled; absent → mod runs with default settings, no panel). See `moe-settings`.
 - **MoE data source (official WG API, single build):** per-tank combined-damage thresholds `{1,2,3,100}` keyed by intCD come from the Wargaming public API's `wot/tanks/mastery` method (`distribution=damage&percentile=65,85,95,100`), via the `adapter/moe_data.py` facade over the sole provider `adapter/moe_wgapi.py`. On garage entry it fetches the selected tank, then warms the 100 most-recently-played owned vehicles (`adapter/garage_roster.py`, ranked by dossier `getLastBattleTime()`); an uncached selection fetches that one tank. Worker-thread fetch + `BigWorld.callback` poll; results persisted (`mods_data/14th_ua_moe/moe_wgapi_cache.json`) and revalidated 24h after the reply's `updated_at`. On a request error, `engine_adapter` extrapolates from the player's own dossier point via `domain/moe_estimate.py`. GitHub and WGMods ship the identical build. See [[moe-build-release]].
 
 ## The tree
@@ -31,16 +33,24 @@ src/res/scripts/client/
       types.py builder.py                garage data + build_model
       battle_types.py battle_builder.py  battle data + CD/EWMA/percent math
       positioning.py                     overlay anchor + damage-log-collapse predicate
+      placement.py                       overlay placement math
       moe_estimate.py                    error-fallback threshold estimator (inv-CDF + OLS + prior)
+      rounding.py                        py2/py3-stable rounding
+      fetch_list.py                      WG-API warm-fetch ranking
+      k_estimator.py                     self-calibrating EWMA-k
     adapter/    the ONLY read-side layer touching live game symbols (fail-soft via _safe)
       engine_adapter.py   garage dossier read      battle_adapter.py  in-battle efficiency read
       moe_data.py         source facade            moe_wgapi.py       WG-API fetch/parse/cache
       garage_roster.py    selected + recent intCDs format.py          pure formatters
       baseline_cache.py   garage→battle baseline   i18n.py            localized label bundle
+      battle_input.py     Alt-key peek input        calib_cache.py     persists observed EWMA-k
+      settings_i18n.py    MSA panel prose bundle
     bridge/     marshals model → Wulf ViewModels (PC-only)
       gameface_bridge.py  garage inject+push        battle_bridge.py   battle lifecycle+push
       battle_view.py      registered window host    view_models.py     MoEVM/MarkTickVM/BattleMoEVM
+      mod_settings.py     MSA registration + flag getters
       wulf_args.py        (reverse-channel helpers; unused — v1 is read-only)
+    build_config.py       build-injected WG_APPLICATION_ID
     _compat.py            LOG_* shim + _safe/_safe_int
 src/res/gui/gameface/mods/14th_ua/MoECalculator/   the two front-ends + assets (see moe-garage / moe-battle)
 src/res/mods/configs/res_map/MoEBattleView.json    registers the in-battle view
@@ -60,8 +70,8 @@ Deploy yourself — never ask the user to run these (run the commands directly v
 
 | Task | Command |
 |---|---|
-| Package + deploy | `C:\Python27\python.exe build\deploy_wotmod.py "D:/Games/World_of_Tanks_EU" 2.3.0.1` (reads `deploy.local.json` if no args) |
-| Garage hot-reload | `<py3> tools\dev\sync_gameface.py "D:/Games/World_of_Tanks_EU" 2.3.0.1` (front-end only; **battle window can't hot-reload**) |
+| Package + deploy | `C:\Python27\python.exe build\deploy_wotmod.py "D:/Games/World_of_Tanks_EU" 2.3.1.0` (reads `deploy.local.json` if no args) |
+| Garage hot-reload | `<py3> tools\dev\sync_gameface.py "D:/Games/World_of_Tanks_EU" 2.3.1.0` (front-end only; **battle window can't hot-reload**) |
 | Tests | `<py3> -m pytest -q` |
 | Live REPL | `<py3> tools\dev\repl_client.py "<expr>"` — needs `com.14th_ua.moe_calculator_debug.wotmod` on TCP **:2224** |
 

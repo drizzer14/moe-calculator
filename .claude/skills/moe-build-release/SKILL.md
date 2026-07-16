@@ -15,16 +15,18 @@ this skill is the concrete file list and command set. **Two Pythons:** package w
 
 | File | Reference |
 |---|---|
-| `src/meta.xml` | `<version>0.1.0</version>` — **source of truth** |
-| `src/res/scripts/client/gui/mods/mod_moe_calculator.py` | `MOD_VERSION = "0.1.0"` |
-| `installer/moe_calculator-setup.iss` | `#define ModVersion "0.1.0"` + `#define ModWotmod "…_0.1.0.wotmod"` |
-| `installer/build_installer.ps1` | `$ModWotmod = …com.14th_ua.moe_calculator_0.1.0.wotmod` |
-| `INSTALL.md` | `MoECalculator-Setup-0.1.0.exe`, `…_0.1.0.wotmod` |
-| `dist/INSTALL.txt` | prose `version 0.1.0` (gitignored build output; checked when present) |
+| `src/meta.xml` | `<version>X.Y.Z</version>` — **source of truth** |
+| `src/res/scripts/client/gui/mods/mod_moe_calculator.py` | `MOD_VERSION = "X.Y.Z"` |
+| `installer/moe_calculator-setup.iss` | `#define ModVersion "X.Y.Z"` + `#define ModWotmod "…_X.Y.Z.wotmod"` |
+| `installer/build_installer.ps1` | `$ModWotmod = …com.14th_ua.moe_calculator_X.Y.Z.wotmod` |
+| `INSTALL.md` | `MoECalculator-Setup-X.Y.Z.exe`, `…_X.Y.Z.wotmod` |
+| `dist/INSTALL.txt` | prose `version X.Y.Z` (gitignored build output; checked when present) |
+
+_`X.Y.Z` is illustrative — the live canonical value is in `src/meta.xml` (currently 1.1.0)._
 
 - `README.md` uses `<version>` placeholders (no hard-coded number). `adapter/moe_wgapi.py`'s
   `_AGENT` string carries the project URL (no version number — nothing cosmetic to bump there).
-- The **client** version `2.3.0.1` is deliberately excluded from the check (a `(?!\.\d)` lookahead skips the 4-part client version).
+- The **client** version `2.3.1.0` is deliberately excluded from the check (a `(?!\.\d)` lookahead skips the 4-part client version).
 
 ## Release must stay silent (no unconditional logging)
 
@@ -52,7 +54,7 @@ before every release** (it is part of the gate, alongside `check_version.py`), a
   `--clean-overlay` removes the hot-reload overlay. **Needs `WorldOfTanks.exe` closed** (`wgc` ok).
 - **`build_moe_zip.py`** — any Python. Builds `dist/MoECalculator_<version>.zip` = bilingual
   `readme.txt` (from `installer/readme.moe.txt`, `{VERSION}` substituted, CRLF) + the mod `.wotmod`
-  + all `installer/vendor/*.wotmod` under `mods/2.3.0.1/`. Manual upload to wgmods.net. Holds `CLIENT_VERSION="2.3.0.1"`.
+  + all `installer/vendor/*.wotmod` under `mods/2.3.1.0/`. Manual upload to wgmods.net. Holds `CLIENT_VERSION="2.3.1.0"`.
   Packages whatever `.wotmod` is in `dist/` — the same single build the GitHub installer uses.
 - **`check_version.py`** — the version gate above. **`clean_dist.py`** — prunes non-current release artifacts from `dist/` (`--dry-run`).
 
@@ -67,7 +69,7 @@ before every release** (it is part of the gate, alongside `check_version.py`), a
 
 ## Hot-reload (the split that bites)
 
-- **Garage widget hot-reloads:** `<py3> tools\dev\sync_gameface.py "D:/Games/World_of_Tanks_EU" 2.3.0.1`
+- **Garage widget hot-reloads:** `<py3> tools\dev\sync_gameface.py "D:/Games/World_of_Tanks_EU" 2.3.1.0`
   copies only the Gameface JS/CSS/assets into `res_mods`, then toggle Tech-Tree↔Garage to re-inject. No relaunch.
 - **The in-battle registered WINDOW does NOT hot-reload** — its resources pin at client launch;
   reopen and `Window.reload()` both serve the launch-time cached document. **Every CSS/JS tweak to
@@ -101,7 +103,7 @@ feed, so keep the `vX.Y.Z` tag + `MoECalculator-Setup-<ver>.exe` asset-name conv
 `wotmod-release` for the bump→tag→build→publish flow.
 
 **GitHub release title = `vX.Y.Z` (v-prefixed), strictly.** Both the tag AND the release title
-are `vX.Y.Z` (e.g. `v0.2.3`) — never the bare `X.Y.Z`. Every prior release (v0.1.0 … v0.2.3)
+are `vX.Y.Z` (e.g. `v1.1.0`) — never the bare `X.Y.Z`. Every prior release (v0.1.0 … v1.1.0)
 follows this. Create with `gh release create vX.Y.Z --title "vX.Y.Z" …`, then verify
 `gh release view vX.Y.Z --json name --jq '.name'` prints `vX.Y.Z`; fix drift with
 `gh release edit vX.Y.Z --title "vX.Y.Z"`.
