@@ -383,34 +383,58 @@ engine.whenReady.then(() => {
     render(observer.model);
 });
 
-/* Match the widget's size to WG's bottom-bar slot boxes (crew/equip/directive/ammo/
-   consumables). Those boxes scale with the VIEWPORT (like the carousel), while the widget is
-   sized in rem (= interfaceScale px). interfaceScale is power-of-two gated, so at 1440p (x1,
-   taller viewport) the rem widget is too SHORT vs the boxes. We rescale the whole widget by
-       k = innerHeight / (SIZE_REF * scale)
-   The boxes are a BLEND of scale and viewport (pure-viewport over-grows the widget at 1440p),
-   so the rescale is
-       k = 1 + GROWTH * (vp/scale - SIZE_REF) / SIZE_REF ,   vp/scale = innerHeight / (1rem px)
-   which is EXACTLY 1.0 at 4K (vp/scale = 2160/2 = 1080) and 1080p (1080/1) -- where the rem
-   design already matches the boxes -- and grows for taller viewports at the same scale (1440p:
-   vp/scale = 1440). GROWTH picks how much of that viewport growth to follow: 0 = pure rem
-   (too short at 1440p), 1 = pure viewport (too tall). GROWTH=0.625 was calibrated LIVE at
-   1440p against the slot boxes (k=1.208). Anchored at the bottom-right corner (transform-origin)
-   so the calibrated `bottom`/`right` anchor holds; the box grows up and to the left. SIZE_REF=
-   1080 is fixed by "widget matches boxes at 4K" (also the exact-match point at 1080p). */
-var SIZE_REF = 1080;
-var GROWTH = 0.625;
+/* Resolution-calibrated size law. k depends only on the LOGICAL viewport
+   height (innerHeight/remPx): k=1 at the 1080 reference (so 1080p@x1 and 4K@x2,
+   which share logical vp 1080, render at the same accepted screen fraction),
+   growing by GROWTH per +1080 logical px. GROWTH is the single free knob
+   (governs 1440p@x1 and 4K@x1); tuned live in-game, then baked.
+
+   SATURATION CLAMP: the logical viewport is capped at LVP_CAP=1440 before the
+   growth term, so growth SATURATES at 1440 logical px. This makes 1440p@x1
+   (lvp 1440) and 4K@x1 (lvp 2160 -> clamped to 1440) render at the IDENTICAL
+   size (same k). Below 1440 nothing changes: 1080p@x1 (lvp 1080) and 4K@x2
+   (lvp 1080) still give k=1. The paired position-law clamp (min(26.11vh,376px)
+   in the CSS bottom anchor) makes their GAP identical too.
+
+   The content is authored in rem (1rem == interfaceScale px == remPx); we rescale
+   it by k, anchored at the bottom-right corner (transform-origin 100% 100%) so the
+   calibrated `bottom`/`right` anchor holds; the box grows up and to the left. */
+var SIZE_REF = 1080;     // logical-viewport reference height (k=1 here)
+var CAL_REMPX = 2;       // interface scale (root font px) at which the x2 size was verified correct
+var LVP_CAP = 1440;      // logical-viewport saturation point: growth stops past 1440 -> 1440p@x1 == 4K@x1
 function widgetScale(remPx) {
-    return 1 + GROWTH * (window.innerHeight / remPx - SIZE_REF) / SIZE_REF;
+    remPx = remPx || CAL_REMPX;
+    var GROWTH = 0.625;   // size slope: +GROWTH per +SIZE_REF logical px
+    // k=1 at the 1080 logical-vp reference, growing by GROWTH per +1080 logical px,
+    // SATURATING at LVP_CAP=1440 logical px (so 1440p@x1 and 4K@x1 collapse to one k).
+    var lvp = Math.min(window.innerHeight / remPx, LVP_CAP);
+    var k = 1 + GROWTH * (lvp - SIZE_REF) / SIZE_REF;
+    if (remPx >= 2) { k *= 132 / 136; }   // x2 anchor trim: 136px -> 132px (4K@x2 only)
+    return k;
+}
+var _lastRemPx = 0;
+var _lastIH = 0;
+function readRemPx() {
+    return parseFloat(getComputedStyle(document.documentElement).fontSize) || CAL_REMPX;
 }
 function applyWidgetScale() {
     var root = document.getElementById("moe-root");
     if (!root) return;
-    var remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 1;
+    var remPx = readRemPx();
+    _lastRemPx = remPx;
+    _lastIH = window.innerHeight;
+    // Vertical position is fully CSS-driven (the rem+17.78vh Y law lands x1 and x2 on its own),
+    // so the transform carries only the resolution-calibrated scale, anchored at the bottom-right
+    // corner so the CSS bottom/right anchor holds.
     root.style.transformOrigin = "100% 100%";
     root.style.transform = "scale(" + widgetScale(remPx) + ")";
+}
+function pollWidgetScale() {
+    if (!document.getElementById("moe-root")) return;
+    if (readRemPx() !== _lastRemPx || window.innerHeight !== _lastIH) applyWidgetScale();
 }
 engine.whenReady.then(function () {
     applyWidgetScale();
     window.addEventListener("resize", applyWidgetScale);
+    setInterval(pollWidgetScale, 250);
 });

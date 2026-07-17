@@ -4,19 +4,38 @@
    var() (ignoring the fallback), which renders elements invisible. SIZING is all in rem:
    the engine sets the hangar doc's root font so 1rem == interfaceScale px (measured via the
    S1 probe: 1px @1x, 2px @2x), i.e. rem IS WG's own logical layout unit, so the box + bar
-   scale with the interface. The two ANCHOR AXES are DIFFERENT units, because they clear two
-   WG elements that move by DIFFERENT laws (verified live at 1080p, 1440p, 4K -- all Auto):
+   scale with the interface. Both ANCHOR AXES are RESOLUTION-INVARIANT (they depend only on
+   the interface scale, NOT on the viewport/resolution), matching WG's own UI which renders at
+   a fixed device-px size per interface scale (verified live at 1080p, 1440p, 4K -- all Auto):
      X (right: rem) tracks the vehicle-info column's right edge, which is SCALE-tracking
         (logical): 46rem = 46px @1x, 92px @2x. Verified across scale + resolution.
-     Y (bottom: calc(B rem + V vh)) clears the carousel top, which is NEITHER pure-scale NOR
-        pure-viewport -- it is a BLEND (see the #moe-root Y note for the full derivation).
-        Auto interfaceScale is power-of-two gated (x2 only at height>=1536), so 1080p and
-        1440p are BOTH x1 and 4K is x2; 4K being exactly 2x 1080p makes those two points
-        degenerate (rem, vh, and every blend agree there), and 1440p is what pins the blend.
-     History: pure vw/vh -> a `calc(<rem>+140px)` hybrid (patched a fixed-4K scale-toggle
-   drift, but a fixed px term over-lifts at lower resolutions) -> pure rem (right at 1080p/4K,
-   too LOW at 1440p) -> pure vh (too HIGH at 1440p) -> this rem+vh blend, right at all three.
-   Do NOT collapse Y back to a single unit. The engine reflows both units live, no push.
+     Y (bottom: calc(R rem + 18.33vh - 134px), with an @media (min-height:1440px) override to
+        calc(R rem + 130px)) clears the carousel top. It is a BLEND of a scale term (R rem =
+        R*remPx px, remPx = interfaceScale px) and a PLATEAUED VIEWPORT term (18.33vh = 18.33% of
+        innerHeight below ih=1440; frozen at its ih=1440 value of 264px at/above, via the media
+        query) plus a fixed -134px const -- see the #moe-root Y note for the calibrated law. Unlike
+        X, Y is genuinely RESOLUTION-dependent below the plateau: the carousel sits a fixed FRACTION
+        down the screen, so the gap grows with viewport height -- UNTIL ih>=1440, where the @media
+        plateau freezes the viewport term so the gap STOPS growing (4K@x1 gap == 1440p@x1 gap). The
+        law was fitted LIVE to measured widget-bottom -> screen-bottom gaps:
+        1080p@x1(remPx=1,ih=1080)=302px, 1440p@x1(remPx=1,ih=1440)=368px,
+        4K@x2(remPx=2,ih=2160)=606px, and by the plateau 4K@x1(remPx=1,ih=2160)=368px (IDENTICAL to
+        1440p@x1). The rem coefficient (not a fixed px)
+        is REQUIRED so the scale term doubles at x2 (R*2 px) -- that is what lets the law reach 606
+        at 4K. This pairs with the JS size-law clamp (LVP_CAP=1440) so 1440p@x1 and 4K@x1 render
+        at the IDENTICAL size AND gap.
+     History: pure vw/vh -> a `calc(<rem>+140px)` hybrid -> an 18.33vh rem+vh blend -> pure rem
+   (overshot x1) -> a two-point rem + 7.5vh blend -> a resolution-invariant two-point rem+162px
+   law (frozen the vh term to 4K device px -- but that made the widget drift at non-4K because
+   the carousel is viewport-relative, NOT resolution-invariant) -> a live-calibrated rem+17.78vh
+   law (gaps 304/368/606) -> a three-point-exact rem+26.11vh-58px law (rows2 pinned in-game;
+   single/small transferred by their content-height rem offset) -> an intermediate plateaued
+   rem+26.11vh-246px law -> THIS two-point rem + 18.33vh - 134px law, 1080p=302, continuous to the
+   368 plateau at ih=1440, with the @media (min-height:1440px) freeze that holds the viewport term
+   at its ih=1440 value so 4K@x1 collapses onto 1440p@x1 -- an @media split, NOT CSS min(),
+   because min() is never used in WG's Gameface stylesheets and did not parse (see the #moe-root Y
+   note). Y is a genuine blend -- do NOT collapse it to a single unit and do NOT restore the
+   frozen-px or pure-rem coefficients. The engine reflows both units live.
 
    Layout: a horizontal percentile bar (0..100) anchored bottom-right, above the
    carousel, styled like the garage's top-right Battlepass chapter-progress widget.
@@ -25,25 +44,52 @@
 
 #moe-root {
     position: fixed;
-    /* Bottom-right, above the carousel. X and Y use DIFFERENT units (see file header).
+    /* Bottom-right, above the carousel. X and Y use DIFFERENT units (see file header). Both
+       are RESOLUTION-INVARIANT (depend only on interface scale, not viewport), like WG's UI.
          X: right 46rem -- the vehicle-info column's right edge is scale-tracking. Verified.
-         Y: bottom calc(B rem + V vh) -- a BLEND of a scale term and a viewport term, because
-            the carousel top is NEITHER pure-scale NOR pure-viewport. 1rem = interfaceScale px
-            (the scale term, so B rem = B*scale px); 1vh = viewport_height/100 px (the drift
-            term). Why a blend: interfaceScale is power-of-two gated (x2 only at height>=1536),
-            so 1080p and 1440p are BOTH x1 while 4K is x2. 4K is exactly 2x 1080p in scale AND
-            pixels -> those two points are DEGENERATE (pure rem, pure vh, and every blend all
-            agree there), so they alone can't fix the law; 1440p (x1 but a taller viewport)
-            is the point that pins it. V=18.33vh was calibrated LIVE on the 2-ROW carousel
-            (302/368/604px measured good @1080p/1440p/4K); the same V is reused for single-row
-            + small (their B pinned to the original 1080p/4K px). 1080p+4K reproduce EXACTLY.
-         RETUNE: V (vh) is shared by all three states; B (rem) differs per carousel height.
-            To adjust the mid-resolution (e.g. 1440p) feel, change V and re-solve B to hold
-            1080p: B = px_at_1080p - V*10.8. Do NOT collapse back to a single unit (pure rem
-            sits too LOW at 1440p; pure vh too HIGH -- both tried live). single/small B are
-            extrapolated from the rows2 fit -- verify live if those carousel modes are used. */
+         Y: bottom calc(R rem + 18.33vh - 134px), with an @media (min-height:1440px) block that
+            overrides it to calc(R rem + 130px) -- a LIVE-CALIBRATED BLEND of a scale term, a
+            PLATEAUED VIEWPORT term, and a fixed px const. 1rem = interfaceScale px (remPx), so
+            R rem = R*remPx px (R px @x1, 2R px @x2); 18.33vh = 18.33% of innerHeight below ih=1440,
+            frozen at its ih=1440 value (264px, i.e. 264-134 = +130px net) at/above via the media
+            query; -134px is a resolution/scale-invariant offset. Y is RESOLUTION-dependent (unlike
+            X) below the plateau: the carousel top sits a fixed FRACTION down the screen, so the gap
+            grows with the viewport UNTIL ih>=1440, where the @media plateau freezes the viewport
+            term and the gap stops growing. interfaceScale is power-of-two gated (x2 only at
+            height>=1536), so 1080p and 1440p are BOTH x1 while 4K is x2 -- which means 4K@x1 (Auto
+            never picks it, but a MANUAL x1 at 4K, or any ih>=1440 @x1) lands on the SAME gap as
+            1440p@x1.
+         THE LAW (fitted to measured widget-bottom -> screen-bottom gaps, rows2 state):
+            model bottom = R*rem + 18.33vh - 134px below ih=1440; R*rem + 130px at/above ih=1440
+            (the @media block; 130 = 264-134, the vh term frozen at its ih=1440 value). Target gaps:
+            1080p@x1(remPx=1,ih=1080)=302px, 1440p@x1(remPx=1,ih=1440)=368px,
+            4K@x2(remPx=2,ih=2160)=606px, and (by the plateau) 4K@x1(remPx=1,ih=2160)=368px==1440p@x1.
+            TWO-POINT FIT (rows2, x1): the base slope + const come from the two x1 gaps at differing
+            viewport heights -- 302 at ih=1080 and 368 at ih=1440 -> slope = (368-302)/(14.4-10.8) =
+            66/3.6 = 18.33vh; const = 302 - (238 + 18.33*10.8) = -134px. The 4K@x2=606 point is then
+            reached purely by the doubled rem term (2*238=476 device px @x2, added to the frozen
+            plateau's +130). Check (base, ih<1440): 1080p 238+198-134=302; 1440p 238+264-134=368.
+            Check (@media, ih>=1440): 1440p 238+130=368; 4K@x1 238+130=368; 4K@x2 476+130=606.
+            Boundary continuous (at ih=1440 the base 18.33vh=264 also gives 368, so no jump). All
+            EXACT. Per carousel state R differs by content height; single/small preserve their prior
+            inter-state rem offset off the rows2 R:
+                rows2 (pinned live): R=238   (-134px const, shared)
+                single-row:          R=211.5   (rows2 R - 26.5, its old A offset)
+                small:               R=195     (rows2 R - 43,   its old A offset)
+         Pairs with the JS size-law clamp (LVP_CAP=1440): 1440p@x1 and 4K@x1 render at the IDENTICAL
+         size AND gap. Do NOT collapse Y to a single unit and do NOT restore the frozen-px or
+         pure-rem values. WHY @media, not min(): CSS min() is NEVER used in WG's own Gameface
+         stylesheets (grep of the packed gui-part*.pkg CSS: 0 min()/max()/clamp() vs 267 calc()) and
+         did NOT reliably parse on this Coherent/Gameface build, so the vh cap is expressed as a
+         plain @media (min-height:1440px) plateau instead -- @media IS heavily used by WG (118
+         occurrences, incl. min-height queries), so it is safe.
+         RETUNE: the vh term (+ its 130px frozen plateau) and the -134px const are shared by all
+            three states; R (rem) differs per carousel height. To adjust, re-pin rows2 live (fit R +
+            vh to two measured gaps at differing viewport heights, one at each scale), rebase the
+            plateau (130 = 18.33*ih_cap/100 - 134 with ih_cap the media-query threshold), then
+            transfer single/small by their rem offset. Verify live at both x1 and x2. */
     right: 46rem;
-    bottom: calc(77.5rem + 18.33vh);  /* single-row (rows=1) -- scale/viewport blend (see Y note) */
+    bottom: calc(211.5rem + 18.33vh - 134px);  /* single-row (rows=1) -- R=211.5 (rows2 R 238 - 26.5 offset); ih>=1440 plateau in @media below */
     width: 315rem;                /* content width; matched to the missions-panel box width
                                      (was 360 -- box read ~13% wider than the reference) */
     z-index: 9000;
@@ -97,10 +143,25 @@
 
 /* Responsive lift: raise the bar to clear a taller carousel. A double row is taller
    than a single row; the small (shorter) double-row tiles need less lift than the tall
-   adaptive tiles. .moe-small must follow .moe-rows2 in source order so it wins. Same blend
-   as #moe-root bottom (shared V vh; B rem differs per carousel height -- see the Y note). */
-#moe-root.moe-rows2 { bottom: calc(104rem + 18.33vh); }        /* blend -- calibrated live (302/368/604px @1080p/1440p/4K) */
-#moe-root.moe-rows2.moe-small { bottom: calc(61rem + 18.33vh); }  /* blend */
+   adaptive tiles. .moe-small must follow .moe-rows2 in source order so it wins. Same
+   rem + 18.33vh - 134px law as #moe-root bottom (shared vh term + -134px const; rem R
+   differs per carousel height -- rows2 R=238 pinned live, see the Y note for the derivation
+   + the @media (min-height:1440px) plateau that makes 4K@x1 land on 1440p@x1). */
+#moe-root.moe-rows2 { bottom: calc(238rem + 18.33vh - 134px); }        /* base (ih<1440); ih>=1440 plateau in @media below. gap 302/368/368/606 @1080x1/1440x1/4Kx1/4Kx2 (R=238, 18.33vh, -134px const) */
+#moe-root.moe-rows2.moe-small { bottom: calc(195rem + 18.33vh - 134px); }  /* R=195 (rows2 R 238 - 43 offset) */
+
+/* ih>=1440 plateau: freeze the viewport term at its ih=1440 value (18.33vh=264px), so
+   bottom = R rem + (264-134) = R rem + 130px. WG's Gameface CSS never uses min()/max()/clamp()
+   (0 uses across the packed gui-part*.pkg CSS vs 267 calc()), so the cap is a @media split
+   rather than the unsupported min(18.33vh,264px). @media itself is heavily used by WG (118
+   occurrences, incl. min-height queries) -> safe. Must FOLLOW the base anchors in source order
+   so it wins at ih>=1440 (each selector matches its base rule's specificity exactly); boundary
+   is continuous (at ih=1440 the base 18.33vh=264 yields the same 368, no jump). All 3 states. */
+@media (min-height: 1440px) {
+  #moe-root { bottom: calc(211.5rem + 130px); }
+  #moe-root.moe-rows2 { bottom: calc(238rem + 130px); }
+  #moe-root.moe-rows2.moe-small { bottom: calc(195rem + 130px); }
+}
 
 /* --- current readout, sitting right on top of the bar ---------------------- */
 /* Anchored just above the track's left end (like the Battle Pass "Stage 1"
