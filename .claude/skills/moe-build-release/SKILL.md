@@ -47,6 +47,12 @@ before every release** (it is part of the gate, alongside `check_version.py`), a
 - **`build_wotmod.py`** — **Python 2.7 only** (asserts). Reads `meta.xml`, compiles `.py`→`.pyc`
   (drops `.py`, skips `__pycache__`), zips `meta.xml` + `res/` as **`ZIP_STORED`** →
   `dist/com.14th_ua.moe_calculator_<version>.wotmod`. Non-`.py` files (fonts/PNG/JSON) are copied verbatim.
+  **Self-enforces `-OO`** (`_ensure_optimized`, since 1cd8c27): if `sys.flags.optimize < 2` it
+  re-execs *this script* (not `sys.argv`, so `deploy_wotmod.py`'s in-process `main()` isn't
+  restarted) in an `-OO` subprocess, so a plain `python build/build_wotmod.py` ships
+  docstring-stripped `.pyc` **by default** — the harness "Ship docstring-stripped bytecode"
+  standard. (`-OO` also drops `assert`, so keep asserts to tests/dev tools, never load-bearing
+  in shipped src.)
   **Single build, no arguments** — MoE thresholds come from the official WG API at runtime
   (`adapter/moe_wgapi.py`), so GitHub and WGMods ship the identical `.wotmod`.
 - **`deploy_wotmod.py`** — Python 2.7. Cleans old `…_[0-9]*.wotmod` from `mods/<ver>/` + loose
@@ -89,12 +95,16 @@ before every release** (it is part of the gate, alongside `check_version.py`), a
 
 ## Release state
 
-**v0.1.0 through v1.2.0 are published** on `github.com/drizzer14/moe-calculator` (`origin/main`).
-The **1.0.0** release retargeted the mod to WoT client **2.3.1.0** (major bump) and added the
-Alt-key peek mode + Counted Assistance row; **1.1.0** is a patch-level polish of the in-battle
-overlay row/backdrop alignment (shipped as a minor bump by choice); **1.2.0** is a minor bump
-carrying the in-battle MoE-projection accuracy work (smooth probit curve + self-calibrating
-EWMA `k`) plus the R3 row-backdrop fix — all committed after the v1.1.0 tag but unreleased until then.
+**v0.1.0 through v1.3.0 are published** on `github.com/drizzer14/moe-calculator` (`origin/main`);
+**v1.3.0 (2026-07-17) is the current Latest**. The **1.0.0** release retargeted the mod to WoT
+client **2.3.1.0** (major bump) and added the Alt-key peek mode + Counted Assistance row; **1.1.0**
+is a patch-level polish of the in-battle overlay row/backdrop alignment (shipped as a minor bump by
+choice); **1.2.0** is a minor bump carrying the in-battle MoE-projection accuracy work (smooth
+probit curve + self-calibrating EWMA `k`) plus the R3 row-backdrop fix — all committed after the
+v1.1.0 tag but unreleased until then; **1.3.0** is a minor bump carrying the settings-surface
+overhaul — migrated to Aslain **ModsSettingsAPI** + bundled **Mods List API** (settings now surface
+in WoT's in-game "Modification list" window), a redesigned **two-column MSA settings panel**, and
+resolution-correct **high-DPI/4K garage widget** size + position (plus an enlarged MoE award tooltip).
 Both channels now ship the **same single build** (WG-API threshold source): the GitHub release
 carries `MoECalculator-Setup-<ver>.exe` + the bare `.wotmod`, and `MoECalculator_<ver>.zip`
 (same `.wotmod` + vendor deps) is uploaded manually to
@@ -107,7 +117,7 @@ feed, so keep the `vX.Y.Z` tag + `MoECalculator-Setup-<ver>.exe` asset-name conv
 `wotmod-release` for the bump→tag→build→publish flow.
 
 **GitHub release title = `vX.Y.Z` (v-prefixed), strictly.** Both the tag AND the release title
-are `vX.Y.Z` (e.g. `v1.2.0`) — never the bare `X.Y.Z`. Every prior release (v0.1.0 … v1.2.0)
+are `vX.Y.Z` (e.g. `v1.3.0`) — never the bare `X.Y.Z`. Every prior release (v0.1.0 … v1.3.0)
 follows this. Create with `gh release create vX.Y.Z --title "vX.Y.Z" …`, then verify
 `gh release view vX.Y.Z --json name --jq '.name'` prints `vX.Y.Z`; fix drift with
 `gh release edit vX.Y.Z --title "vX.Y.Z"`.
