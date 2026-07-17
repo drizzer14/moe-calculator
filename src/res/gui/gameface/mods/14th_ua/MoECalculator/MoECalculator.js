@@ -428,6 +428,12 @@ function applyWidgetScale() {
     // corner so the CSS bottom/right anchor holds.
     root.style.transformOrigin = "100% 100%";
     root.style.transform = "scale(" + widgetScale(remPx) + ")";
+    // 4K@x2 only: widen the box by ~32 screen px extending LEFT (right-anchored origin).
+    // Base width is 315rem (MoECalculator.css). At x2 1rem=2px and k=132/136, so
+    // +16.5rem -> +16.5*2*(132/136) ~= 32 screen px. Reset to "" everywhere else so a
+    // live resolution/interfaceScale change re-arms cleanly to the CSS default.
+    if (remPx >= 2 && window.innerHeight >= 2160) { root.style.width = "331.5rem"; }
+    else { root.style.width = ""; }
 }
 function pollWidgetScale() {
     if (!document.getElementById("moe-root")) return;
