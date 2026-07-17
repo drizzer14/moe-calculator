@@ -13,19 +13,31 @@ This skill is only the mod's concretes. All paths under `src/res/scripts/client/
 
 Owner module: `bridge/mod_settings.py` (flag state + MSA registration). Prose: `adapter/settings_i18n.py`.
 
-## The 4 controls
+## The 4 controls (two-column grouped panel)
 
-`SETTINGS_VERSION = 3`. Each `varName` == the `DEFAULTS` key, so the dict MSA returns maps
+`SETTINGS_VERSION = 4`. Each `varName` == the `DEFAULTS` key, so the dict MSA returns maps
 straight through `merge_settings`. Bump `SETTINGS_VERSION` **only** when the control layout /
-varName set changes (the host wipes saved values on a bump) — localizing text is text-only and
-does NOT bump it.
+varName set changes (the host wipes saved values back to the unchanged defaults on a bump) —
+localizing text is text-only and does NOT bump it. (The 3→4 bump was this two-column
+restructure.)
 
-| Control | key / `varName` | default | getter | consumed by |
-|---|---|---|---|---|
-| Garage Widget Enabled | `garage_widget_enabled` | ON | `garage_enabled()` | `bridge/gameface_bridge.py` (garage widget presence) |
-| Battle Widget Enabled | `battle_widget_enabled` | ON | `battle_enabled()` | `bridge/battle_bridge.py` (always-on overlay) |
-| Show only on Alt (peek) | `battle_widget_alt_key` | OFF | `battle_alt_key_enabled()` | `bridge/battle_bridge.py` soft-gate |
-| Counted Assistance row | `counted_assistance_enabled` | OFF | `counted_assistance_enabled()` | `battle_bridge` → `BattleMoEVM.assistVisible` → JS row 3 |
+The panel is **two columns**, built in `_template()`:
+- **column1 = "In-Battle Widget"** — the `battle_widget_enabled` master grouped via
+  `_grouped_column1()` (→ `templates.createControlsGroup(master, children, indent=True)`) with
+  two **indented children** that grey out while the master is off: "Show on Alt Key" and
+  "Counted Assistance". Feature-detect fallback: if the helper is absent (older MSA / izeberg),
+  each child gets `masterVarName = battle_widget_enabled` set by hand (what the helper does).
+- **column2 = "In-Garage Widget"** — the standalone `garage_widget_enabled` master, no children.
+
+| Control (EN label) | key / `varName` | column | default | getter | consumed by |
+|---|---|---|---|---|---|
+| In-Garage Widget | `garage_widget_enabled` | column2 (standalone) | ON | `garage_enabled()` | `bridge/gameface_bridge.py` (garage widget presence) |
+| In-Battle Widget | `battle_widget_enabled` | column1 master | ON | `battle_enabled()` | `bridge/battle_bridge.py` (overlay hard gate) |
+| Show on Alt Key | `battle_widget_alt_key` | column1 child | OFF | `battle_alt_key_enabled()` | `bridge/battle_bridge.py` peek modifier |
+| Counted Assistance | `counted_assistance_enabled` | column1 child | OFF | `counted_assistance_enabled()` | `battle_bridge` → `BattleMoEVM.assistVisible` → JS row 3 |
+
+`settings_i18n.COL1_KEYS = (battleWidget, battleAltKey, countedAssist)`,
+`COL2_KEYS = (garageWidget,)` — the wire order MSA and `_sync_template_text` walk in lockstep.
 
 The getters import NOTHING from the sibling bridges, so `gameface_bridge` / `battle_bridge` read
 them without a cycle. Live state seeds from MSA in `register()`; defaults until then / if MSA absent.
@@ -37,6 +49,15 @@ MSA (bundled `installer/vendor/aslain.modssettingsapi_1.6.4.wotmod`, import surf
 dependency**: `register()` imports it guarded and, if absent, logs-and-returns with defaults
 intact (both widgets on) and no panel — never a crash. There is no config file of ours; MSA
 owns persistence.
+
+The bundled **Aslain fork 1.6.4 DOES support child gating / grouping** (this is why the panel
+can grey out the two In-Battle children under their master): `createControlsGroup(master,
+children, indent=True)`, `enableWhen` / `visibleWhen` (with condition operators
+`== != > >= < <=`), `enableWhenAll` / `enableWhenAny`, `visibleWhenAll` / `visibleWhenAny`, up
+to **4 columns** (`column1..column4`), and 14 component types. A boolean master's children grey
+out when it's off — but the disabled state is **derived from a `masterVarName` binding**, not a
+literal per-control `disabled` field (this corrects an earlier note that claimed MSA had no
+per-control disable at all).
 
 `register()` is **idempotent + self-healing** (`_registered` latch): MSA may not be loaded at
 our import time (our reverse-domain id `com.14th_ua.moe_calculator` sorts early), so a first
@@ -66,12 +87,26 @@ change, not just ours. Two defenses, both required:
 (`_seed` — the whole-state replace-filling-defaults — is used ONLY for the authoritative
 registration/reset payload, never for the live-change path.)
 
-## Alt-peek ⟂ always-on
+## Master gate + Alt-peek modifier (the child model)
 
-`battle_widget_alt_key` is **mutually exclusive** with `battle_widget_enabled`: the Alt-peek flag is
-ignored while the always-on battle widget is ON. The gate lives in the battle consumer
-(`battle_bridge.battle_bar_visible`), not in MSA — MSA 1.7.0 has no per-control disabled field, so
-the checkbox stays clickable; its value just has no effect while `battle_enabled()` is on.
+`battle_widget_enabled` is the **hard gate**; `battle_widget_alt_key` is a **peek modifier ON
+an already-enabled overlay** (NOT mutually exclusive — that was the old, now-inverted rule). The
+truth lives in `domain/battle_builder.battle_bar_visible` (pure, engine-free):
+
+```
+active == enabled and (alt_held if alt_mode else True)
+```
+
+- master **off** → overlay **never shown** (hard gate; `battle_bridge` doesn't even open the
+  window — `_on_mount_refresh` early-returns, and the window-open gate keys on `battle_enabled()`
+  alone).
+- master **on** + Alt-child **off** → overlay **always shown**.
+- master **on** + Alt-child **on** → overlay shown **only while Alt is held** (event-driven via
+  `battle_input`, tracked in `_alt_held`).
+
+The child greys out in the panel while the master is off (see `createControlsGroup` /
+`masterVarName` above), and it's also inert at runtime — when `enabled` is false the `alt_mode`
+term is never reached.
 
 ## Panel prose (defer to `wotmod-i18n-settings`)
 
