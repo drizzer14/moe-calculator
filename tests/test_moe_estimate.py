@@ -3,8 +3,6 @@
 Python 3 -- no game imports. Covers the inverse-normal CDF accuracy, the OLS fit recovering
 a known (mu, sigma), and thresholds_from_samples across its branches (fit / single-sample
 prior / degrade-to-empty)."""
-import math
-
 import pytest
 
 from moe_calculator.domain import moe_estimate as me

@@ -4,8 +4,6 @@
 No monkeypatching, no I/O -- every function here is a total function of numbers, so these
 tests run identically on the client's Python 2.7 and the dev Python 3.13 interpreter.
 """
-import math
-
 from moe_calculator.domain import k_estimator
 
 
