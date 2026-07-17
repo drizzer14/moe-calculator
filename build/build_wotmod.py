@@ -29,6 +29,7 @@ import sys
 import shutil
 import zipfile
 import tempfile
+import subprocess
 import py_compile
 
 import meta
@@ -51,6 +52,36 @@ ENV_FILE = os.path.join(ROOT, ".env")
 # source produces a byte-identical .wotmod -- lets a release verify diff/checksum
 # the artifact instead of eyeballing it. See _normalize_pyc for the bytecode half.
 _FIXED_DATE = (1980, 1, 1, 0, 0, 0)
+
+
+def _ensure_optimized():
+    """Guarantee the build runs under -OO so shipped bytecode is docstring-stripped.
+
+    A released .wotmod must carry zero prose. Comments never survive compilation, but
+    DOCSTRINGS persist into a .pyc unless the interpreter is optimized: Python 2.7's
+    builtin compile() (which _compile_py uses via py_compile) honours the process-wide
+    optimize flag, and -OO strips docstrings. We measured a plain (non-OO) build shipping
+    31/35 modules with docstrings; under -OO that drops to only genuine leading string
+    CONSTANTS (build_config / a couple of domain modules), which is expected.
+
+    If we are not already under -OO (sys.flags.optimize < 2), re-invoke THIS SCRIPT in a
+    fresh -OO subprocess and propagate its exit code, then signal the caller to stop. We
+    re-exec the build script itself (not sys.argv) with subprocess -- NOT os.execv -- so:
+      * output ordering and exit codes stay sane on Windows;
+      * deploy_wotmod.py, which imports build_wotmod and calls main() in-process, does NOT
+        get its whole self restarted under -OO (that would double-run its res_mods cleanup);
+        instead only the build runs in the -OO child, and deploy continues normally in the
+        original process once the artifact is on disk.
+    The child passes -OO so its own _ensure_optimized() is a no-op -> no infinite loop.
+
+    Returns True if it re-exec'd (caller must stop) or False if already optimized.
+    """
+    if sys.flags.optimize >= 2:
+        return False
+    code = subprocess.call([sys.executable, "-OO", os.path.abspath(__file__)])
+    if code != 0:
+        sys.exit(code)
+    return True
 
 
 def _check_python():
@@ -150,6 +181,10 @@ def _compile_tree(src_root, out_root, app_id):
 def main():
     """Build the single .wotmod (thresholds come from the WG API at runtime; the API
     application_id is injected from .env into build_config.py)."""
+    # First thing: guarantee -OO so shipped bytecode is docstring-stripped. If this
+    # re-execs (build ran in an -OO child), stop here -- the artifact is already built.
+    if _ensure_optimized():
+        return
     _check_python()
     app_id = _read_app_id()
     if not app_id:
