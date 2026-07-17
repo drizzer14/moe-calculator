@@ -505,8 +505,8 @@
 /* MoE mark-art column: reserve the 64rem icon + a 12rem gap; the min-height floor keeps a
    short-text tooltip tall enough for the out-of-flow icon so the divider clears it. */
 #moe-tooltip .wg-tip-main-mark {
-    padding-right: 76rem;
-    min-height: 46rem;
+    padding-right: 95rem;
+    min-height: 57.5rem;
 }
 #moe-tooltip .wg-tip-text {
     min-width: 0;
@@ -533,8 +533,8 @@
    glyph vertically centred in a 64x64 box -- i.e. ~9rem below the box top, reading as "lower
    than the title" (the box is pinned top:0). Overrides the base icon's `contain` / `center top`. */
 #moe-tooltip .wg-tip-icon-mark {
-    width: 64rem;
-    height: 46rem;
+    width: 80rem;
+    height: 57.5rem;
     background-size: 100% auto;
     background-position: center;
 }
@@ -555,7 +555,7 @@
    condition bullet, so all three share the native tooltip body rhythm (margin-top:5rem). */
 #moe-tooltip .wg-tip-effect {
     margin-top: 5rem;
-    font-size: 12rem;
+    font-size: 15rem;
     font-weight: 400;
     color: #8e867d;
     line-height: 1.25;
