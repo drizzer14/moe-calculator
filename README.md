@@ -57,8 +57,25 @@ verifying it works, troubleshooting, and uninstalling.
 
 ## Settings
 
-This mod has no in-game options yet — the Garage bar and the in-battle overlay show
-automatically.
+The mod adds a settings panel to the in-game **mod-settings menu**, provided by
+**ModsSettingsAPI (MSA)** — the standard settings host bundled with the installer. If MSA
+isn't loaded, the mod still runs with both widgets on by default; you just won't see the panel.
+
+The panel has two columns:
+
+**In-Battle Widget** *(on by default)* — shows the live MoE overlay during battle. Uncheck to
+hide it and disable the two options below. When it's on, these become available:
+
+- **Show on Alt Key** *(off by default)* — shows the in-battle overlay only while the **Alt**
+  key is held. When off, the overlay is shown at all times.
+- **Counted Assistance** *(off by default)* — adds a third row to the battle overlay showing
+  your counted assistance: the higher of tracking, spotting or stun assist, with an icon for
+  whichever is leading.
+
+**In-Garage Widget** *(on by default)* — shows the MoE percentile bar in the Garage, on the
+selected vehicle. Uncheck to hide it.
+
+The panel is shown in the client's language.
 
 ## Notes
 
@@ -149,8 +166,27 @@ Building, deploying, testing, and the repo layout are documented in
 
 ## Налаштування
 
-Цей мод поки не має параметрів у грі — смуга в Ангарі та оверлей у бою показуються
-автоматично.
+Мод додає панель до внутрішньоігрового **меню налаштувань модів**, яке надає
+**ModsSettingsAPI (MSA)** — стандартний застосунок налаштувань, що йде разом з інсталятором.
+Якщо MSA не завантажено, мод усе одно працює з увімкненими за замовчуванням віджетами — просто
+не буде панелі.
+
+Панель складається з двох стовпців:
+
+**Віджет у бою** *(увімкнено за замовчуванням)* — показує накладання класності наживо в бою.
+Зніміть позначку, щоб сховати його та вимкнути два параметри нижче. Коли він увімкнений, стають
+доступними:
+
+- **Показувати по клавіші Alt** *(вимкнено за замовчуванням)* — показує бойове накладання лише
+  поки утримується клавіша **Alt**. Коли вимкнено, накладання показується постійно.
+- **Зарахована допомога** *(вимкнено за замовчуванням)* — додає третій рядок до накладання в
+  бою: показує зараховану допомогу, більше з допомоги гусеницями, засвітом чи оглушенням, з
+  піктограмою відповідного типу.
+
+**Віджет в ангарі** *(увімкнено за замовчуванням)* — показує смугу процентиля класності в
+Ангарі на вибраній машині. Зніміть позначку, щоб сховати.
+
+Панель показується мовою клієнта.
 
 ## Примітки
 
