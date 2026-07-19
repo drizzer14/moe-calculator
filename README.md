@@ -24,7 +24,8 @@ current mark percentage for the selected vehicle.
 
 ### In-battle overlay
 
-A compact overlay over the HUD with two lines:
+A compact overlay over the HUD with two lines (an optional third row shows counted
+assistance — see Settings):
 
 - **Live combined damage vs your projected average** — the number is coloured by sign
   (red below your projection, white at it, green above).
@@ -32,7 +33,9 @@ A compact overlay over the HUD with two lines:
   battle.
 
 The overlay sits over a halftone-dither backdrop that matches WG's own HUD styling,
-alongside the minimap and battle markers.
+alongside the minimap and battle markers. It hides automatically while the full-stats
+scoreboard (Tab) is open, and stays visible during Ctrl free-look, the F1 help screen,
+and the ESC menu.
 
 ## Compatibility
 
@@ -47,7 +50,8 @@ alongside the minimap and battle markers.
 **`MoECalculator-Setup-<version>.exe`** from the
 [**GitHub Releases**](https://github.com/drizzer14/moe-calculator/releases) page and run
 it (close the game first). It finds your World of Tanks folder, installs the mod into
-`mods\<version>\`, and adds **OpenWG GameFace** if you don't already have it. On each
+`mods\<version>\`, and adds its bundled dependencies — **OpenWG GameFace**,
+**ModsSettingsAPI**, and **ModsList** — for any you don't already have. On each
 run it also checks GitHub and offers to fetch the newest
 installer, so a copy you keep around stays current.
 
@@ -134,14 +138,17 @@ Building, deploying, testing, and the repo layout are documented in
 
 ### Оверлей у бою
 
-Компактний оверлей над HUD із двома рядками:
+Компактний оверлей над HUD із двома рядками (необов'язковий третій рядок показує зараховану
+допомогу — див. Налаштування):
 
 - **Поточна комбінована шкода проти прогнозованого середнього** — число забарвлене за знаком
   (червоне нижче прогнозу, біле на рівні, зелене вище).
 - **Прогнозований відсоток знака** зі знаком зміни відносно початку бою.
 
 Оверлей розташовано над напівтоновим фоном, що повторює оформлення HUD від WG, поряд із
-мінімапою та бойовими маркерами.
+мінімапою та бойовими маркерами. Він автоматично ховається, поки відкрита повна таблиця
+результатів (Tab), і лишається видимим під час вільного огляду з Ctrl, екрана довідки F1
+та меню ESC.
 
 ## Сумісність
 
@@ -156,7 +163,8 @@ Building, deploying, testing, and the repo layout are documented in
 **`MoECalculator-Setup-<version>.exe`** зі сторінки
 [**релізів на GitHub**](https://github.com/drizzer14/moe-calculator/releases) і запустіть
 (спершу закрийте гру). Він знаходить папку World of Tanks, встановлює мод у `mods\<version>\`
-і додає **OpenWG GameFace**, якщо його ще немає. Під час кожного запуску
+і додає вкладені залежності — **OpenWG GameFace**, **ModsSettingsAPI** та **ModsList** — для
+тих, яких ще немає. Під час кожного запуску
 він також перевіряє GitHub і пропонує завантажити найновіший інсталятор, тож збережена копія
 залишається актуальною.
 
