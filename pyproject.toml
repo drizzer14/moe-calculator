@@ -13,8 +13,10 @@ testpaths = ["tests"]
 target-version = "py37"
 line-length = 100
 # The in-game debug REPL server is Python-2-only source (print statement, `exec x in
-# ns`) that ships inside a 2.7 .wotmod; a py3-based linter can't parse it.
-extend-exclude = ["tools/dev/mod_moe_calculator_debug.py"]
+# ns`) that ships inside a 2.7 .wotmod; a py3-based linter can't parse it. The
+# probe*.py scratch scripts are dev-only REPL snippets that reference the REPL-injected
+# `echo` helper (F821) and never ship.
+extend-exclude = ["tools/dev/mod_moe_calculator_debug.py", "tools/dev/probe*.py"]
 
 [tool.ruff.lint]
 # Intentionally minimal -- high-signal, no-reformat rules only. E9 = syntax errors,

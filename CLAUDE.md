@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-**14th_ua's MoE Calculator** (`com.14th_ua.moe_calculator`) — a World of Tanks **EU 2.3.0.1** Garage mod.
+**14th_ua's MoE Calculator** (`com.14th_ua.moe_calculator`) — a World of Tanks **EU 2.3.1.0** Garage mod.
 Hard dependency: **OpenWG GameFace**. Player-facing docs live in this repo's
 `README.md` / `INSTALL.md` (add them); WoT-modding background: `RESEARCH.md`.
 
