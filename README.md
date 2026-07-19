@@ -32,11 +32,6 @@ assistance — see Settings):
 - **Your projected MoE percentage** with the signed change versus where you started the
   battle.
 
-The overlay sits over a halftone-dither backdrop that matches WG's own HUD styling,
-alongside the minimap and battle markers. It hides automatically while the full-stats
-scoreboard (Tab) is open, and stays visible during Ctrl free-look, the F1 help screen,
-and the ESC menu.
-
 ## Compatibility
 
 | Requirement | Detail |
@@ -79,12 +74,8 @@ hide it and disable the two options below. When it's on, these become available:
 **In-Garage Widget** *(on by default)* — shows the MoE percentile bar in the Garage, on the
 selected vehicle. Uncheck to hide it.
 
-The panel is shown in the client's language.
-
 ## Notes
 
-- **Event and special-mode hangars** may not expose the panel the Garage bar attaches to,
-  so it won't show there. It returns in the normal Garage.
 - **After a game update**, move the `.wotmod` to the new `mods\<version>\` folder. A new
   client version may need a rebuilt mod — check the Releases page.
 
@@ -92,16 +83,7 @@ The panel is shown in the client's language.
 
 The per-tank mark thresholds (the combined damage each mark needs) come from the **official
 Wargaming API** — the real damage distribution, so the numbers are authoritative and current.
-On entering the garage the mod fetches the selected tank first, then warms your 100
-most-recently-played vehicles so switching between them is instant. Results are cached for the
-day (revalidated about 24h after Wargaming's own data refresh), and both download channels
-(GitHub and WGMods) ship the identical build.
-
-If a request ever fails, the mod falls back to estimating that tank's thresholds from your own
-in-game MoE data so the bar still shows numbers rather than blanks.
-
-Your current percentage, average combined damage, and the bar fill always come straight from
-the game client and are exact.
+Thresholds are cached locally so switching vehicles is instant.
 
 ## Modpacks & license
 
@@ -144,11 +126,6 @@ Building, deploying, testing, and the repo layout are documented in
 - **Поточна комбінована шкода проти прогнозованого середнього** — число забарвлене за знаком
   (червоне нижче прогнозу, біле на рівні, зелене вище).
 - **Прогнозований відсоток знака** зі знаком зміни відносно початку бою.
-
-Оверлей розташовано над напівтоновим фоном, що повторює оформлення HUD від WG, поряд із
-мінімапою та бойовими маркерами. Він автоматично ховається, поки відкрита повна таблиця
-результатів (Tab), і лишається видимим під час вільного огляду з Ctrl, екрана довідки F1
-та меню ESC.
 
 ## Сумісність
 
@@ -194,12 +171,8 @@ Building, deploying, testing, and the repo layout are documented in
 **Віджет в ангарі** *(увімкнено за замовчуванням)* — показує смугу процентиля класності в
 Ангарі на вибраній машині. Зніміть позначку, щоб сховати.
 
-Панель показується мовою клієнта.
-
 ## Примітки
 
-- **Подієві та спеціальні ангари** можуть не надавати панель, до якої кріпиться смуга в
-  Ангарі, тож там вона не з'явиться. У звичайному Ангарі вона повертається.
 - **Після оновлення гри** перемістіть `.wotmod` у нову папку `mods\<версія>\`. Нова версія
   клієнта може потребувати перезібраного мода — перевіряйте сторінку релізів.
 
@@ -207,16 +180,7 @@ Building, deploying, testing, and the repo layout are documented in
 
 Пороги знаків для кожної техніки (комбінована шкода, потрібна для знака) беруться з
 **офіційного API Wargaming** — це реальний розподіл шкоди, тож числа автентичні й актуальні.
-При вході в ангар мод спершу завантажує обрану техніку, а потім прогріває 100 ваших
-найнедавніше зіграних машин, щоб перемикання між ними було миттєвим. Результати кешуються на
-день (перевіряються приблизно за 24 год після оновлення даних Wargaming), і обидва канали
-завантаження (GitHub і WGMods) постачають ідентичну збірку.
-
-Якщо запит колись не вдасться, мод оцінює пороги цієї техніки з ваших власних ігрових даних
-класності, тож смуга все одно показує числа, а не порожнечу.
-
-Ваш поточний відсоток, середня комбінована шкода й заповнення смуги завжди беруться
-безпосередньо з клієнта гри й точні.
+Пороги кешуються локально, тож перемикання техніки миттєве.
 
 ## Модпаки та ліцензія
 

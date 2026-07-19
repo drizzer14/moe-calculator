@@ -10,8 +10,7 @@ selected vehicle:
   your projected average, and your projected MoE percentage with the change versus where
   you started the battle.
 
-It uses the game's own mark art and refreshes live as you switch vehicles and as the battle
-plays out.
+It uses the game's own mark art.
 
 ---
 
@@ -22,8 +21,6 @@ plays out.
 | **Game** | World of Tanks **EU (Wargaming)** client, version **2.3.1.0**. Built and tested against this version. |
 | **Dependency** | **OpenWG GameFace** (required). The installer sets this up for you; for a manual install you add it yourself. |
 | **Optional** | **ModsSettingsAPI** — adds the in-game settings panel for turning the Garage and Battle widgets on/off. The installer adds it if missing; without it the mod still runs with both widgets enabled. |
-
-This build targets the Wargaming EU/global client (version 2.3.1.0).
 
 ---
 
@@ -88,7 +85,7 @@ default:
 - **Garage Widget Enabled** — the Garage percentile bar.
 - **Battle Widget Enabled** — the in-battle overlay.
 
-Changes apply immediately. Without ModsSettingsAPI both widgets are simply always on.
+Changes apply immediately.
 
 ---
 
@@ -108,8 +105,7 @@ Changes apply immediately. Without ModsSettingsAPI both widgets are simply alway
   for an updated release.
 
 **Special / event hangars.**
-- Some special battle-mode hangars don't expose the panel the Garage bar attaches to, so the
-  bar won't appear there. It returns in the normal Garage.
+- The Garage bar may not appear in event / special hangars; it returns in the normal Garage.
 
 ---
 
