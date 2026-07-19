@@ -19,7 +19,7 @@ from debug_utils import LOG_CURRENT_EXCEPTION
 from moe_calculator._compat import LOG_DEBUG
 
 MOD_NAME = "14th_ua's MoE Calculator"
-MOD_VERSION = "1.3.0"
+MOD_VERSION = "1.3.1"
 
 
 # Candidate hangar sub-views in PRIORITY order: (name, module path, class). `params` is
