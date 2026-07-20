@@ -27,7 +27,7 @@ It uses the game's own mark art.
 ## Install with the installer (recommended)
 
 1. Close World of Tanks completely (exit the Game Center launcher too).
-2. Run **`MoECalculator-Setup-1.3.1.exe`**.
+2. Run **`MoECalculator-Setup-1.4.0.exe`**.
 3. Confirm your World of Tanks folder when the installer shows it — the folder that
    contains `version.xml`. The installer detects it automatically in most cases.
 4. If a newer version is available on GitHub, the installer offers to download and run the
@@ -55,14 +55,14 @@ installer. OpenWG GameFace and ModsSettingsAPI stay in place for other mods that
    The folder name matches your installed client version. After a game update the version
    changes and you move the mod into the new version folder.
 
-3. Copy **`com.14th_ua.moe_calculator_1.3.1.wotmod`** into that folder.
+3. Copy **`com.14th_ua.moe_calculator_1.4.0.wotmod`** into that folder.
 4. Delete any older version of this mod from the same folder first.
 5. *(Optional)* Add **ModsSettingsAPI** (`aslain.modssettingsapi`) into the same folder to
    get the in-game settings panel. Without it the mod runs with both widgets enabled.
 6. Fully restart the game client: exit completely and relaunch.
 
 The `mods\2.3.1.0\` folder then holds the OpenWG GameFace `.wotmod`,
-`com.14th_ua.moe_calculator_1.3.1.wotmod`, and (optionally) the ModsSettingsAPI `.wotmod`.
+`com.14th_ua.moe_calculator_1.4.0.wotmod`, and (optionally) the ModsSettingsAPI `.wotmod`.
 
 ---
 
@@ -112,7 +112,7 @@ Changes apply immediately.
 ## Uninstalling
 
 Remove the mod through its Windows **Apps & features** entry, or delete
-`com.14th_ua.moe_calculator_1.3.1.wotmod` from `mods\<version>\`, then restart the client.
+`com.14th_ua.moe_calculator_1.4.0.wotmod` from `mods\<version>\`, then restart the client.
 
 ---
 

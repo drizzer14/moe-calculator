@@ -3,7 +3,7 @@
          are treated as versions/parts of the same modification. -->
     <id>com.14th_ua.moe_calculator</id>
     <!-- Compared character-by-character (ASCII). Use zero-padded segments. -->
-    <version>1.3.1</version>
+    <version>1.4.0</version>
     <name>14th_ua's MoE Calculator</name>
     <description>14th_ua's MoE Calculator - a World of Tanks Garage mod.
 
