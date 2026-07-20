@@ -35,6 +35,7 @@ from moe_calculator.domain.builder import build_model, bar_visible
 from moe_calculator.domain.placement import choose_placement, INJECT, BLOCKED
 from moe_calculator.bridge.view_models import MoEVM, MarkTickVM
 from moe_calculator.bridge import mod_settings
+from moe_calculator.bridge.wulf_args import cmd_xy_arg as _cmd_xy_arg, cmd_wh_arg as _cmd_wh_arg
 import openwg_gameface
 
 WIDGET_NAME = "MoECalculator"
@@ -63,6 +64,15 @@ def _labels_json():
 # (host_vm, rvm) for the currently-mounted widget. Importable so the entry point and
 # the dev REPL can drive refreshes without poking module-private state.
 _active = None
+
+# Monotonic push counter written into MoEVM.rev (FIRST, inside every push transaction). The
+# widget's JS poll re-renders whenever `rev` changes -- the cold-mount self-heal: on a freshly
+# mounted (cold) sub-view the engine withholds the data-changed event until the view composites
+# (in an idle garage / with the settings overlay open, only when the camera moves), so the JS
+# ModelObserver never fires and an idle-garage push -- an MSA reset or a stepper-to-0 that zeroes
+# the position -- is silently dropped and the bar stays pinned. Just has to differ from the
+# previous push; wraps harmlessly. See pollForChanges in MoECalculator.js.
+_push_seq = 0
 
 # --- collision-aware placement state -----------------------------------------
 # Priority list of candidate sub-view names (set once at install), the candidate VMs seen
@@ -161,6 +171,51 @@ def _on_moe_data_ready():
         LOG_CURRENT_EXCEPTION()
 
 
+def _on_gui_reset(*args, **kwargs):
+    # A callback in gui.g_guiResetters: WoT invokes every resetter when the screen resolution
+    # (and, on most builds, the interface scale) changes and the GUI must re-lay-out. Re-push
+    # so applyPosition re-derives / rescales a pinned widget for the new viewport even when no
+    # model change fired. Guarded so a resetter that raises can't break the GUI reset chain.
+    try:
+        refresh()
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+
+
+# --- Reverse channel: the JS drag/stepper reports the final widget position ------
+# A fresh MoEVM is created every mount (see attach), so the command is re-armed each mount in
+# _connect_commands -- there is no double-subscription to guard against.
+
+def _on_set_position(*args):
+    """Persist a widget position the JS reported (a Ctrl+drag release, a stepper edit, or a
+    proportional-rescale echo). Wulf delivers a single {x, y, w, h} MAP; parse it engine-free."""
+    try:
+        x, y = _cmd_xy_arg(args)
+        # Capture viewport (px) the coords were measured at, so a pinned position can be
+        # rescaled proportionally after a resolution / UI-scale change (see applyPosition).
+        w, h = _cmd_wh_arg(args)
+        LOG_DEBUG("[moe] setPosition x=%s y=%s w=%s h=%s" % (x, y, w, h))
+        # A coord <= 0 is not a real placement: 0 is the auto sentinel and the cmd_xy_arg
+        # failure signature is (0, 0). Drop it so a bad measurement can't clobber the stored
+        # pin. (The widget only ever sends a real pin -- an auto default keeps the CSS position
+        # and sends nothing.)
+        if x <= 0 or y <= 0:
+            return
+        mod_settings.set_position(x, y, w=w, h=h)
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+
+
+def _connect_commands(rvm):
+    """Wire the reverse-channel command(s) to their handlers. The command object is a Wulf
+    event that supports +=. A fresh MoEVM is created per attach(), so there's no
+    double-subscription to guard against."""
+    try:
+        rvm.setPosition += _on_set_position
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+
+
 def _vehicle_holder():
     return g_currentVehicle
 
@@ -221,6 +276,20 @@ def _arm(label, get_holder, attr, handler):
         LOG_CURRENT_EXCEPTION()
 
 
+def _arm_gui_resetters():
+    """Register _on_gui_reset in gui.g_guiResetters (the set WoT invokes on a screen-resolution
+    / GUI-scale reset). It's a plain set, not a Wulf Event, so it doesn't fit the _LISTENERS
+    getattr/+=/setattr pattern; set.add is idempotent, so re-arming every mount can't stack
+    duplicates. Guarded so a missing symbol just skips (retried next mount)."""
+    try:
+        from gui import g_guiResetters
+        if _on_gui_reset not in g_guiResetters:
+            g_guiResetters.add(_on_gui_reset)
+            LOG_DEBUG("[moe] gui-resetter listener (re)armed")
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+
+
 def install_all_listeners():
     """(Re)arm every engine listener + the one-time MoE-data ready hook. Safe to call on
     every hangar mount -- the battle exit teardown drops the hangar-scoped delegates and
@@ -228,6 +297,7 @@ def install_all_listeners():
     global _data_listener_armed
     for entry in _LISTENERS:
         _arm(*entry)
+    _arm_gui_resetters()
     if not _data_listener_armed:
         try:
             moe_data.add_ready_listener(_on_moe_data_ready)
@@ -352,6 +422,7 @@ def attach(host_vm):
             styles=[COUI + "/MoECalculator.css"],
             modules=[COUI + "/MoECalculator.js"])
         rvm = MoEVM()
+        _connect_commands(rvm)
         host_vm._addViewModelProperty(DATA_PROP, rvm)
         _active = (host_vm, rvm)
         # Kick the MoE-data source (idempotent): loads the threshold cache and starts the
@@ -499,7 +570,16 @@ def push(rvm, host_vm=None):
                               enabled=mod_settings.garage_enabled())
         LOG_DEBUG("[moe] push visible=%s marks=%d pct=%.1f rows=%d data=%s" % (
             visible, model.marks, model.cur_percentile, rows, model.has_data))
+        global _push_seq
+        _push_seq = (_push_seq + 1) & 0x7fffffff
         with rvm.transaction() as tx:
+            # Monotonic per-push counter, written FIRST. On a cold sub-view the engine withholds
+            # the data-changed event until the view composites (idle garage / settings overlay
+            # open -> only on camera move), so the JS ModelObserver never fires and this push --
+            # e.g. an MSA reset or stepper-to-0 that zeroes the position -- would be dropped and
+            # the bar stay pinned. The widget polls this `rev` and re-renders when it moves; see
+            # pollForChanges in MoECalculator.js.
+            tx.setRev(_push_seq)
             tx.setVisible(visible)
             tx.setNation(model.nation)
             tx.setMarks(model.marks)
@@ -511,6 +591,13 @@ def push(rvm, host_vm=None):
             tx.setCarouselSmall(small)
             tx.setEndDamageRequired(model.end_damage_required)
             tx.setLabels(_labels_json())
+            # Echo the persisted drag position + the follow-carousel flag so the widget can
+            # re-apply / proportionally rescale a pin on mount, and honour the carousel nudge.
+            tx.setPosX(mod_settings.pos_x())
+            tx.setPosY(mod_settings.pos_y())
+            tx.setPosW(mod_settings.pos_w())
+            tx.setPosH(mod_settings.pos_h())
+            tx.setFollowCarousel(mod_settings.follow_carousel())
             arr = tx.getTicks()
             arr.clear()
             for tk in model.ticks:

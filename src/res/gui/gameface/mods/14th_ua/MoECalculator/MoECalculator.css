@@ -42,6 +42,15 @@
    Three milestone ticks (65/85/95) carry the nation mark art ON TOP of the bar and the
    damage requirement BELOW; a top-left readout shows current avg damage + percentage. */
 
+/* DRAG-TO-REPOSITION (see MoECalculator.js installDrag / applyPosition). #moe-root has TWO
+   anchor modes, switched at runtime via INLINE styles (CSS supplies only the AUTO default):
+     AUTO (unpinned, posX/posY == 0): the calibrated bottom-right anchor below (right/bottom +
+        transform-origin 100% 100% set by applyWidgetScale). No inline left/top. This is the
+        default look -- do NOT regress it, and keep the Y blend intact (see the Y note below).
+     PINNED (Ctrl+drag, posX/posY > 0): JS sets inline transform-origin:0 0, right:auto,
+        bottom:auto, and left/top px. With origin 0 0 the scaled box's top-left equals left/top,
+        so drag/clamp math is predictable under transform:scale(k). No CSS rule is needed for the
+        pin -- inline styles win -- so nothing here changes; this note is the JS<->CSS contract. */
 #moe-root {
     position: fixed;
     /* Bottom-right, above the carousel. X and Y use DIFFERENT units (see file header). Both
@@ -92,7 +101,12 @@
     bottom: calc(211.5rem + 18.33vh - 134px);  /* single-row (rows=1) -- R=211.5 (rows2 R 238 - 26.5 offset); ih>=1440 plateau in @media below */
     width: 315rem;                /* content width; matched to the missions-panel box width
                                      (was 360 -- box read ~13% wider than the reference) */
-    z-index: 9000;
+    /* 9001 = one above the common 9000 baseline other injected garage widgets use. Where our
+       VISIBLE footprint overlaps another equal-z (9000) widget's transparent overhang, this
+       makes OUR footprint the topmost PAINTED element there -- so the drag ownership hit-test
+       (root.contains(e.target) in MoECalculator.js) resolves e.target to us at those pixels,
+       matching visual stacking deterministically instead of depending on DOM/mount order. */
+    z-index: 9001;
     /* EXACTLY the missions widget's face: the client's user_missions global.css sets
        `font-family: PFDINMax; letter-spacing: 0.02em` on its body -- PFDINMax is the
        condensed numeric face registered globally from gui/gameface/fonts/pfdinmax/, so
@@ -469,7 +483,7 @@
     display: none;
     left: 0;
     top: 0;
-    z-index: 10000;               /* above the widget (9000) and its frame/hover overlays */
+    z-index: 10000;               /* above the widget (9001) and its frame/hover overlays */
     box-sizing: border-box;
     min-width: 168rem;
     max-width: 440rem;            /* content-sized, like the sibling .wg-tooltip */

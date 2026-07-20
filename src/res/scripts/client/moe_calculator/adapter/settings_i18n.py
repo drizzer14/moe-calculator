@@ -77,7 +77,10 @@ def _row(label, header=None, body=None):
 # mod_settings to walk a stored template in lockstep. Column 1 is the grouped In-Battle Widget
 # master + its two children (in that order); column 2 is the standalone In-Garage Widget.
 COL1_KEYS = (u"battleWidget", u"battleAltKey", u"countedAssist")
-COL2_KEYS = (u"garageWidget",)
+# Column 2: the standalone In-Garage Widget master, then the drag-position group -- a
+# positioning Label header, the X/Y numeric steppers, and the Follow Carousel Mode checkbox
+# (in that exact control order, so _sync_template_text walks the stored template in lockstep).
+COL2_KEYS = (u"garageWidget", u"positioning", u"posX", u"posY", u"followCarousel")
 
 
 # The translation tables, lang-major so each language is one contiguous, translator-
@@ -101,6 +104,25 @@ _PANEL = {
             u"Adds a third row to the battle overlay showing your counted assistance: the "
             u"higher of tracking, spotting or stun assist, with an icon for whichever is "
             u"leading."),
+        # --- drag-to-reposition group (translated across every shipped language; see COL2_KEYS). ---
+        u"positioning": _row(
+            u"Widget position (px)", u"Widget position",
+            u"Ctrl+drag the Garage widget to move it (hold Shift to lock to one axis). The "
+            u"steppers below show its pinned top-left position in pixels; 0 / 0 means the "
+            u"default bottom-right position. Use the per-mod Reset to return to default."),
+        u"posX": _row(
+            u"Horizontal (left X)", u"Horizontal position",
+            u"The pinned widget's distance from the left screen edge, in pixels. 0 restores "
+            u"the automatic bottom-right position."),
+        u"posY": _row(
+            u"Vertical (top Y)", u"Vertical position",
+            u"The pinned widget's distance from the top screen edge, in pixels. 0 restores "
+            u"the automatic bottom-right position."),
+        u"followCarousel": _row(
+            u"Follow Carousel Mode", u"Follow Carousel Mode",
+            u"When on, a dragged widget keeps shifting vertically with the vehicle carousel "
+            u"(single / double rows) so it never overlaps it. When off, a pinned widget stays "
+            u"fixed regardless of the carousel."),
     },
 
     u"de": {
@@ -121,6 +143,27 @@ _PANEL = {
             u"Fügt der Gefechtsanzeige eine dritte Zeile mit deiner angerechneten "
             u"Unterstützung hinzu: dem höheren Wert aus Ketten-, Aufklärungs- oder "
             u"Betäubungsunterstützung, mit einem Symbol für den führenden Wert."),
+        u"positioning": _row(
+            u"Widget-Position (px)", u"Widget-Position",
+            u"Ziehe das Garage-Widget mit Strg+Ziehen, um es zu verschieben (halte "
+            u"Umschalt gedrückt, um es auf eine Achse zu beschränken). Die Felder unten "
+            u"zeigen seine fixierte Position oben links in Pixeln; 0 / 0 bedeutet die "
+            u"Standardposition unten rechts. Nutze das Zurücksetzen des Mods, um zum "
+            u"Standard zurückzukehren."),
+        u"posX": _row(
+            u"Horizontal (links X)", u"Horizontale Position",
+            u"Abstand des fixierten Widgets vom linken Bildschirmrand in Pixeln. 0 stellt "
+            u"die automatische Position unten rechts wieder her."),
+        u"posY": _row(
+            u"Vertikal (oben Y)", u"Vertikale Position",
+            u"Abstand des fixierten Widgets vom oberen Bildschirmrand in Pixeln. 0 stellt "
+            u"die automatische Position unten rechts wieder her."),
+        u"followCarousel": _row(
+            u"Karussell folgen", u"Karussell folgen",
+            u"Wenn aktiviert, verschiebt sich ein gezogenes Widget weiterhin vertikal mit "
+            u"dem Fahrzeugkarussell (eine / zwei Reihen), sodass es dieses nie überdeckt. "
+            u"Wenn deaktiviert, bleibt ein fixiertes Widget unabhängig vom Karussell an "
+            u"seiner Stelle."),
     },
 
     u"fr": {
@@ -142,6 +185,27 @@ _PANEL = {
             u"Ajoute une troisième ligne à la superposition de bataille indiquant votre "
             u"assistance comptabilisée : la plus élevée entre l'assistance par chenilles, "
             u"par détection ou par étourdissement, avec une icône pour celle qui domine."),
+        u"positioning": _row(
+            u"Position du widget (px)", u"Position du widget",
+            u"Ctrl+glisser pour déplacer le widget du garage (maintenez Maj pour le "
+            u"verrouiller sur un axe). Les compteurs ci-dessous indiquent sa position "
+            u"épinglée en haut à gauche, en pixels ; 0 / 0 correspond à la position par "
+            u"défaut en bas à droite. Utilisez la réinitialisation du mod pour revenir au "
+            u"réglage par défaut."),
+        u"posX": _row(
+            u"Horizontal (X gauche)", u"Position horizontale",
+            u"Distance du widget épinglé par rapport au bord gauche de l'écran, en "
+            u"pixels. 0 rétablit la position automatique en bas à droite."),
+        u"posY": _row(
+            u"Vertical (Y haut)", u"Position verticale",
+            u"Distance du widget épinglé par rapport au bord supérieur de l'écran, en "
+            u"pixels. 0 rétablit la position automatique en bas à droite."),
+        u"followCarousel": _row(
+            u"Suivre le carrousel", u"Suivre le carrousel",
+            u"Activé, un widget déplacé continue de se décaler verticalement avec le "
+            u"carrousel des véhicules (une / deux rangées) afin de ne jamais le "
+            u"chevaucher. Désactivé, un widget épinglé reste fixe quel que soit le "
+            u"carrousel."),
     },
 
     u"es": {
@@ -163,6 +227,27 @@ _PANEL = {
             u"Añade una tercera fila a la superposición de batalla que muestra tu "
             u"asistencia contada: la mayor entre la asistencia por orugas, por detección "
             u"o por aturdimiento, con un icono para la que predomine."),
+        u"positioning": _row(
+            u"Posición del widget (px)", u"Posición del widget",
+            u"Ctrl+arrastrar para mover el widget del garaje (mantén Mayús para "
+            u"bloquearlo en un eje). Los contadores de abajo muestran su posición fijada "
+            u"de la esquina superior izquierda, en píxeles; 0 / 0 es la posición "
+            u"predeterminada en la esquina inferior derecha. Usa el restablecimiento del "
+            u"mod para volver al valor predeterminado."),
+        u"posX": _row(
+            u"Horizontal (X izquierda)", u"Posición horizontal",
+            u"Distancia del widget fijado al borde izquierdo de la pantalla, en píxeles. "
+            u"0 restaura la posición automática en la esquina inferior derecha."),
+        u"posY": _row(
+            u"Vertical (Y superior)", u"Posición vertical",
+            u"Distancia del widget fijado al borde superior de la pantalla, en píxeles. 0 "
+            u"restaura la posición automática en la esquina inferior derecha."),
+        u"followCarousel": _row(
+            u"Seguir el carrusel", u"Seguir el carrusel",
+            u"Cuando está activado, un widget arrastrado sigue desplazándose "
+            u"verticalmente con el carrusel de vehículos (una / dos filas) para no "
+            u"superponerse a él. Cuando está desactivado, un widget fijado permanece fijo "
+            u"sin importar el carrusel."),
     },
 
     u"it": {
@@ -184,6 +269,27 @@ _PANEL = {
             u"Aggiunge una terza riga alla sovrapposizione di battaglia che mostra la tua "
             u"assistenza conteggiata: la più alta tra assistenza ai cingoli, "
             u"all'avvistamento o allo stordimento, con un'icona per quella prevalente."),
+        u"positioning": _row(
+            u"Posizione del widget (px)", u"Posizione del widget",
+            u"Ctrl+trascina per spostare il widget del garage (tieni premuto Maiusc per "
+            u"bloccarlo su un asse). I contatori sotto mostrano la sua posizione fissata "
+            u"in alto a sinistra, in pixel; 0 / 0 indica la posizione predefinita in "
+            u"basso a destra. Usa il ripristino del mod per tornare al valore "
+            u"predefinito."),
+        u"posX": _row(
+            u"Orizzontale (X sinistra)", u"Posizione orizzontale",
+            u"Distanza del widget fissato dal bordo sinistro dello schermo, in pixel. 0 "
+            u"ripristina la posizione automatica in basso a destra."),
+        u"posY": _row(
+            u"Verticale (Y alto)", u"Posizione verticale",
+            u"Distanza del widget fissato dal bordo superiore dello schermo, in pixel. 0 "
+            u"ripristina la posizione automatica in basso a destra."),
+        u"followCarousel": _row(
+            u"Segui il carosello", u"Segui il carosello",
+            u"Quando è attivo, un widget trascinato continua a spostarsi verticalmente "
+            u"con il carosello dei veicoli (una / due file) in modo da non sovrapporsi "
+            u"mai ad esso. Quando è disattivato, un widget fissato resta fermo "
+            u"indipendentemente dal carosello."),
     },
 
     u"pl": {
@@ -204,6 +310,25 @@ _PANEL = {
             u"Dodaje trzeci wiersz nakładki bitewnej pokazujący twoje zaliczone wsparcie: "
             u"wyższą z wartości wsparcia przez unieruchomienie, wykrycie lub ogłuszenie, z "
             u"ikoną dla przeważającej."),
+        u"positioning": _row(
+            u"Pozycja widżetu (px)", u"Pozycja widżetu",
+            u"Ctrl+przeciągnij, aby przesunąć widżet garażu (przytrzymaj Shift, aby "
+            u"zablokować do jednej osi). Liczniki poniżej pokazują przypiętą pozycję "
+            u"lewego górnego rogu w pikselach; 0 / 0 oznacza domyślną pozycję w prawym "
+            u"dolnym rogu. Użyj resetu moda, aby wrócić do wartości domyślnej."),
+        u"posX": _row(
+            u"Poziomo (lewy X)", u"Pozycja pozioma",
+            u"Odległość przypiętego widżetu od lewej krawędzi ekranu, w pikselach. 0 "
+            u"przywraca automatyczną pozycję w prawym dolnym rogu."),
+        u"posY": _row(
+            u"Pionowo (górny Y)", u"Pozycja pionowa",
+            u"Odległość przypiętego widżetu od górnej krawędzi ekranu, w pikselach. 0 "
+            u"przywraca automatyczną pozycję w prawym dolnym rogu."),
+        u"followCarousel": _row(
+            u"Podążaj za karuzelą", u"Podążaj za karuzelą",
+            u"Gdy włączone, przeciągnięty widżet nadal przesuwa się w pionie wraz z "
+            u"karuzelą pojazdów (jeden / dwa rzędy), aby nigdy jej nie zasłaniać. Gdy "
+            u"wyłączone, przypięty widżet pozostaje na miejscu niezależnie od karuzeli."),
     },
 
     u"cs": {
@@ -224,6 +349,25 @@ _PANEL = {
             u"Přidá do bojového překryvu třetí řádek zobrazující tvou započtenou "
             u"asistenci: vyšší z asistence pásy, průzkumem nebo omráčením, s ikonou pro "
             u"převažující."),
+        u"positioning": _row(
+            u"Pozice widgetu (px)", u"Pozice widgetu",
+            u"Ctrl+táhnutím přesuneš widget garáže (podržením Shift jej uzamkneš na jednu "
+            u"osu). Čítače níže ukazují jeho ukotvenou pozici levého horního rohu v "
+            u"pixelech; 0 / 0 znamená výchozí pozici vpravo dole. Pro návrat na výchozí "
+            u"hodnotu použij reset modu."),
+        u"posX": _row(
+            u"Vodorovně (levé X)", u"Vodorovná pozice",
+            u"Vzdálenost ukotveného widgetu od levého okraje obrazovky v pixelech. 0 "
+            u"obnoví automatickou pozici vpravo dole."),
+        u"posY": _row(
+            u"Svisle (horní Y)", u"Svislá pozice",
+            u"Vzdálenost ukotveného widgetu od horního okraje obrazovky v pixelech. 0 "
+            u"obnoví automatickou pozici vpravo dole."),
+        u"followCarousel": _row(
+            u"Sledovat kolotoč", u"Sledovat kolotoč",
+            u"Když je zapnuto, tažený widget se dál posouvá svisle spolu s kolotočem "
+            u"vozidel (jedna / dvě řady), aby jej nikdy nepřekrýval. Když je vypnuto, "
+            u"ukotvený widget zůstává na místě bez ohledu na kolotoč."),
     },
 
     u"ru": {
@@ -244,6 +388,27 @@ _PANEL = {
             u"Добавляет в наложение боя третью строку с вашим засчитанным содействием: "
             u"большее из содействия гусеницами, разведкой или оглушением, со значком для "
             u"преобладающего."),
+        u"positioning": _row(
+            u"Позиция виджета (px)", u"Позиция виджета",
+            u"Ctrl+перетаскивание перемещает виджет ангара (удерживайте Shift, чтобы "
+            u"зафиксировать по одной оси). Счётчики ниже показывают закреплённую позицию "
+            u"верхнего левого угла в пикселях; 0 / 0 означает стандартную позицию в "
+            u"правом нижнем углу. Используйте сброс мода, чтобы вернуть значение по "
+            u"умолчанию."),
+        u"posX": _row(
+            u"Горизонталь (левый X)", u"Позиция по горизонтали",
+            u"Расстояние закреплённого виджета от левого края экрана в пикселях. 0 "
+            u"восстанавливает автоматическую позицию в правом нижнем углу."),
+        u"posY": _row(
+            u"Вертикаль (верхний Y)", u"Позиция по вертикали",
+            u"Расстояние закреплённого виджета от верхнего края экрана в пикселях. 0 "
+            u"восстанавливает автоматическую позицию в правом нижнем углу."),
+        u"followCarousel": _row(
+            u"Следовать за каруселью", u"Следовать за каруселью",
+            u"Когда включено, перетащенный виджет продолжает смещаться по вертикали "
+            u"вместе с каруселью техники (один / два ряда), чтобы не перекрывать её. "
+            u"Когда выключено, закреплённый виджет остаётся на месте независимо от "
+            u"карусели."),
     },
 
     u"uk": {
@@ -264,6 +429,27 @@ _PANEL = {
             u"Додає третій рядок до накладання в бою: показує зараховану допомогу, більше "
             u"з допомоги гусеницями, засвітом чи оглушенням, з піктограмою відповідного "
             u"типу."),
+        u"positioning": _row(
+            u"Позиція віджета (px)", u"Позиція віджета",
+            u"Ctrl+перетягування переміщує віджет ангара (утримуйте Shift, щоб "
+            u"зафіксувати за однією віссю). Лічильники нижче показують закріплену позицію "
+            u"верхнього лівого кута в пікселях; 0 / 0 означає стандартну позицію в правому "
+            u"нижньому куті. Використайте скидання мода, щоб повернути значення за "
+            u"замовчуванням."),
+        u"posX": _row(
+            u"Горизонталь (лівий X)", u"Позиція по горизонталі",
+            u"Відстань закріпленого віджета від лівого краю екрана в пікселях. 0 "
+            u"відновлює автоматичну позицію в правому нижньому куті."),
+        u"posY": _row(
+            u"Вертикаль (верхній Y)", u"Позиція по вертикалі",
+            u"Відстань закріпленого віджета від верхнього краю екрана в пікселях. 0 "
+            u"відновлює автоматичну позицію в правому нижньому куті."),
+        u"followCarousel": _row(
+            u"Слідувати за каруселлю", u"Слідувати за каруселлю",
+            u"Коли увімкнено, перетягнутий віджет продовжує зміщуватися по вертикалі "
+            u"разом із каруселлю техніки (один / два ряди), щоб ніколи її не перекривати. "
+            u"Коли вимкнено, закріплений віджет залишається на місці незалежно від "
+            u"каруселі."),
     },
 
     u"hu": {
@@ -284,6 +470,25 @@ _PANEL = {
             u"Egy harmadik sort ad a csataátfedéshez, amely a beszámított segítésedet "
             u"mutatja: a lánctalpas, felderítő vagy kábító segítés közül a nagyobbat, a "
             u"vezető típus ikonjával."),
+        u"positioning": _row(
+            u"Widget pozíciója (px)", u"Widget pozíciója",
+            u"Ctrl+húzással mozgathatod a garázs-widgetet (tartsd nyomva a Shiftet az egy "
+            u"tengelyre rögzítéshez). Az alábbi számlálók a rögzített bal felső pozíciót "
+            u"mutatják pixelben; a 0 / 0 az alapértelmezett jobb alsó pozíciót jelenti. Az "
+            u"alapértelmezéshez való visszatéréshez használd a mod visszaállítását."),
+        u"posX": _row(
+            u"Vízszintes (bal X)", u"Vízszintes pozíció",
+            u"A rögzített widget távolsága a képernyő bal szélétől, pixelben. A 0 "
+            u"visszaállítja az automatikus jobb alsó pozíciót."),
+        u"posY": _row(
+            u"Függőleges (felső Y)", u"Függőleges pozíció",
+            u"A rögzített widget távolsága a képernyő felső szélétől, pixelben. A 0 "
+            u"visszaállítja az automatikus jobb alsó pozíciót."),
+        u"followCarousel": _row(
+            u"Körhinta követése", u"Körhinta követése",
+            u"Bekapcsolva egy elhúzott widget továbbra is függőlegesen mozog a "
+            u"járműkörhintával (egy / két sor) együtt, hogy sose fedje azt. Kikapcsolva "
+            u"egy rögzített widget a körhintától függetlenül a helyén marad."),
     },
 
     u"tr": {
@@ -303,6 +508,25 @@ _PANEL = {
             u"Sayılan yardım", u"Sayılan yardım",
             u"Savaş katmanına, sayılan yardımını gösteren üçüncü bir satır ekler: palet, "
             u"tespit veya sersemletme yardımından en yükseği, öndeki için bir simgeyle."),
+        u"positioning": _row(
+            u"Widget konumu (px)", u"Widget konumu",
+            u"Garaj widget'ını taşımak için Ctrl+sürükle (bir eksene kilitlemek için "
+            u"Shift'i basılı tut). Aşağıdaki sayaçlar, sabitlenmiş sol üst konumu piksel "
+            u"cinsinden gösterir; 0 / 0 varsayılan sağ alt konumu ifade eder. Varsayılana "
+            u"dönmek için modun sıfırlamasını kullan."),
+        u"posX": _row(
+            u"Yatay (sol X)", u"Yatay konum",
+            u"Sabitlenmiş widget'ın ekranın sol kenarına uzaklığı, piksel cinsinden. 0, "
+            u"otomatik sağ alt konumu geri yükler."),
+        u"posY": _row(
+            u"Dikey (üst Y)", u"Dikey konum",
+            u"Sabitlenmiş widget'ın ekranın üst kenarına uzaklığı, piksel cinsinden. 0, "
+            u"otomatik sağ alt konumu geri yükler."),
+        u"followCarousel": _row(
+            u"Karuseli takip et", u"Karuseli takip et",
+            u"Açıkken, sürüklenen bir widget araç karuseliyle (tek / çift sıra) birlikte "
+            u"dikey olarak kaymayı sürdürür, böylece onu asla örtmez. Kapalıyken, "
+            u"sabitlenmiş bir widget karuselden bağımsız olarak yerinde kalır."),
     },
 }
 

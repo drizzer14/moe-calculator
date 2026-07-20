@@ -127,8 +127,35 @@ def test_cmd_int_arg_variants():
 
 
 def test_cmd_xy_arg_variants():
+    # The setPosition arg is a BARE MAP {x, y, w, h} (no {value:...} wrap). Parse a plain dict
+    # and a Wulf-wrapped map object; a missing key or a non-numeric value degrades to 0.
     assert w.cmd_xy_arg([{"x": 10, "y": 20}]) == (10, 20)
     assert w.cmd_xy_arg([_WulfMap({"x": 3, "y": 4})]) == (3, 4)
-    assert w.cmd_xy_arg([{"x": 10}]) == (10, 0)
+    assert w.cmd_xy_arg([{"x": 10}]) == (10, 0)          # missing y -> 0
+    assert w.cmd_xy_arg([{"y": 20}]) == (0, 20)          # missing x -> 0
+    assert w.cmd_xy_arg([{}]) == (0, 0)                  # both missing -> (0, 0)
+    assert w.cmd_xy_arg([{"x": "50", "y": "60"}]) == (50, 60)   # numeric strings coerce
+    assert w.cmd_xy_arg([{"x": "nope", "y": 20}]) == (0, 20)    # non-numeric -> 0
+    assert w.cmd_xy_arg([{"x": None, "y": None}]) == (0, 0)
     assert w.cmd_xy_arg([]) == (0, 0)
     assert w.cmd_xy_arg(None) == (0, 0)
+
+
+def test_cmd_wh_arg_variants():
+    # The capture-viewport (w, h) rides the same bare MAP; same tolerance as cmd_xy_arg.
+    assert w.cmd_wh_arg([{"w": 1920, "h": 1080}]) == (1920, 1080)
+    assert w.cmd_wh_arg([_WulfMap({"w": 2560, "h": 1440})]) == (2560, 1440)
+    assert w.cmd_wh_arg([{"w": 800}]) == (800, 0)        # missing h -> 0
+    assert w.cmd_wh_arg([{"h": 600}]) == (0, 600)        # missing w -> 0
+    assert w.cmd_wh_arg([{}]) == (0, 0)                  # both missing -> (0, 0)
+    assert w.cmd_wh_arg([{"w": "1024", "h": "768"}]) == (1024, 768)  # numeric strings coerce
+    assert w.cmd_wh_arg([{"w": "bad", "h": 768}]) == (0, 768)        # non-numeric -> 0
+    assert w.cmd_wh_arg([]) == (0, 0)
+    assert w.cmd_wh_arg(None) == (0, 0)
+
+
+def test_cmd_xy_and_wh_share_one_map():
+    # A single {x, y, w, h} map yields both pairs -- how _on_set_position reads a drag release.
+    arg = [{"x": 100, "y": 200, "w": 1920, "h": 1080}]
+    assert w.cmd_xy_arg(arg) == (100, 200)
+    assert w.cmd_wh_arg(arg) == (1920, 1080)

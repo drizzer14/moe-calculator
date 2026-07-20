@@ -12,8 +12,19 @@ from moe_calculator.bridge import mod_settings
 from moe_calculator.bridge.mod_settings import (
     merge_settings, DEFAULTS, GARAGE_KEY, BATTLE_KEY, BATTLE_ALT_KEY,
     COUNTED_ASSIST_KEY, LINKAGE, SETTINGS_VERSION, battle_alt_key_enabled,
-    battle_enabled, counted_assistance_enabled)
+    battle_enabled, counted_assistance_enabled,
+    POS_X_KEY, POS_Y_KEY, POS_W_KEY, POS_H_KEY, FOLLOW_CAROUSEL_KEY, POS_MAX,
+    clamp_pos, pos_x, pos_y, pos_w, pos_h, follow_carousel, set_position)
 from moe_calculator.adapter import settings_i18n
+
+
+def _defaults_with(over):
+    """A fresh copy of the full 9-key DEFAULTS with `over` (a dict) applied -- keeps the
+    exact-equality merge assertions readable now that DEFAULTS carries the position group.
+    Takes a dict (not **kwargs) because the keys are runtime varName strings, not identifiers."""
+    out = dict(DEFAULTS)
+    out.update(over)
+    return out
 
 
 @pytest.fixture(autouse=True)
@@ -26,35 +37,42 @@ def _restore_settings():
 
 def test_defaults_when_empty_or_none():
     # No saved store (fresh install / MSA absent) -> both widgets on, Alt-peek and the
-    # counted-assistance row off (both opt-in).
+    # counted-assistance row off (both opt-in), the drag position at auto (0/0/0/0) and
+    # Follow Carousel Mode on.
     assert merge_settings(None) == DEFAULTS
     assert merge_settings({}) == DEFAULTS
     assert DEFAULTS == {GARAGE_KEY: True, BATTLE_KEY: True, BATTLE_ALT_KEY: False,
-                        COUNTED_ASSIST_KEY: False}
+                        COUNTED_ASSIST_KEY: False,
+                        POS_X_KEY: 0, POS_Y_KEY: 0, POS_W_KEY: 0, POS_H_KEY: 0,
+                        FOLLOW_CAROUSEL_KEY: True}
 
 
 def test_overlays_known_keys():
     out = merge_settings({GARAGE_KEY: False, BATTLE_KEY: True, BATTLE_ALT_KEY: True,
                           COUNTED_ASSIST_KEY: True})
-    assert out == {GARAGE_KEY: False, BATTLE_KEY: True, BATTLE_ALT_KEY: True,
-                   COUNTED_ASSIST_KEY: True}
+    # Only the four bool flags were supplied -> the position group keeps its auto defaults.
+    assert out == _defaults_with({GARAGE_KEY: False, BATTLE_KEY: True, BATTLE_ALT_KEY: True,
+                                  COUNTED_ASSIST_KEY: True})
     out2 = merge_settings({GARAGE_KEY: True, BATTLE_KEY: False, BATTLE_ALT_KEY: False,
-                           COUNTED_ASSIST_KEY: False})
+                           COUNTED_ASSIST_KEY: False,
+                           POS_X_KEY: 640, POS_Y_KEY: 360, POS_W_KEY: 1920, POS_H_KEY: 1080,
+                           FOLLOW_CAROUSEL_KEY: False})
+    # A full store overlays every key, position coords coerced to clamped ints.
     assert out2 == {GARAGE_KEY: True, BATTLE_KEY: False, BATTLE_ALT_KEY: False,
-                    COUNTED_ASSIST_KEY: False}
+                    COUNTED_ASSIST_KEY: False,
+                    POS_X_KEY: 640, POS_Y_KEY: 360, POS_W_KEY: 1920, POS_H_KEY: 1080,
+                    FOLLOW_CAROUSEL_KEY: False}
 
 
 def test_partial_dict_fills_missing_with_defaults():
     # Only one key present -> the others fall back to their defaults.
     out = merge_settings({GARAGE_KEY: False})
-    assert out == {GARAGE_KEY: False, BATTLE_KEY: True, BATTLE_ALT_KEY: False,
-                   COUNTED_ASSIST_KEY: False}
+    assert out == _defaults_with({GARAGE_KEY: False})
 
 
 def test_unknown_keys_ignored():
     out = merge_settings({GARAGE_KEY: False, "bogus": 123, "settingsVersion": 9})
-    assert out == {GARAGE_KEY: False, BATTLE_KEY: True, BATTLE_ALT_KEY: False,
-                   COUNTED_ASSIST_KEY: False}
+    assert out == _defaults_with({GARAGE_KEY: False})
     assert "bogus" not in out
 
 
@@ -146,9 +164,11 @@ def _varnames(controls):
     return [c["varName"] for c in controls]
 
 
-def test_template_settings_version_is_4():
-    assert SETTINGS_VERSION == 4
-    assert mod_settings._template()["settingsVersion"] == 4
+def test_template_settings_version_is_5():
+    # Bumped 4 -> 5 when the drag-to-reposition controls landed (new varNames + a new
+    # column-2 layout), so the bump reaches an existing install and MSA rebuilds the panel.
+    assert SETTINGS_VERSION == 5
+    assert mod_settings._template()["settingsVersion"] == 5
 
 
 def test_template_column1_is_grouped_master_and_two_children():
@@ -158,9 +178,30 @@ def test_template_column1_is_grouped_master_and_two_children():
     assert _varnames(col1) == [BATTLE_KEY, BATTLE_ALT_KEY, COUNTED_ASSIST_KEY]
 
 
-def test_template_column2_is_standalone_garage():
-    tmpl = mod_settings._template()
-    assert _varnames(tmpl["column2"]) == [GARAGE_KEY]
+def test_template_column2_garage_then_positioning_group():
+    # Column 2 = the standalone In-Garage master, then the drag-position group: a positioning
+    # Label header (no varName), the X/Y numeric steppers, and the Follow Carousel checkbox.
+    col2 = mod_settings._template()["column2"]
+    assert [c["type"] for c in col2] == [
+        "CheckBox", "Label", "NumericStepper", "NumericStepper", "CheckBox"]
+    # The varName-bearing controls, in order (the Label header has no stored value).
+    assert [c["varName"] for c in col2 if "varName" in c] == [
+        GARAGE_KEY, POS_X_KEY, POS_Y_KEY, FOLLOW_CAROUSEL_KEY]
+    # The Label header carries no varName (it is not a persisted value).
+    assert "varName" not in col2[1]
+
+
+def test_template_steppers_are_bounded_manual_entry():
+    # Each position stepper spans [0, POS_MAX], allows manual input and steps by 1 px so a
+    # typed 0 returns the widget to auto and a nudge isn't rounded away.
+    col2 = mod_settings._template()["column2"]
+    steppers = [c for c in col2 if c["type"] == "NumericStepper"]
+    assert [c["varName"] for c in steppers] == [POS_X_KEY, POS_Y_KEY]
+    for s in steppers:
+        assert s["minimum"] == 0
+        assert s["maximum"] == POS_MAX
+        assert s["canManualInput"] is True
+        assert s["snapInterval"] == 1
 
 
 def test_template_children_bind_to_battle_master():
@@ -175,11 +216,16 @@ def test_template_children_bind_to_battle_master():
     assert "masterVarName" not in col1[0]
 
 
-def test_template_checkbox_defaults_match_defaults_dict():
-    # Each control's initial `value` mirrors its DEFAULTS entry (varName == DEFAULTS key).
+def test_template_control_defaults_match_defaults_dict():
+    # Each value-bearing control's initial `value` mirrors its DEFAULTS entry (varName ==
+    # DEFAULTS key). The Label header carries no varName/value and is skipped. Covers both the
+    # checkboxes and the numeric steppers (steppers default to 0 = auto).
     tmpl = mod_settings._template()
     for c in tmpl["column1"] + tmpl["column2"]:
-        assert c["type"] == "CheckBox"
+        if "varName" not in c:            # a Label header -- not a stored value
+            assert c["type"] == "Label"
+            continue
+        assert c["type"] in ("CheckBox", "NumericStepper")
         assert c["value"] == DEFAULTS[c["varName"]]
 
 
@@ -254,3 +300,299 @@ def test_sync_template_text_walks_built_template_in_lockstep():
             assert control["text"] == text[key]["text"]
             assert control["tooltip"] == text[key]["tooltip"]
     assert saved["called"] is True   # something changed -> state persisted
+
+
+# --- drag-to-reposition: clamp_pos, accessors, set_position, follow_carousel, reset --------
+
+def test_clamp_pos_bounds():
+    # 0 = auto/unseeded; negatives and non-numeric collapse to 0; over-ceiling clamps down.
+    assert clamp_pos(0) == 0
+    assert clamp_pos(-1) == 0
+    assert clamp_pos(-9999) == 0
+    assert clamp_pos(123) == 123
+    assert clamp_pos(POS_MAX) == POS_MAX
+    assert clamp_pos(POS_MAX + 1) == POS_MAX
+    assert clamp_pos(10 ** 9) == POS_MAX
+    # Non-numeric / None -> 0 (a bad measurement never pins).
+    assert clamp_pos(None) == 0
+    assert clamp_pos("abc") == 0
+    assert clamp_pos([1, 2]) == 0
+    # Numeric strings / floats coerce through int().
+    assert clamp_pos("640") == 640
+    assert clamp_pos(360.9) == 360
+
+
+def test_position_accessors_round_trip():
+    mod_settings._seed(dict(DEFAULTS))
+    # Auto default: every coordinate 0.
+    assert (pos_x(), pos_y(), pos_w(), pos_h()) == (0, 0, 0, 0)
+    mod_settings._apply({POS_X_KEY: 640, POS_Y_KEY: 360, POS_W_KEY: 2560, POS_H_KEY: 1440})
+    assert pos_x() == 640
+    assert pos_y() == 360
+    assert pos_w() == 2560
+    assert pos_h() == 1440
+
+
+def test_position_accessors_clamp_a_bad_stored_value():
+    # A getter re-clamps whatever is cached, so a corrupt store never leaks a bad px out.
+    mod_settings._seed(dict(DEFAULTS))
+    mod_settings._settings[POS_X_KEY] = -50
+    mod_settings._settings[POS_Y_KEY] = POS_MAX + 500
+    assert pos_x() == 0
+    assert pos_y() == POS_MAX
+
+
+def test_follow_carousel_default_true_and_getter():
+    mod_settings._seed(dict(DEFAULTS))
+    assert follow_carousel() is True
+    mod_settings._apply({FOLLOW_CAROUSEL_KEY: False})
+    assert follow_carousel() is False
+    mod_settings._apply({FOLLOW_CAROUSEL_KEY: 1})   # coerced to bool
+    assert follow_carousel() is True
+
+
+class _FakeMsa(object):
+    """A stand-in ModsSettingsAPI sink: returns a stored dict from getModSettings and records
+    the full dict written by updateModSettings + whether saveState flushed it."""
+    def __init__(self, current):
+        self._current = current
+        self.written = None
+        self.saved = False
+
+    def getModSettings(self, linkage, template):
+        return dict(self._current)
+
+    def updateModSettings(self, linkage, data):
+        self.written = data
+
+    def saveState(self):
+        self.saved = True
+
+
+def test_set_position_writes_full_dict_preserving_enabled(monkeypatch):
+    # set_position must write the WHOLE settings dict (MSA replace-not-merge) and preserve the
+    # host-managed 'enabled' toggle + any foreign host keys, then flush with saveState().
+    mod_settings._seed(dict(DEFAULTS))
+    fake = _FakeMsa({"enabled": False, "someHostKey": 7})
+    monkeypatch.setattr(mod_settings, "_primary_api", lambda: fake)
+
+    set_position(100, 200, 1920, 1080)
+
+    assert fake.saved is True                 # persisted to disk
+    data = fake.written
+    assert data is not None
+    # host keys preserved (not clobbered by our partial write)
+    assert data["enabled"] is False
+    assert data["someHostKey"] == 7
+    # our position coords written
+    assert data[POS_X_KEY] == 100
+    assert data[POS_Y_KEY] == 200
+    assert data[POS_W_KEY] == 1920
+    assert data[POS_H_KEY] == 1080
+    # the FULL flag set is present too (replace-not-merge -> nothing of ours dropped)
+    for key in DEFAULTS:
+        assert key in data
+    # live cache + accessors reflect the new pin
+    assert (pos_x(), pos_y(), pos_w(), pos_h()) == (100, 200, 1920, 1080)
+
+
+def test_set_position_adds_enabled_when_host_omits_it(monkeypatch):
+    # If the stored dict lacks 'enabled', the write must still guarantee it (a missing
+    # 'enabled' blanks Aslain's whole panel).
+    mod_settings._seed(dict(DEFAULTS))
+    fake = _FakeMsa({})
+    monkeypatch.setattr(mod_settings, "_primary_api", lambda: fake)
+    set_position(10, 20)
+    assert fake.written["enabled"] is True
+
+
+def test_set_position_clamps_and_survives_absent_msa(monkeypatch):
+    # No MSA present -> the position still applies this session (cache + accessors), just not
+    # persisted; negative/oversized inputs are clamped on the way in.
+    mod_settings._seed(dict(DEFAULTS))
+    monkeypatch.setattr(mod_settings, "_primary_api", lambda: None)
+    set_position(-5, POS_MAX + 100, w=1920, h=1080)
+    assert pos_x() == 0                 # clamped
+    assert pos_y() == POS_MAX           # clamped
+    assert pos_w() == 1920
+    assert pos_h() == 1080
+
+
+def test_on_reset_forces_auto_position_and_follow_on():
+    # The per-mod Reset must snap the position back to auto (0/0/0/0) and Follow Carousel Mode
+    # back ON, overriding any stale pin the host reset snapshot may still carry.
+    mod_settings._seed({GARAGE_KEY: True, BATTLE_KEY: True,
+                        POS_X_KEY: 500, POS_Y_KEY: 300, POS_W_KEY: 1920, POS_H_KEY: 1080,
+                        FOLLOW_CAROUSEL_KEY: False})
+    mod_settings._on_reset(LINKAGE, {POS_X_KEY: 999, POS_Y_KEY: 888,
+                                     FOLLOW_CAROUSEL_KEY: False})
+    assert (pos_x(), pos_y(), pos_w(), pos_h()) == (0, 0, 0, 0)
+    assert follow_carousel() is True
+
+
+def test_on_reset_ignores_foreign_linkage():
+    # onResetMod fires globally; a foreign mod's reset must not wipe our pin / follow flag.
+    mod_settings._seed({GARAGE_KEY: True, BATTLE_KEY: True,
+                        POS_X_KEY: 500, POS_Y_KEY: 300,
+                        FOLLOW_CAROUSEL_KEY: False})
+    mod_settings._on_reset("com.someone.othermod", {})
+    assert pos_x() == 500
+    assert pos_y() == 300
+    assert follow_carousel() is False
+
+
+def test_coerce_types_per_key():
+    # Position keys coerce to clamped ints; every other key coerces to bool.
+    assert mod_settings._coerce(POS_X_KEY, "640") == 640
+    assert mod_settings._coerce(POS_Y_KEY, -3) == 0
+    assert mod_settings._coerce(GARAGE_KEY, 0) is False
+    assert mod_settings._coerce(FOLLOW_CAROUSEL_KEY, 1) is True
+
+
+# --- settingsVersion-bump migration: preserve saved values across a register() bump ---------
+
+class _FakeMsaApi(object):
+    """Models Aslain MSA's settingsVersion-bump behavior for the migration path.
+
+    getModSettings returns None while the template's settingsVersion exceeds the stored one
+    (the wipe path register()'s else-branch reacts to); once setModTemplate records the new
+    version it returns the current stored dict. setModTemplate resets the stored dict to the
+    template's varName defaults (preserving the host-owned 'enabled' toggle) and returns them.
+    The raw previously-stored values live at .state['settings'][LINKAGE] until setModTemplate
+    overwrites them."""
+
+    def __init__(self, stored=None, stored_version=0):
+        settings = {LINKAGE: dict(stored)} if stored is not None else {}
+        self.state = {"settings": settings, "templates": {}}
+        self._stored_version = stored_version
+        self.saved = 0
+        self.updated = 0
+        self.registered_cb = None
+        self.template_cb = None
+
+    @staticmethod
+    def _defaults_from_template(template):
+        d = {}
+        for col in ("column1", "column2"):
+            for c in template.get(col, []):
+                if "varName" in c:
+                    d[c["varName"]] = c.get("value")
+        d["enabled"] = template.get("enabled", True)
+        return d
+
+    def getModSettings(self, linkage, template=None):
+        cur = (self.state.get("settings") or {}).get(linkage)
+        if cur is None:
+            return None
+        if template is not None and template.get("settingsVersion", 0) > self._stored_version:
+            return None
+        return cur
+
+    def setModTemplate(self, linkage, template, callback):
+        self.template_cb = callback
+        defaults = self._defaults_from_template(template)
+        prev = (self.state.get("settings") or {}).get(linkage) or {}
+        if "enabled" in prev:
+            defaults["enabled"] = prev["enabled"]
+        self.state.setdefault("settings", {})[linkage] = defaults
+        self._stored_version = template.get("settingsVersion", 0)
+        return defaults
+
+    def registerCallback(self, linkage, callback):
+        self.registered_cb = callback
+
+    def updateModSettings(self, linkage, data):
+        self.updated += 1
+        self.state.setdefault("settings", {})[linkage] = dict(data)
+
+    def saveState(self):
+        self.saved += 1
+
+
+@pytest.fixture
+def _run_register(monkeypatch):
+    """Run register() against a fake api: patch _primary_api to it, neutralize the
+    reset/text-sync loops (out of scope for migration), reset the one-shot _registered guard,
+    and restore it after."""
+    saved_registered = mod_settings._registered
+
+    def _run(api):
+        monkeypatch.setattr(mod_settings, "_primary_api", lambda: api)
+        monkeypatch.setattr(mod_settings, "_candidate_apis", lambda: [])
+        mod_settings._registered = False
+        mod_settings.register()
+
+    yield _run
+    mod_settings._registered = saved_registered
+
+
+def test_migration_preserves_user_values_drops_removed_key_and_seeds_new_default(_run_register):
+    # Old v4 dict with non-default checkbox choices, a legacy key removed from the template,
+    # and none of the v5 position keys -> migration must keep the survivors, drop the legacy
+    # key, and leave the new position/followCarousel keys at their fresh defaults.
+    old = {
+        "enabled": True,
+        GARAGE_KEY: False,
+        BATTLE_KEY: False,
+        BATTLE_ALT_KEY: True,
+        COUNTED_ASSIST_KEY: True,
+        "legacyGoneVarName": 7,
+    }
+    api = _FakeMsaApi(stored=old, stored_version=4)
+    _run_register(api)
+
+    assert mod_settings.garage_enabled() is False
+    assert mod_settings.battle_enabled() is False
+    assert mod_settings.battle_alt_key_enabled() is True
+    assert mod_settings.counted_assistance_enabled() is True
+    # New-to-v5 keys were absent from the old dict -> fresh defaults.
+    assert mod_settings.pos_x() == 0 and mod_settings.pos_y() == 0
+    assert mod_settings.follow_carousel() is True
+    # The removed legacy key never leaks into our cache.
+    assert "legacyGoneVarName" not in mod_settings._settings
+    # Persisted exactly once (reset + overlay coalesce into one debounced write).
+    assert api.updated == 1
+    assert api.saved == 1
+    written = api.state["settings"][LINKAGE]
+    assert written[GARAGE_KEY] is False
+    assert written[BATTLE_ALT_KEY] is True
+    assert "enabled" in written and written["enabled"] is True
+    assert "legacyGoneVarName" not in written
+
+
+def test_migration_preserves_host_enabled_false(_run_register):
+    # A user who disabled the mod via the host 'enabled' toggle must stay disabled across
+    # migration (the host key survives the template reset and the re-write).
+    old = {"enabled": False, GARAGE_KEY: False}
+    api = _FakeMsaApi(stored=old, stored_version=4)
+    _run_register(api)
+    assert api.state["settings"][LINKAGE]["enabled"] is False
+
+
+def test_fresh_install_yields_defaults_without_spurious_persist(_run_register):
+    # No stored settings -> old_raw empty -> migration overlay skipped: defaults everywhere and
+    # NO updateModSettings / saveState.
+    api = _FakeMsaApi(stored=None, stored_version=0)
+    _run_register(api)
+    assert mod_settings.garage_enabled() is DEFAULTS[GARAGE_KEY]
+    assert mod_settings.pos_x() == 0 and mod_settings.pos_y() == 0
+    assert api.updated == 0
+    assert api.saved == 0
+    # Fresh-install path registered the template and wired its callback.
+    assert api.template_cb is mod_settings._on_changed
+
+
+def test_same_version_load_does_not_migrate(_run_register):
+    # getModSettings returns the stored dict (version matches) -> saved-truthy branch runs
+    # (_seed + registerCallback), and the migration/setModTemplate else-branch is never entered.
+    stored = {"enabled": True, GARAGE_KEY: False, BATTLE_ALT_KEY: True,
+              POS_X_KEY: 700, POS_Y_KEY: 300}
+    api = _FakeMsaApi(stored=stored, stored_version=SETTINGS_VERSION)
+    _run_register(api)
+    assert mod_settings.garage_enabled() is False
+    assert mod_settings.battle_alt_key_enabled() is True
+    assert mod_settings.pos_x() == 700 and mod_settings.pos_y() == 300
+    assert api.registered_cb is mod_settings._on_changed
+    assert api.template_cb is None
+    assert api.updated == 0
+    assert api.saved == 0

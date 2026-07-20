@@ -41,7 +41,7 @@ class MarkTickVM(ViewModel):
 
 
 class MoEVM(ViewModel):
-    def __init__(self, properties=12, commands=0):
+    def __init__(self, properties=18, commands=1):
         super(MoEVM, self).__init__(properties=properties, commands=commands)
 
     def _initialize(self):
@@ -60,6 +60,27 @@ class MoEVM(ViewModel):
         self._addArrayProperty("ticks", Array())       # 9  [MarkTickVM] * 3, ascending
         self._addNumberProperty("endDamageRequired", 0)  # 10  100th-pct dmg goalpost (0 = unknown)
         self._addStringProperty("labels", "")          # 11  JSON {key: localized text} for the tooltip
+        # --- drag-to-reposition channel (APPENDED after the 12 v1 read props so the JS's
+        # name/index reads of 0..11 don't shift). posX/posY = the widget's top-LEFT px anchor
+        # (0 = auto: keep the CSS bottom-right default). posW/posH = the viewport px the pin was
+        # captured at, so a resolution / UI-scale change rescales it proportionally (see
+        # applyPosition in MoECalculator.js). followCarousel = ride the carousel's vertical
+        # shifts even after a pin (default True). Echoed every push; written back via setPosition. ---
+        self._addNumberProperty("posX", 0)             # 12  top-left x px (0 = auto/CSS default)
+        self._addNumberProperty("posY", 0)             # 13  top-left y px (0 = auto/CSS default)
+        self._addNumberProperty("posW", 0)             # 14  viewport px a pinned pos was captured at
+        self._addNumberProperty("posH", 0)             # 15  viewport px a pinned pos was captured at
+        self._addBoolProperty("followCarousel", True)  # 16  keep riding carousel vertical shifts
+        # Monotonic per-push counter (APPENDED last so the JS's name/index reads of 0..16 don't
+        # shift). On a freshly-mounted (cold) subview the engine withholds the data-changed event
+        # until the view next composites (in an idle garage: only when the camera moves), so the JS
+        # ModelObserver never fires and a reset / stepper-to-0 position push is dropped -- the widget
+        # stays pinned. The widget polls this `rev` as a cheap change-signal and re-renders when it
+        # moves (cold-mount self-heal; see pollForChanges in MoECalculator.js).
+        self._addNumberProperty("rev", 0)              # 17  push counter (bumped FIRST every push)
+        # Reverse channel: the JS drag/stepper reports the final px here. Wulf delivers the
+        # JS-supplied {x, y, w, h} MAP to the handler wired in gameface_bridge._connect_commands.
+        self.setPosition = self._addCommand("setPosition")  # arg: {x, y, w, h} px (drag / rescale echo)
 
     def setVisible(self, v):
         self._setBool(0, v)
@@ -93,6 +114,24 @@ class MoEVM(ViewModel):
 
     def setLabels(self, v):
         self._setString(11, v)
+
+    def setPosX(self, v):
+        self._setNumber(12, v)
+
+    def setPosY(self, v):
+        self._setNumber(13, v)
+
+    def setPosW(self, v):
+        self._setNumber(14, v)
+
+    def setPosH(self, v):
+        self._setNumber(15, v)
+
+    def setFollowCarousel(self, v):
+        self._setBool(16, v)
+
+    def setRev(self, v):
+        self._setNumber(17, v)
 
     def getTicks(self):
         return self._getArray(9)

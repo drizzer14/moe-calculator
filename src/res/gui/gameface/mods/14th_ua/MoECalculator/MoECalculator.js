@@ -16,6 +16,209 @@ function unwrap(x) {
     return x && x.value !== undefined ? x.value : x;
 }
 
+// Reverse-channel command names -- mirror bridge/view_models.py MoEVM commands.
+const CMD = { SET_POSITION: "setPosition" };
+
+// Invoke a reverse-channel command on our MoEVM (exposed as `moeData` on the host model).
+// Wulf surfaces a ViewModel command as a callable on the model; whether it lives on the
+// wrapped proxy or its unwrapped value can differ across builds, so try both. Wulf commands
+// take a single MAP argument (a raw scalar is rejected as "not a map"); a map arg (setPosition's
+// {x, y, w, h}) passes through as-is, a scalar is wrapped {value:...}, and a no-arg call passes {}.
+function invokeCommand(name, arg) {
+    try {
+        const vm = observer.model && observer.model.moeData;
+        let host = null;
+        if (vm && typeof vm[name] === "function") host = vm;
+        else {
+            const inner = unwrap(vm);
+            if (inner && typeof inner[name] === "function") host = inner;
+        }
+        if (!host) { console.error("[moe] command missing: " + name); return; }
+        if (arg === undefined || arg === null) host[name]({});
+        else if (typeof arg === "object") host[name](arg);
+        else host[name]({ value: arg });
+    } catch (e) {
+        console.error("[moe] invokeCommand failed: " + name, e);
+    }
+}
+
+// Current Gameface viewport (px). setPosition records this alongside the pinned px so a later
+// resolution / UI-scale change rescales the position proportionally (see applyPosition).
+function currentVP() {
+    return { w: window.innerWidth || 0, h: window.innerHeight || 0 };
+}
+
+// --- Drag-to-reposition: pin-state anchor helpers ----------------------------------
+// The widget has TWO anchor modes (see the plan / .css). AUTO: the CSS bottom-right anchor
+// (right/bottom + transform-origin 100% 100%), no inline left/top -- resolution-relative,
+// re-derived every viewport. PINNED: a top-LEFT anchor (transform-origin 0 0, right/bottom
+// cleared, inline left/top px) -- with origin 0 0 the scaled box's top-left equals left/top,
+// so drag math + clamping stay predictable under the transform:scale(k). We store the top-left.
+// _moePinned drives applyWidgetScale's transform-origin so a scale re-arm keeps the right anchor.
+
+function enterPinAnchor(root, left, top) {
+    root._moePinned = true;
+    root.style.transformOrigin = "0 0";
+    root.style.right = "auto";
+    root.style.bottom = "auto";
+    root.style.left = Math.round(left) + "px";
+    root.style.top = Math.round(top) + "px";
+}
+
+function clearPinAnchor(root) {
+    root._moePinned = false;
+    root.style.transformOrigin = "100% 100%";
+    // clear the inline overrides so the resolution-relative CSS bottom-right anchor re-derives.
+    root.style.left = "";
+    root.style.top = "";
+    root.style.right = "";
+    root.style.bottom = "";
+}
+
+// Measure the AUTO-anchor top (px) for the CURRENT carousel state without disturbing the pin:
+// momentarily clear the pin (restore right/bottom + origin 100% 100%, drop inline left/top),
+// force a reflow, read getBoundingClientRect().top, then restore the exact prior inline styles.
+// Synchronous (no paint between), so it never flickers. Used for the Follow-Carousel nudge.
+function measureAutoTop(root) {
+    const s = root.style;
+    const savedLeft = s.left, savedTop = s.top, savedRight = s.right,
+          savedBottom = s.bottom, savedOrigin = s.transformOrigin;
+    s.left = ""; s.top = ""; s.right = ""; s.bottom = "";
+    s.transformOrigin = "100% 100%";
+    void root.offsetHeight;   // force reflow so the CSS anchor is applied before we measure
+    const top = root.getBoundingClientRect().top;
+    s.left = savedLeft; s.top = savedTop; s.right = savedRight;
+    s.bottom = savedBottom; s.transformOrigin = savedOrigin;
+    return top;
+}
+
+// Apply the user's dragged position (px, top-left), or fall back to the CSS default. posX/posY
+// are the top-left px, both 0 == "auto". PINNED (posX/posY > 0): the stored px were captured at
+// data.posW x data.posH; if the current viewport differs, rescale proportionally, apply, and
+// echo the rescaled px + new capture size back so it converges (the next push carries posW/posH
+// == the current viewport). A pin with NO recorded capture size (typed into the steppers, or a
+// pre-fix save) adopts the current viewport so a LATER change can rescale it. AUTO (0/0): clear
+// the inline override so the resolution-relative CSS default re-derives. Never fights an
+// in-progress drag; a no-op for an older Python build that doesn't push posX.
+function applyPosition(root, data) {
+    if (root._moeDragging) return;
+    if (!data || data.posX === undefined) return;
+    const vp = currentVP();
+    const x = data.posX | 0;
+    const y = data.posY | 0;
+    if (x > 0 && y > 0) {
+        let ax = x, ay = y;
+        const rw = data.posW | 0, rh = data.posH | 0;
+        if (rw && rh && vp.w && vp.h && (rw !== vp.w || rh !== vp.h)) {
+            ax = Math.round(x * vp.w / rw);
+            ay = Math.round(y * vp.h / rh);
+            invokeCommand(CMD.SET_POSITION, { x: ax, y: ay, w: vp.w, h: vp.h });
+        } else if ((!rw || !rh) && vp.w && vp.h) {
+            invokeCommand(CMD.SET_POSITION, { x: x, y: y, w: vp.w, h: vp.h });
+        }
+        enterPinAnchor(root, ax, ay);
+        // Baseline for the Follow-Carousel nudge: the auto top in the CURRENT carousel state.
+        // Set on every apply so the first post-mount carousel toggle has a correct reference.
+        root._moeLastAutoTop = measureAutoTop(root);
+        return;
+    }
+    clearPinAnchor(root);
+    root._moeLastAutoTop = undefined;   // auto follows the carousel via CSS -- no nudge baseline
+}
+
+// Ctrl+drag to reposition the widget. Ctrl-gated so a normal hover/click can't move it. On
+// mousedown we switch to the top-left anchor at the current on-screen top-left (no visual jump),
+// then track the cursor; Shift locks to the dominant axis (re-evaluated every move). On release
+// we report the final top-left px to Python via setPosition (a BARE map), which persists it and
+// re-pushes; applyPosition then re-applies the same coords. Hidden tooltip + _moeDidDrag guard
+// the trailing synthetic click / reopen.
+//
+// The drag-start listener lives on `document` in the CAPTURE phase, NOT on #moe-root in bubble.
+// Reason (cross-mod collision): OpenWG injects several mods into the SAME hangar document as
+// body siblings at similar z-index, and any number of them may be independently draggable.
+// Capturing on document lets our handler run for EVERY mousedown, so `e.target` is the true
+// hit-tested topmost pointer-events:auto element under the cursor -- and ownership is decided by
+// `root.contains(e.target)`: we claim the drag ONLY when the mousedown actually landed on OUR
+// widget's DOM subtree, and we NEVER stopImmediatePropagation for anyone else's mousedown. That
+// is what makes this coexist with ANY number of other draggable mods (not just one known
+// sibling) and be INDEPENDENT of listener registration / mount order -- a rect hit-test can't do
+// this, because two overlapping widgets' rects can both contain the point and the first-
+// registered capture listener would win nondeterministically.
+//
+// It works because of our pointer-events layering (MoECalculator.css): #moe-root is
+// pointer-events:auto on its footprint while every overhanging child (ticks, markers, end
+// labels) is pointer-events:none -- so `e.target` resolves to our root only when the pointer is
+// genuinely over our interactive footprint, and any interactive child still lives under
+// #moe-root so contains() covers it. Where our visible footprint overlaps another equal-z
+// widget's transparent overhang, #moe-root's z-index:9001 (one above the 9000 baseline) makes
+// OUR footprint the topmost painted element there, so hit-testing matches the visual stacking.
+let _moeDragBound = false;   // idempotent: the document listener must be added exactly once
+function installDrag() {
+    if (_moeDragBound) return;   // ensureRoot()/mount may run repeatedly; never stack listeners
+    _moeDragBound = true;
+    document.addEventListener("mousedown", function (e) {
+        const root = document.getElementById("moe-root");
+        // Ownership: bail (plain return, NO stopImmediatePropagation) unless the widget exists,
+        // is shown, Ctrl is held, AND the mousedown landed inside OUR DOM subtree. Target-based
+        // hit-test (root.contains) -- the true topmost pointer-events:auto element -- so we only
+        // ever claim a mousedown on our own widget and never stop the event for another mod's.
+        if (!root || root.style.display === "none") return;
+        if (!e.ctrlKey) return;
+        if (!root.contains(e.target)) return;
+        // It IS our drag: pre-empt any other mod's mousedown (stopImmediatePropagation also stops
+        // any later document-capture listener + all bubbling) so nothing else can grab the drag.
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        const r0 = root.getBoundingClientRect();
+        const boxW = r0.width, boxH = r0.height;   // scaled rendered size (clamp basis)
+        const offX = e.clientX - r0.left;          // cursor -> top-left x
+        const offY = e.clientY - r0.top;           // cursor -> top-left y
+        const startLeft = Math.round(r0.left);
+        const startTop = Math.round(r0.top);
+        // Switch to the top-left anchor at the current on-screen position -- no jump.
+        enterPinAnchor(root, startLeft, startTop);
+        root._moeDragging = true;
+        root._moeDidDrag = true;
+        root.style.cursor = "move";
+        hideTooltip();   // suppress the hover tooltip while dragging (reopen guarded too)
+        const onMove = function (ev) {
+            const w = window.innerWidth || 0;
+            const h = window.innerHeight || 0;
+            let cx = ev.clientX - offX;
+            let cy = ev.clientY - offY;
+            // clamp so the whole box stays on-screen. y floored at 1 (0 is the auto sentinel).
+            if (w) cx = Math.max(0, Math.min(w - boxW, cx));
+            if (h) cy = Math.max(1, Math.min(h - boxH, cy));
+            // Shift axis-lock (Photoshop-style), re-evaluated every move so releasing/holding
+            // Shift or changing the dominant direction switches the locked axis live.
+            if (ev.shiftKey) {
+                const dx = cx - startLeft, dy = cy - startTop;
+                if (Math.abs(dx) >= Math.abs(dy)) cy = startTop; else cx = startLeft;
+            }
+            root.style.left = Math.round(cx) + "px";
+            root.style.top = Math.round(cy) + "px";
+        };
+        const onUp = function () {
+            document.removeEventListener("mousemove", onMove, true);
+            document.removeEventListener("mouseup", onUp, true);
+            root._moeDragging = false;
+            root.style.cursor = "";
+            const r = root.getBoundingClientRect();
+            const vp = currentVP();
+            invokeCommand(CMD.SET_POSITION, {
+                x: Math.max(1, Math.round(r.left)),   // never 0 (the auto sentinel)
+                y: Math.max(1, Math.round(r.top)),
+                w: vp.w, h: vp.h,
+            });
+            // Hold _moeDidDrag through the click that fires right after mouseup, then clear.
+            setTimeout(function () { root._moeDidDrag = false; }, 0);
+        };
+        // capture phase so a fast drag that leaves the box still tracks + releases.
+        document.addEventListener("mousemove", onMove, true);
+        document.addEventListener("mouseup", onUp, true);
+    }, true);   // CAPTURE on document: fires for EVERY mousedown so e.target is the real hit element
+}
+
 // Flat (nation-agnostic) mark glyph: mark_1/2/3 = the 1/2/3-mark UI dashes. We use
 // these for every tick rather than the nation gun-barrel decals (tk.icon) -- the
 // decals carry flag backgrounds + detail that mush at tick size.
@@ -142,6 +345,7 @@ function ensureRoot() {
         '  </div>' +
         '</div>';
     document.body.appendChild(root);
+    installDrag();   // Ctrl+drag reposition (document-capture listener, bound exactly once)
     return root;
 }
 
@@ -233,9 +437,11 @@ function ensureTooltip() {
     if (root) {
         root.addEventListener("mouseenter", function () {
             if (root.style.display === "none") return;
+            if (root._moeDragging || root._moeDidDrag) return;   // never open mid-drag / just after
             clearTimeout(ttShowTimer);
             ttShowTimer = setTimeout(function () {
                 if (root.style.display === "none") return;   // widget hid during the delay
+                if (root._moeDragging || root._moeDidDrag) return;   // a drag started during the delay
                 tip.classList.add("moe-tt-open");
                 positionTooltip(root, tip);
             }, TOOLTIP_DELAY_MS);
@@ -343,10 +549,20 @@ function render(model) {
     // Localized tooltip labels ride on the model as a JSON bundle; parse missing-key-safe.
     LABELS = parseLabels(data.labels);
 
+    // Keep the last-pushed data for the viewport-resize hook (which re-applies position).
+    root._moeLastData = data;
+
     // Responsive bottom offset: tag the root with the carousel geometry so the CSS can
-    // lift the bar clear of a single / small-double / tall-double carousel.
-    root.classList.toggle("moe-rows2", Number(data.carouselRows) === 2);
-    root.classList.toggle("moe-small", !!data.carouselSmall);
+    // lift the bar clear of a single / small-double / tall-double carousel. Detect a CHANGE
+    // (vs the previous render) so a PINNED widget can follow the carousel's vertical shift.
+    const rows2 = Number(data.carouselRows) === 2;
+    const small = !!data.carouselSmall;
+    const carSig = (rows2 ? 2 : 1) * 10 + (small ? 1 : 0);
+    const prevAutoTop = root._moeLastAutoTop;   // baseline from the PREVIOUS carousel state
+    const carouselChanged = root._moeCarSig !== undefined && root._moeCarSig !== carSig;
+    root.classList.toggle("moe-rows2", rows2);
+    root.classList.toggle("moe-small", small);
+    root._moeCarSig = carSig;
 
     // Readout: current average combined damage (top-left, above the bar) + current mark
     // percentage (used as the last tick's top label, above the bar's 100% end).
@@ -375,12 +591,70 @@ function render(model) {
     // Hover tooltip: full localized stats breakdown (updates in place; kept open if the
     // user is already hovering when a re-push arrives).
     renderTooltip(root, data);
+
+    // Position: apply the persisted pin (or the auto CSS default). This also refreshes
+    // _moeLastAutoTop to the auto top in the CURRENT carousel state.
+    applyPosition(root, data);
+
+    // Follow Carousel Mode: when the carousel state changed AND the widget is pinned AND the
+    // setting is on, nudge the pin vertically by the auto-anchor's shift so it keeps clearing
+    // the carousel, then echo the new position back so it persists. Carousel changes are
+    // vertical-only -- X is never nudged. Skipped when unpinned (auto follows via CSS) or off.
+    if (carouselChanged && root._moePinned && data.followCarousel &&
+        prevAutoTop !== undefined && root._moeLastAutoTop !== undefined) {
+        const delta = root._moeLastAutoTop - prevAutoTop;   // how far the auto anchor moved
+        if (delta) {
+            const vp = currentVP();
+            const curLeft = parseFloat(root.style.left) || (data.posX | 0);
+            const curTop = parseFloat(root.style.top) || (data.posY | 0);
+            let newTop = Math.round(curTop + delta);
+            if (vp.h) {
+                const boxH = root.getBoundingClientRect().height;
+                newTop = Math.min(newTop, Math.max(1, vp.h - boxH));
+            }
+            newTop = Math.max(1, newTop);
+            root.style.top = newTop + "px";
+            invokeCommand(CMD.SET_POSITION, {
+                x: Math.max(1, Math.round(curLeft)), y: newTop, w: vp.w, h: vp.h,
+            });
+        }
+    }
+}
+
+// Cold-mount self-heal. The widget repaints only when its ModelObserver's data-changed callback
+// fires (observer.onUpdate -> render). But on a freshly mounted sub-view the engine does NOT
+// deliver that callback until the view next composites -- which in the idle garage (or with the
+// settings overlay open) only happens when the camera moves. So an idle-garage push -- an MSA
+// per-mod reset or a stepper-to-0 that zeroes the position -- is dropped and the bar stays pinned
+// until the player nudges the camera (then every queued update lands at once). The first paint
+// works only because it's a DIRECT render() call below, not observer-driven.
+//
+// Fix: poll a cheap monotonic counter (moeData.rev, bumped by Python FIRST on every push) and
+// render when it changes. This runs even when the data-changed event is dormant, so the bar
+// follows pushes within one poll interval. Idle cost is a shallow field read + compare; a real
+// render happens only when rev actually moves, so no spurious rebuilds. applyPosition (called by
+// render) already respects the _moeDragging guard, so a poll never fights an active drag.
+let _lastRev = null;
+
+function revOf(model) {
+    const data = unwrap(model && model.moeData);
+    return data && data.rev !== undefined ? data.rev : null;
+}
+
+function renderAndTrack(model) {
+    _lastRev = revOf(model);
+    render(model);
+}
+
+function pollForChanges() {
+    const rev = revOf(observer.model);
+    if (rev !== null && rev !== _lastRev) renderAndTrack(observer.model);
 }
 
 engine.whenReady.then(() => {
-    observer.onUpdate(render);
+    observer.onUpdate(renderAndTrack);   // warm path: instant repaint when the event fires
     observer.subscribe();
-    render(observer.model);
+    renderAndTrack(observer.model);      // direct initial paint (observer event not needed)
 });
 
 /* Resolution-calibrated size law. k depends only on the LOGICAL viewport
@@ -423,10 +697,12 @@ function applyWidgetScale() {
     var remPx = readRemPx();
     _lastRemPx = remPx;
     _lastIH = window.innerHeight;
-    // Vertical position is fully CSS-driven (the rem+17.78vh Y law lands x1 and x2 on its own),
-    // so the transform carries only the resolution-calibrated scale, anchored at the bottom-right
-    // corner so the CSS bottom/right anchor holds.
-    root.style.transformOrigin = "100% 100%";
+    // The transform carries only the resolution-calibrated scale. The transform-origin depends
+    // on the anchor mode: bottom-right (100% 100%) so the CSS bottom/right anchor holds when
+    // AUTO; top-left (0 0) when PINNED so the inline left/top anchor holds (drag math relies on
+    // the scaled box's top-left equalling left/top). Never touch the inline left/top set by
+    // drag / applyPosition here.
+    root.style.transformOrigin = root._moePinned ? "0 0" : "100% 100%";
     root.style.transform = "scale(" + widgetScale(remPx) + ")";
     // 4K@x2 only: widen the box by ~32 screen px extending LEFT (right-anchored origin).
     // Base width is 315rem (MoECalculator.css). At x2 1rem=2px and k=132/136, so
@@ -439,8 +715,28 @@ function pollWidgetScale() {
     if (!document.getElementById("moe-root")) return;
     if (readRemPx() !== _lastRemPx || window.innerHeight !== _lastIH) applyWidgetScale();
 }
+// A screen-resolution / UI-scale change resizes the Gameface viewport but does NOT re-push the
+// model, so applyPosition wouldn't otherwise re-run and a pinned widget would keep stale px.
+// Re-run applyPosition on resize against the last-pushed data (auto re-derives the CSS default,
+// a pinned position rescales proportionally + echoes to converge). rAF-coalesced so a burst of
+// resize events collapses to one recompute. The Python g_guiResetters push is a backstop.
+function onViewportResize() {
+    if (onViewportResize._pending) return;
+    onViewportResize._pending = true;
+    var raf = window.requestAnimationFrame || function (f) { f(); };
+    raf(function () {
+        onViewportResize._pending = false;
+        var root = document.getElementById("moe-root");
+        if (root && root._moeLastData) applyPosition(root, root._moeLastData);
+    });
+}
+
 engine.whenReady.then(function () {
     applyWidgetScale();
     window.addEventListener("resize", applyWidgetScale);
-    setInterval(pollWidgetScale, 250);
+    window.addEventListener("resize", onViewportResize);
+    // One 250ms tick drives both the resolution/scale self-heal AND the cold-mount rev poll
+    // (pollForChanges re-renders when Python bumped moeData.rev but the data-changed event was
+    // dormant -- see the cold-mount self-heal note above).
+    setInterval(function () { pollWidgetScale(); pollForChanges(); }, 250);
 });

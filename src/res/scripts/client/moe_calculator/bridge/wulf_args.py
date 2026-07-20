@@ -66,3 +66,22 @@ def cmd_xy_arg(args):
     except Exception:
         LOG_CURRENT_EXCEPTION()
         return 0, 0
+
+
+def cmd_wh_arg(args):
+    """Extract the (w, h) capture-viewport pair a JS `setPosition` invocation carried
+    (the resolution / scale the px were measured at, so a pinned position can be rescaled
+    later). Same MAP-arg tolerance as cmd_xy_arg. Missing/invalid -> 0 (unknown)."""
+    def as_int(v):
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return 0
+    try:
+        if not args:
+            return 0, 0
+        a = args[0]
+        return as_int(map_get(a, "w")), as_int(map_get(a, "h"))
+    except Exception:
+        LOG_CURRENT_EXCEPTION()
+        return 0, 0
