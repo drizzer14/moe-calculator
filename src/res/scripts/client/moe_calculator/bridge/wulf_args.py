@@ -23,32 +23,6 @@ def map_get(a, key):
     return None
 
 
-def cmd_int_arg(args):
-    """Extract the int id a JS command invocation carried. Wulf delivers a single MAP
-    argument (the JS side wraps the id as {value: id}); pull our key out of it,
-    tolerating a plain dict, a wrapped map, or a bare scalar. 0 = nothing usable."""
-    try:
-        if not args:
-            return 0
-        a = args[0]
-        if isinstance(a, dict):
-            a = a.get("value", a.get("id"))
-        else:
-            getter = getattr(a, "get", None)
-            if callable(getter):
-                try:
-                    a = a.get("value")
-                except Exception:
-                    pass
-        try:
-            return int(a)
-        except (TypeError, ValueError):
-            return 0
-    except Exception:
-        LOG_CURRENT_EXCEPTION()
-        return 0
-
-
 def cmd_xy_arg(args):
     """Extract the (x, y) pixel pair a JS `setPosition` invocation carried. Wulf
     delivers a single MAP argument ({x, y}); pull both keys, tolerating a plain dict or

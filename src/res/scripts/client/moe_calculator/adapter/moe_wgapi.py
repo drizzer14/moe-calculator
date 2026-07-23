@@ -209,7 +209,7 @@ def valid_list(blob, region):
     return out
 
 
-# --- public API (the moe_data router surface) --------------------------------
+# --- public API --------------------------------------------------------------
 
 def get_thresholds(int_cd):
     """Return {1,2,3,100: dmg} for a vehicle, or {} if unknown / not fetched yet. Kicks off the
@@ -353,15 +353,6 @@ def on_vehicle_sold(int_cd):
         LOG_DEBUG("[moe] sold %d -> list=%d" % (cd, len(_want)))
     except Exception:
         LOG_CURRENT_EXCEPTION()
-
-
-def on_vehicle_selected(int_cd):
-    """A vehicle was selected in the garage. Selection deliberately does NOT touch the persistent
-    fetch list -- a tank is committed only by buying it or playing a battle in it; merely browsing
-    the carousel must not pollute the list. The threshold fetch is covered by get_thresholds() on
-    the push that follows selection, so this needs no bookkeeping today. Kept as a wired seam (the
-    bridge calls it on every selection) in case per-selection behavior is added later."""
-    return
 
 
 def on_battle_played(int_cd):

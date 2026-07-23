@@ -6,7 +6,6 @@ into a BattleSnapshot, the battle builder turns that into a BattleMoEModel, and 
 battle bridge marshals the model to the Gameface overlay. NOTHING here may import a game
 symbol -- that is what lets the in-battle math unit-test on plain Python 3 (see tests/).
 """
-from moe_calculator.domain.constants import EWMA_K
 
 
 class BattleSnapshot(object):
@@ -43,14 +42,12 @@ class BattleSnapshot(object):
     - `is_spectating`: whether a DIFFERENT vehicle than the player's own is being observed
                        (postmortem free-look). True -> overlay hidden: the identity follows
                        the observed tank while the stats stay ours, so the readout is bogus.
-    - `k`            : the EWMA coefficient to project with; default is the community `EWMA_K`,
-                       overridden per-account by the adapter's learned value (adapter/calib_cache).
     """
     def __init__(self, vehicle_int_cd=0, nation="", damage=0, assist=0, stun=0,
                  track_assist=0, spot_assist=0,
                  team_damage=0, pre_avg_damage=0, pre_percentile=0.0, thresholds=None,
                  has_vehicle=True, in_battle=True, is_spectating=False,
-                 baseline_known=False, k=EWMA_K):
+                 baseline_known=False):
         self.vehicle_int_cd = vehicle_int_cd
         self.nation = nation
         self.damage = damage
@@ -66,7 +63,6 @@ class BattleSnapshot(object):
         self.in_battle = in_battle
         self.is_spectating = is_spectating
         self.baseline_known = baseline_known
-        self.k = k
 
 
 class BattleMoEModel(object):

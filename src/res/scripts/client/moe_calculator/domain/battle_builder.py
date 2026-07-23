@@ -5,10 +5,8 @@ The four in-battle readouts (see TASKS/in-battle-moe-panel.md):
   1. live combined damage  C = damage + max(track, spot, stun) - team_damage   (WG #15060: MAX)
   2. projected moving-average combined damage  avgWithCD = prevAvg + k*(C - prevAvg)  (EWMA)
   3. current percent  = WG's real career standing (pre_percentile) + this battle's increment
-     f(avgWithCD) - f(prevAvg), where f maps combined damage to percentile. PRIMARY f is a
-     normal curve fitted to the per-tank thresholds (matches WG's smooth distribution shape);
-     FALLBACK f is a piecewise-linear interp over the stops [(0,0),(65,D1),(85,D2),(95,D3),
-     (100,D100)] for tables the fit can't use.
+     f(avgWithCD) - f(prevAvg), where f maps combined damage to percentile via a normal curve
+     fitted to the per-tank thresholds (matches WG's smooth distribution shape).
   4. percent delta    = current percent - pre-battle standing percentile   (signed)
 
 Metrics 2-4 ride on the EWMA coefficient k (community-reverse-engineered, not WG-confirmed).
@@ -72,61 +70,6 @@ def combined_damage(damage, track, spot, stun, team_damage, merged_assist=0):
     return c if c > 0 else 0
 
 
-def _threshold_stops(thresholds):
-    """Build the (combined_damage, percent) interpolation stops from the per-tank table,
-    or return None when the table is unusable (missing keys / non-increasing damage), so
-    the caller degrades to 'no percent' instead of dividing by zero.
-
-    Stops: (0, 0), (D1, 65), (D2, 85), (D3, 95), (D100, 100)."""
-    if not thresholds:
-        return None
-    try:
-        d1 = int(thresholds.get(1, 0) or 0)
-        d2 = int(thresholds.get(2, 0) or 0)
-        d3 = int(thresholds.get(3, 0) or 0)
-        d100 = int(thresholds.get(100, 0) or 0)
-    except (TypeError, ValueError, AttributeError):
-        return None
-    p1, p2, p3 = MARK_PERCENTS  # 65, 85, 95
-    stops = [(0, 0.0), (d1, float(p1)), (d2, float(p2)), (d3, float(p3)), (d100, 100.0)]
-    # Damage must be strictly increasing across the stops for a well-defined interpolation.
-    prev = -1
-    for dmg, _pct in stops:
-        if dmg <= prev:
-            return None
-        prev = dmg
-    return stops
-
-
-def _interp_percent(damage, stops):
-    """Piecewise-linear map of combined `damage` to percent over the given stops. Assumes
-    `stops` is the strictly-increasing list from _threshold_stops. Clamped 0..100."""
-    d = float(damage or 0.0)
-    if d <= 0:
-        return 0.0
-    if d >= stops[-1][0]:
-        return 100.0
-    for i in range(1, len(stops)):
-        d_lo, p_lo = stops[i - 1]
-        d_hi, p_hi = stops[i]
-        if d <= d_hi:
-            frac = (d - d_lo) / float(d_hi - d_lo)
-            return _clamp(p_lo + frac * (p_hi - p_lo), 0.0, 100.0)
-    return 100.0
-
-
-def damage_to_percent(damage, thresholds):
-    """Combined damage -> MoE percentile via the per-tank distribution stops. Returns 0.0
-    when the threshold table is missing/unusable (no data source for the percentile).
-
-    LINEAR fallback path -- retained for tables the smooth fit can't use (see
-    _fit_from_thresholds). The primary in-battle path is the smooth curve (_smooth_percent)."""
-    stops = _threshold_stops(thresholds)
-    if stops is None:
-        return 0.0
-    return _interp_percent(damage, stops)
-
-
 def _fit_from_thresholds(thresholds):
     """Fit a normal (mu, sigma) to the per-tank threshold points so combined damage maps to
     percent along WG's smooth distribution SHAPE instead of straight chords. The stops are
@@ -183,7 +126,7 @@ def build_battle_model(snapshot):
     cd = combined_damage(snapshot.damage, getattr(snapshot, "track_assist", 0),
                          getattr(snapshot, "spot_assist", 0), snapshot.stun,
                          snapshot.team_damage, merged_assist=merged_assist)
-    proj = ewma_project(snapshot.pre_avg_damage, cd, getattr(snapshot, "k", EWMA_K) or EWMA_K)
+    proj = ewma_project(snapshot.pre_avg_damage, cd)
 
     # Whether we have a CAREER baseline to project from. A >0 pre_avg/pre_percentile is an
     # obvious yes; a GENUINE 0 baseline also counts when the garage read the tank this session
@@ -206,21 +149,15 @@ def build_battle_model(snapshot):
     # least-squares (passes through no point exactly), so f(pre_avg) != pre_percentile in
     # general; the anchor guarantees the overlay still opens at WG's real standing.
     #
-    # PRIMARY: the smooth normal fit, so the increment rides WG's distribution SHAPE. FALLBACK:
-    # the piecewise-linear interp over the raw stops (unchanged), for tables the fit can't use.
+    # The increment rides WG's distribution SHAPE via the smooth normal fit. A table the fit
+    # can't use (missing/non-increasing stops -> degenerate fit) degrades to 'no percent'
+    # (has_data False), never a crash.
     mu_sigma = _fit_from_thresholds(thresholds)
-    if mu_sigma is not None:
+    has_data = mu_sigma is not None
+    if has_data:
         mu, sigma = mu_sigma
         inc = (_smooth_percent(proj, mu, sigma)
                - _smooth_percent(snapshot.pre_avg_damage, mu, sigma))
-        has_data = True
-    else:
-        stops = _threshold_stops(thresholds)
-        has_data = stops is not None
-        if has_data:
-            inc = (_interp_percent(proj, stops)
-                   - _interp_percent(snapshot.pre_avg_damage, stops))
-    if has_data:
         cur_percent = _clamp(float(snapshot.pre_percentile or 0.0) + inc, 0.0, 100.0)
         pct_delta = inc
     else:

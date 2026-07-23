@@ -115,17 +115,6 @@ class _WulfMap(object):
         return self._d.get(key)
 
 
-def test_cmd_int_arg_variants():
-    assert w.cmd_int_arg([{"value": 123}]) == 123
-    assert w.cmd_int_arg([{"id": 456}]) == 456
-    assert w.cmd_int_arg([_WulfMap({"value": 789})]) == 789
-    assert w.cmd_int_arg([321]) == 321
-    assert w.cmd_int_arg([{"value": "55"}]) == 55
-    assert w.cmd_int_arg([]) == 0
-    assert w.cmd_int_arg(None) == 0
-    assert w.cmd_int_arg([{"value": "nope"}]) == 0
-
-
 def test_cmd_xy_arg_variants():
     # The setPosition arg is a BARE MAP {x, y, w, h} (no {value:...} wrap). Parse a plain dict
     # and a Wulf-wrapped map object; a missing key or a non-numeric value degrades to 0.

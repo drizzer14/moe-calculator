@@ -64,9 +64,8 @@ def _clamp_p(p):
 
 
 # --- inverse normal CDF (probit) ---------------------------------------------
-# Acklam's rational approximation. Max relative error ~1.15e-9 after the optional Halley
-# refinement below; even the bare approximation (~1e-4) is far tighter than the normality
-# assumption's error, so this is never the limiting factor.
+# Acklam's rational approximation. Its relative error is already far tighter than the
+# normality assumption's own error, so this is never the limiting factor -- no refinement step.
 _A = (-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02,
       1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00)
 _B = (-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02,
@@ -96,14 +95,6 @@ def inv_norm_cdf(p):
         q = math.sqrt(-2.0 * math.log(1.0 - p))
         x = -(((((_C[0] * q + _C[1]) * q + _C[2]) * q + _C[3]) * q + _C[4]) * q + _C[5]) / \
             ((((_D[0] * q + _D[1]) * q + _D[2]) * q + _D[3]) * q + 1.0)
-    # One Halley step tightens the approximation to near machine precision. Guarded behind
-    # erfc's availability (present in Python 2.7+); the bare value is already adequate.
-    try:
-        e = 0.5 * math.erfc(-x / math.sqrt(2.0)) - p
-        u = e * math.sqrt(2.0 * math.pi) * math.exp(x * x / 2.0)
-        x = x - u / (1.0 + x * u / 2.0)
-    except (AttributeError, OverflowError, ValueError):
-        pass
     return x
 
 

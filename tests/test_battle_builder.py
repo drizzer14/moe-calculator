@@ -6,7 +6,7 @@ import pytest
 
 from moe_calculator.domain import battle_types as bt
 from moe_calculator.domain.battle_builder import (
-    combined_damage, counted_assistance, damage_to_percent, ewma_project,
+    combined_damage, counted_assistance, ewma_project,
     build_battle_model, battle_bar_visible, _fit_from_thresholds, _smooth_percent)
 from moe_calculator.domain.constants import EWMA_K
 from moe_calculator.domain import moe_estimate as me
@@ -86,39 +86,6 @@ def test_combined_damage_merged_fallback():
     assert combined_damage(2000, 0, 0, 0, 0, merged_assist=500) == 2500
 
 
-# --- damage_to_percent -------------------------------------------------------
-
-def test_damage_to_percent_exact_at_stops():
-    assert damage_to_percent(1000, _THR) == 65.0
-    assert damage_to_percent(2000, _THR) == 85.0
-    assert damage_to_percent(3000, _THR) == 95.0
-    assert damage_to_percent(4000, _THR) == 100.0
-
-
-def test_damage_to_percent_interpolates_midpoints():
-    assert damage_to_percent(500, _THR) == 32.5     # halfway 0..D1 -> 0..65
-    assert damage_to_percent(1500, _THR) == 75.0    # halfway D1..D2 -> 65..85
-    assert damage_to_percent(3500, _THR) == 97.5    # halfway D3..D100 -> 95..100
-
-
-def test_damage_to_percent_clamps():
-    assert damage_to_percent(0, _THR) == 0.0
-    assert damage_to_percent(-100, _THR) == 0.0
-    assert damage_to_percent(9999, _THR) == 100.0   # at/above D100
-
-
-def test_damage_to_percent_no_thresholds():
-    assert damage_to_percent(2000, {}) == 0.0
-    assert damage_to_percent(2000, None) == 0.0
-
-
-def test_damage_to_percent_partial_or_degenerate_thresholds():
-    # Missing stops (would break monotonicity) -> unusable -> 0.0, never a div-by-zero.
-    assert damage_to_percent(2000, {1: 1000}) == 0.0
-    # Non-monotonic damage -> unusable -> 0.0
-    assert damage_to_percent(2000, {1: 2000, 2: 1000, 3: 3000, 100: 4000}) == 0.0
-
-
 # --- smooth curve (_fit_from_thresholds + _smooth_percent) -------------------
 
 def _thr_from_normal(mu, sigma):
@@ -143,16 +110,14 @@ def test_fit_from_thresholds_recovers_marks():
     assert _smooth_percent(thr[100], mu, sigma) == pytest.approx(99.0, abs=0.5)
 
 
-def test_smooth_curve_beats_linear_off_mark():
-    # At an off-mark damage the smooth normal curve tracks the true percentile more closely
-    # than the piecewise-linear chords -- the whole point of the change.
+def test_smooth_curve_tracks_true_percentile_off_mark():
+    # At an off-mark damage the fitted normal curve recovers the true percentile closely
+    # (the smooth fit is the sole percent path).
     mu, sigma = 1500.0, 800.0
     thr = _thr_from_normal(mu, sigma)
     d75 = int(round(mu + sigma * me.inv_norm_cdf(0.75)))    # true 75th percentile damage
     fmu, fsigma = _fit_from_thresholds(thr)
-    smooth_err = abs(_smooth_percent(d75, fmu, fsigma) - 75.0)
-    linear_err = abs(damage_to_percent(d75, thr) - 75.0)
-    assert smooth_err < linear_err
+    assert _smooth_percent(d75, fmu, fsigma) == pytest.approx(75.0, abs=1.0)
 
 
 def test_fit_from_thresholds_none_for_unusable_tables():
@@ -169,8 +134,6 @@ def test_fit_from_thresholds_robust_to_missing_goalpost():
     del thr[100]
     fit = _fit_from_thresholds(thr)
     assert fit is not None and fit[1] > 0.0
-    # ...whereas the linear fallback degrades to no-percent for the same table.
-    assert damage_to_percent(2000, thr) == 0.0
 
 
 # --- ewma_project ------------------------------------------------------------
@@ -219,25 +182,9 @@ def test_build_battle_model_four_metrics():
     assert m.has_data is True
 
 
-def test_build_battle_model_uses_snapshot_k():
-    # The projection rides snapshot.k: a learned k=0.04 (well above the community default)
-    # projects an above-average battle HIGHER than the default-k projection.
-    m_k = build_battle_model(_bsnap(k=0.04))
-    m_default = build_battle_model(_bsnap())
-    assert m_k.proj_avg_damage == int(round(1800 + 0.04 * (2500 - 1800)))      # 1828
-    assert m_k.proj_avg_damage != m_default.proj_avg_damage                    # distinct from default k
-
-
-def test_build_battle_model_default_k_unchanged():
-    # A snapshot with no explicit k still projects with the community EWMA_K default.
+def test_build_battle_model_projects_with_baked_k():
+    # The projection uses the baked community EWMA_K default.
     m = build_battle_model(_bsnap())
-    assert m.proj_avg_damage == int(round(1800 + EWMA_K * (2500 - 1800)))      # 1814
-
-
-def test_build_battle_model_falsy_k_falls_back_to_default():
-    # A falsy/0 k (junk from disk that slipped through) degrades to the community default,
-    # never a no-op projection.
-    m = build_battle_model(_bsnap(k=0))
     assert m.proj_avg_damage == int(round(1800 + EWMA_K * (2500 - 1800)))      # 1814
 
 
@@ -254,8 +201,7 @@ def test_build_battle_model_anchor_holds_when_proj_equals_pre_avg():
 
 
 def test_build_battle_model_non_monotone_thresholds_degrade():
-    # A non-monotonic table is unusable by BOTH the smooth fit (sigma<=0) and the linear
-    # fallback (non-increasing stops) -> no-percent, never a crash.
+    # A non-monotonic table is unusable by the smooth fit (sigma<=0) -> no-percent, never a crash.
     m = build_battle_model(_bsnap(thresholds={1: 3000, 2: 2000, 3: 1000, 100: 500}))
     assert m.has_data is False
     assert m.cur_percent == 0.0

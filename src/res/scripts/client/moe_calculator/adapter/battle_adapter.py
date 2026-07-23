@@ -17,8 +17,8 @@ branch 2.3; see the wotmod-debug-repl harness skill for the clone location):
 
 Still confirm live (behaviour, not symbol names): ARENA_PERIOD gating and that a played
 tank has thresholds. The dossier baseline (pre_avg / pre_percentile) and the MoE thresholds
-are the SAME reads the garage path uses -- we reuse engine_adapter._read_moe and the moe_data
-facade (the official Wargaming API). Battle reads only the thresholds the garage path already
+are the SAME reads the garage path uses -- we reuse engine_adapter._read_moe and moe_wgapi
+(the official Wargaming API). Battle reads only the thresholds the garage path already
 cached (the dossier / garage roster is unreadable here).
 """
 import BigWorld
@@ -26,9 +26,8 @@ import BigWorld
 from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_DEBUG, _safe, _safe_int
 from moe_calculator.domain import battle_types as bt
 from moe_calculator.adapter import engine_adapter
-from moe_calculator.adapter import moe_data
+from moe_calculator.adapter import moe_wgapi
 from moe_calculator.adapter import baseline_cache
-from moe_calculator.adapter import calib_cache
 
 
 def _session_provider():
@@ -309,7 +308,7 @@ def build_battle_snapshot():
                 LOG_DEBUG("[moe-battle] genuine 0 baseline (tank seen in garage, 0 career)")
             else:
                 LOG_DEBUG("[moe-battle] no baseline (tank not seen in garage this session)")
-        thresholds = moe_data.get_thresholds(int_cd)
+        thresholds = moe_wgapi.get_thresholds(int_cd)
         nation = _player_nation(descr)
 
         return bt.BattleSnapshot(
@@ -327,8 +326,7 @@ def build_battle_snapshot():
             has_vehicle=True,
             in_battle=_in_battle(),
             is_spectating=_is_spectating(),
-            baseline_known=baseline_known,
-            k=calib_cache.current_k())
+            baseline_known=baseline_known)
     except Exception:
         LOG_CURRENT_EXCEPTION()
         return bt.BattleSnapshot(has_vehicle=False, in_battle=False)

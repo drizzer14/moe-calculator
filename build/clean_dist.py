@@ -25,16 +25,11 @@ from __future__ import print_function
 import os
 import re
 import sys
-import xml.etree.ElementTree as ET
+
+import meta
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-META = os.path.join(ROOT, "src", "meta.xml")
 DIST = os.path.join(ROOT, "dist")
-
-
-def _read_meta():
-    root = ET.parse(META).getroot()
-    return root.findtext("id").strip(), root.findtext("version").strip()
 
 
 def _keep_names(mod_id, version):
@@ -56,7 +51,7 @@ def _artifact_patterns(mod_id):
 
 
 def clean(dry_run=False):
-    mod_id, version = _read_meta()
+    mod_id, version = meta.read_meta()
     if not os.path.isdir(DIST):
         print("dist/ does not exist -- nothing to clean.")
         return []

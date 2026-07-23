@@ -28,8 +28,7 @@ from skeletons.gui.shared import IItemsCache
 
 from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_DEBUG
 from moe_calculator.adapter import engine_adapter
-from moe_calculator.adapter import moe_data
-from moe_calculator.adapter import garage_roster
+from moe_calculator.adapter import moe_wgapi
 from moe_calculator.adapter import i18n
 from moe_calculator.domain.builder import build_model, bar_visible
 from moe_calculator.domain.placement import choose_placement, INJECT, BLOCKED
@@ -101,13 +100,9 @@ _data_listener_armed = False
 # the result MUST be stored back onto the attribute or the subscription is silently lost.
 
 def _on_vehicle_changed(*args, **kwargs):
-    # Tank selection changed -> notify the data source (a no-op seam today: selection commits
-    # nothing to the fetch list, and the threshold fetch is covered by get_thresholds() in the
-    # push below), then re-push.
-    try:
-        moe_data.on_vehicle_selected(garage_roster.selected_int_cd())
-    except Exception:
-        LOG_CURRENT_EXCEPTION()
+    # Tank selection changed -> re-push. Selection commits nothing to the fetch list (a tank is
+    # committed only by buying it or playing a battle in it); the threshold fetch is covered by
+    # get_thresholds() in the push below.
     try:
         refresh()
     except Exception:
@@ -152,7 +147,7 @@ def _on_sync_completed(*args, **kwargs):
     # unreliable across client versions, so we don't decode it). Then coalesce a refresh onto
     # the next tick so a burst collapses to one push and CurrentVehicle has rebuilt its item.
     try:
-        moe_data.reconcile_ownership()
+        moe_wgapi.reconcile_ownership()
     except Exception:
         LOG_CURRENT_EXCEPTION()
     try:
@@ -300,7 +295,7 @@ def install_all_listeners():
     _arm_gui_resetters()
     if not _data_listener_armed:
         try:
-            moe_data.add_ready_listener(_on_moe_data_ready)
+            moe_wgapi.add_ready_listener(_on_moe_data_ready)
             _data_listener_armed = True
         except Exception:
             LOG_CURRENT_EXCEPTION()
@@ -427,7 +422,7 @@ def attach(host_vm):
         _active = (host_vm, rvm)
         # Kick the MoE-data source (idempotent): loads the threshold cache and starts the
         # WG-API fetch rounds. The ready hook re-pushes when data lands.
-        moe_data.start()
+        moe_wgapi.start()
         return rvm
     except Exception:
         LOG_CURRENT_EXCEPTION()

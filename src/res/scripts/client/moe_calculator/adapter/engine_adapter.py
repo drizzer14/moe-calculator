@@ -7,16 +7,15 @@ blanking the whole bar. Symbols verified against the EU 2.3 decompiled client:
 - vehicle dossier TOTAL block: MarkOnGunAchievement.getValue()/getDamageRating() and
   the movingAvgDamage record (gui/shared/gui_items/dossier/achievements/mark_on_gun.py;
   read pattern from gui/impl/lobby/tooltips/carousel_vehicle_tooltip.py).
-- the 65/85/95% damage thresholds come from adapter/moe_data (the official Wargaming API).
+- the 65/85/95% damage thresholds come from adapter/moe_wgapi (the official Wargaming API).
 """
 from CurrentVehicle import g_currentVehicle
 
 from moe_calculator._compat import LOG_CURRENT_EXCEPTION, _safe, _safe_int
 from moe_calculator.domain import types as t
 from moe_calculator.domain import moe_estimate
-from moe_calculator.adapter import moe_data
+from moe_calculator.adapter import moe_wgapi
 from moe_calculator.adapter import baseline_cache
-from moe_calculator.adapter import calib_cache
 
 
 def build_snapshot():
@@ -34,16 +33,13 @@ def build_snapshot():
         # Snapshot the career baseline for the in-battle overlay -- the dossier this reads is
         # unavailable in battle, so battle_adapter falls back to this cache (see baseline_cache).
         baseline_cache.remember(int_cd, percentile, avg_damage)
-        # Finish any pending k-calibration sample for this vehicle: the garage dossier now
-        # exposes the post-battle movingAvgDamage (avg_after) captured at the last teardown.
-        calib_cache.complete(int_cd, avg_damage)
-        thresholds = moe_data.get_thresholds(int_cd)
+        thresholds = moe_wgapi.get_thresholds(int_cd)
         # Fallback: if the WG request for this tank completed with no usable data (errored /
         # not in the API), extrapolate from the player's own dossier point (movingAvgDamage @
         # this percentile) via the offline estimator, so the bar still shows numbers rather
         # than blank labels. A still-pending fetch does NOT trigger this (needs_estimate is
         # False) -- we wait for it. The estimate is per-read, not cached into the WG table.
-        if not thresholds and moe_data.needs_estimate(int_cd):
+        if not thresholds and moe_wgapi.needs_estimate(int_cd):
             thresholds = _estimate_thresholds(percentile, avg_damage)
 
         return t.MoESnapshot(

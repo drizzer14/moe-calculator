@@ -1,31 +1,15 @@
 # -*- coding: utf-8 -*-
 """Branch-logic tests for adapter/engine_adapter.build_snapshot. The module imports
 `CurrentVehicle` at top (stubbed in conftest so it imports under pytest); each test drives
-behavior by monkeypatching the adapter's own seam functions (_read_moe, moe_data,
+behavior by monkeypatching the adapter's own seam functions (_read_moe, moe_wgapi,
 g_currentVehicle) rather than the lazy dossier machinery. Mirrors the test_i18n.py fake
 pattern."""
-import pytest
-
 from moe_calculator.adapter import engine_adapter as ea
 from moe_calculator.adapter import baseline_cache
-from moe_calculator.adapter import calib_cache
 
 
 def teardown_function(_):
     baseline_cache.clear()
-    calib_cache.clear()
-
-
-@pytest.fixture(autouse=True)
-def _no_disk_calib(monkeypatch):
-    """Neutralize the k-calibration disk touch build_snapshot now makes: start from a clean
-    cache and record complete() calls in-memory so no test hits real disk. Returns the call
-    log so a test can assert complete was invoked with (int_cd, avg_damage)."""
-    calib_cache.clear()
-    calls = []
-    monkeypatch.setattr(calib_cache, "complete",
-                        lambda int_cd, avg_after: calls.append((int_cd, avg_after)))
-    return calls
 
 
 class _Veh(object):
@@ -48,10 +32,10 @@ def test_build_snapshot_no_vehicle_hides(monkeypatch):
     assert snap.has_vehicle is False
 
 
-def test_build_snapshot_happy_path_and_remembers_baseline(monkeypatch, _no_disk_calib):
+def test_build_snapshot_happy_path_and_remembers_baseline(monkeypatch):
     monkeypatch.setattr(ea, "g_currentVehicle", _CV(present=True, item=_Veh()))
     monkeypatch.setattr(ea, "_read_moe", lambda cd: (2, 73.7, 1800))
-    monkeypatch.setattr(ea.moe_data, "get_thresholds",
+    monkeypatch.setattr(ea.moe_wgapi, "get_thresholds",
                         lambda cd: {1: 1, 2: 2, 3: 3, 100: 4})
     snap = ea.build_snapshot()
     assert snap.has_vehicle is True
@@ -63,8 +47,6 @@ def test_build_snapshot_happy_path_and_remembers_baseline(monkeypatch, _no_disk_
     assert snap.thresholds == {1: 1, 2: 2, 3: 3, 100: 4}
     # The career baseline is snapshotted for the in-battle overlay (garage -> battle bridge).
     assert baseline_cache.get(1073) == (73.7, 1800)
-    # A normal garage read finishes any pending k sample with (int_cd, movingAvgDamage).
-    assert _no_disk_calib == [(1073, 1800)]
 
 
 def test_build_snapshot_estimates_when_request_errored(monkeypatch):
@@ -72,8 +54,8 @@ def test_build_snapshot_estimates_when_request_errored(monkeypatch):
     # estimator's extrapolation from the player's own dossier point.
     monkeypatch.setattr(ea, "g_currentVehicle", _CV(present=True, item=_Veh()))
     monkeypatch.setattr(ea, "_read_moe", lambda cd: (1, 60.0, 1500))
-    monkeypatch.setattr(ea.moe_data, "get_thresholds", lambda cd: {})
-    monkeypatch.setattr(ea.moe_data, "needs_estimate", lambda cd: True)
+    monkeypatch.setattr(ea.moe_wgapi, "get_thresholds", lambda cd: {})
+    monkeypatch.setattr(ea.moe_wgapi, "needs_estimate", lambda cd: True)
     calls = []
     monkeypatch.setattr(ea, "_estimate_thresholds",
                         lambda pct, dmg: calls.append((pct, dmg)) or {1: 11, 2: 22, 3: 33, 100: 44})
@@ -87,8 +69,8 @@ def test_build_snapshot_waits_when_fetch_pending(monkeypatch):
     # and let the ready-listener re-push fill them in when the fetch lands.
     monkeypatch.setattr(ea, "g_currentVehicle", _CV(present=True, item=_Veh()))
     monkeypatch.setattr(ea, "_read_moe", lambda cd: (1, 60.0, 1500))
-    monkeypatch.setattr(ea.moe_data, "get_thresholds", lambda cd: {})
-    monkeypatch.setattr(ea.moe_data, "needs_estimate", lambda cd: False)
+    monkeypatch.setattr(ea.moe_wgapi, "get_thresholds", lambda cd: {})
+    monkeypatch.setattr(ea.moe_wgapi, "needs_estimate", lambda cd: False)
     called = []
     monkeypatch.setattr(ea, "_estimate_thresholds", lambda pct, dmg: called.append(1) or {})
     snap = ea.build_snapshot()
@@ -106,6 +88,6 @@ def test_build_snapshot_tail_guard_degrades_on_raise(monkeypatch):
     def boom(cd):
         raise RuntimeError("threshold source down")
 
-    monkeypatch.setattr(ea.moe_data, "get_thresholds", boom)
+    monkeypatch.setattr(ea.moe_wgapi, "get_thresholds", boom)
     snap = ea.build_snapshot()
     assert snap.has_vehicle is False

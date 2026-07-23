@@ -75,8 +75,3 @@ def install_alt_key_listener(on_change):
     _installed = True
     LOG_DEBUG("[moe-battle] Alt-key listener installed on AvatarInputHandler.handleKeyEvent")
     return True
-
-
-def alt_held():
-    """The combined Alt-held state as last observed by the hook (False before the first event)."""
-    return _alt_held
