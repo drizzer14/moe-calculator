@@ -4,7 +4,8 @@
 ;   1. Detects the World of Tanks install folder (registry + common paths), lets
 ;      the user confirm/override it, and validates it (version.xml present).
 ;   2. Resolves the client version (e.g. 2.3.0.1) and targets mods\<version>\.
-;   3. Installs the bundled dependencies ONLY if not already present (recursive check):
+;   3. Installs the bundled dependencies unless a same-or-newer copy is already
+;      present (recursive check; older copies are replaced):
 ;      OpenWG GameFace (required) and Aslain ModMenu (provides the in-game settings
 ;      panel) -- many users already have both via ModsList/Aslain.
 ;   4. Cleans old copies of this mod (and stale loose res_mods leftovers), then
@@ -52,15 +53,16 @@ UninstallDisplayName=14th_ua's MoE Calculator (WoT mod)
 [Files]
 ; The mod itself -> mods\<version>\
 Source: "..\dist\{#ModWotmod}"; DestDir: "{code:GetModsVersionDir}"; Flags: ignoreversion
-; Bundled OpenWG dependency -> only copied when not already installed, and never
-; removed on uninstall (other GameFace mods may depend on it).
-Source: "vendor\{#OpenWgWotmod}"; DestDir: "{code:GetModsVersionDir}"; Flags: ignoreversion uninsneveruninstall; Check: NeedOpenWg
+; Bundled OpenWG dependency -> only copied when no same-or-newer copy is installed
+; (older copies are then deleted), and never removed on uninstall (other GameFace
+; mods may depend on it).
+Source: "vendor\{#OpenWgWotmod}"; DestDir: "{code:GetModsVersionDir}"; Flags: ignoreversion uninsneveruninstall; Check: NeedVendor('{#OpenWgWotmod}'); AfterInstall: PurgeOlderVendor('{#OpenWgWotmod}')
 ; Bundled Aslain ModMenu dependency (provides the in-game settings panel). Same
-; policy: only copied when absent, never removed on uninstall (shared by many mods).
-Source: "vendor\{#MsaWotmod}"; DestDir: "{code:GetModsVersionDir}"; Flags: ignoreversion uninsneveruninstall; Check: NeedMsa
+; policy: version-aware copy, never removed on uninstall (shared by many mods).
+Source: "vendor\{#MsaWotmod}"; DestDir: "{code:GetModsVersionDir}"; Flags: ignoreversion uninsneveruninstall; Check: NeedVendor('{#MsaWotmod}'); AfterInstall: PurgeOlderVendor('{#MsaWotmod}')
 ; Bundled Mods List API dependency (surfaces the settings in the in-game "Modification
-; list" window). Same policy: only copied when absent, never removed on uninstall.
-Source: "vendor\{#ModsListWotmod}"; DestDir: "{code:GetModsVersionDir}"; Flags: ignoreversion uninsneveruninstall; Check: NeedModsList
+; list" window). Same policy: version-aware copy, never removed on uninstall.
+Source: "vendor\{#ModsListWotmod}"; DestDir: "{code:GetModsVersionDir}"; Flags: ignoreversion uninsneveruninstall; Check: NeedVendor('{#ModsListWotmod}'); AfterInstall: PurgeOlderVendor('{#ModsListWotmod}')
 
 [Messages]
 ; Repurpose the "Select Destination Location" page for picking the WoT root.
@@ -187,34 +189,100 @@ begin
   Result := ExpandConstant('{app}') + '\mods\' + GVersion;
 end;
 
-{ Recursive search for net.openwg.gameface*.wotmod under a directory. }
-function FindOpenWgIn(Dir: string): Boolean;
+{ ---- vendor dependencies: version-aware presence ------------------------- }
+{ Shared verbatim by every 14th_ua installer. A bundled vendor .wotmod
+  '<id>_<version>.wotmod' is skipped only when a copy of the SAME package id at
+  the same or a newer version already sits under mods\<version>\ (recursive). An
+  older copy does not count (it may be dead on this client): the bundled build
+  is installed and the older copies of that id are deleted. The exact-id match
+  keeps it narrow, e.g. a leftover izeberg settings-API build never satisfies
+  aslain.modmenu. }
+
+{ Compare dotted numeric versions part by part as integers, so Aslain's
+  zero-padded 2.1.04 equals 2.1.4. Negative, zero or positive like CompareText. }
+function CompareDottedVer(A, B: string): Integer;
+var
+  p: Integer;
+  PartA, PartB: string;
+begin
+  Result := 0;
+  while (Result = 0) and ((A <> '') or (B <> '')) do
+  begin
+    p := Pos('.', A);
+    if p = 0 then
+      p := Length(A) + 1;
+    PartA := Copy(A, 1, p - 1);
+    Delete(A, 1, p);
+    p := Pos('.', B);
+    if p = 0 then
+      p := Length(B) + 1;
+    PartB := Copy(B, 1, p - 1);
+    Delete(B, 1, p);
+    Result := StrToIntDef(PartA, 0) - StrToIntDef(PartB, 0);
+  end;
+end;
+
+{ Package id of a '<id>_<version>.wotmod' file name: the text before the last '_'. }
+function WotmodId(FileName: string): string;
+var
+  i: Integer;
+begin
+  Result := '';
+  for i := Length(FileName) downto 1 do
+    if FileName[i] = '_' then
+    begin
+      Result := Copy(FileName, 1, i - 1);
+      Exit;
+    end;
+end;
+
+{ Version of FileName when it is exactly Id + '_' + dotted digits + '.wotmod',
+  else ''. Anything else (another id, a suffix, a non-numeric part) is ignored. }
+function WotmodVer(FileName, Id: string): string;
+var
+  i: Integer;
+begin
+  Result := '';
+  if Length(FileName) < Length(Id) + 9 then
+    Exit;
+  if CompareText(Copy(FileName, 1, Length(Id) + 1), Id + '_') <> 0 then
+    Exit;
+  if CompareText(Copy(FileName, Length(FileName) - 6, 7), '.wotmod') <> 0 then
+    Exit;
+  Result := Copy(FileName, Length(Id) + 2, Length(FileName) - Length(Id) - 8);
+  if (Result[1] < '0') or (Result[1] > '9') then
+  begin
+    Result := '';
+    Exit;
+  end;
+  for i := 1 to Length(Result) do
+    if not (((Result[i] >= '0') and (Result[i] <= '9')) or (Result[i] = '.')) then
+    begin
+      Result := '';
+      Exit;
+    end;
+end;
+
+{ Highest version of package Id found under Dir (recursive), '' when none. }
+function MaxWotmodVerIn(Dir, Id: string): string;
 var
   FR: TFindRec;
+  v: string;
 begin
-  Result := False;
-  { files in this dir }
-  if FindFirst(Dir + '\net.openwg.gameface*.wotmod', FR) then
-  begin
-    try
-      Result := True;
-      Exit;
-    finally
-      FindClose(FR);
-    end;
-  end;
-  { recurse into subdirs }
+  Result := '';
   if FindFirst(Dir + '\*', FR) then
   begin
     try
       repeat
-        if (FR.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
-          if (FR.Name <> '.') and (FR.Name <> '..') then
-            if FindOpenWgIn(Dir + '\' + FR.Name) then
-            begin
-              Result := True;
-              Exit;
-            end;
+        if (FR.Name <> '.') and (FR.Name <> '..') then
+        begin
+          if (FR.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
+            v := MaxWotmodVerIn(Dir + '\' + FR.Name, Id)
+          else
+            v := WotmodVer(FR.Name, Id);
+          if (v <> '') and ((Result = '') or (CompareDottedVer(v, Result) > 0)) then
+            Result := v;
+        end;
       until not FindNext(FR);
     finally
       FindClose(FR);
@@ -222,42 +290,47 @@ begin
   end;
 end;
 
-{ [Files] Check: copy bundled OpenWG only when it's not already present. }
-function NeedOpenWg(): Boolean;
+{ [Files] Check: True unless Bundled's package id is already installed at
+  Bundled's version or newer. }
+function NeedVendor(Bundled: string): Boolean;
+var
+  Id, Have: string;
 begin
-  Result := not FindOpenWgIn(GetModsVersionDir(''));
+  Id := WotmodId(Bundled);
+  Have := MaxWotmodVerIn(GetModsVersionDir(''), Id);
+  Result := (Have = '') or (CompareDottedVer(Have, WotmodVer(Bundled, Id)) < 0);
+  if Result then
+    Log('Vendor ' + Id + ': found "' + Have + '", installing bundled ' + Bundled)
+  else
+    Log('Vendor ' + Id + ': ' + Have + ' already installed, skipping bundled ' + Bundled);
 end;
 
-{ Recursive search for aslain.modmenu*.wotmod under a directory. Deliberately
-  NARROW to Aslain's build: a leftover izeberg.modssettingsapi* must NOT read as "MSA
-  present" (the user's settings data now lives under Aslain), so we still bundle Aslain. }
-function FindMsaIn(Dir: string): Boolean;
+{ Delete every Id copy older than Ver under Dir (recursive). }
+procedure PurgeOlderWotmodsIn(Dir, Id, Ver: string);
 var
   FR: TFindRec;
+  v: string;
 begin
-  Result := False;
-  { files in this dir }
-  if FindFirst(Dir + '\aslain.modmenu*.wotmod', FR) then
-  begin
-    try
-      Result := True;
-      Exit;
-    finally
-      FindClose(FR);
-    end;
-  end;
-  { recurse into subdirs }
   if FindFirst(Dir + '\*', FR) then
   begin
     try
       repeat
-        if (FR.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
-          if (FR.Name <> '.') and (FR.Name <> '..') then
-            if FindMsaIn(Dir + '\' + FR.Name) then
+        if (FR.Name <> '.') and (FR.Name <> '..') then
+        begin
+          if (FR.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
+            PurgeOlderWotmodsIn(Dir + '\' + FR.Name, Id, Ver)
+          else
+          begin
+            v := WotmodVer(FR.Name, Id);
+            if (v <> '') and (CompareDottedVer(v, Ver) < 0) then
             begin
-              Result := True;
-              Exit;
+              if DeleteFile(Dir + '\' + FR.Name) then
+                Log('Removed outdated ' + Dir + '\' + FR.Name)
+              else
+                Log('Could not remove outdated ' + Dir + '\' + FR.Name);
             end;
+          end;
+        end;
       until not FindNext(FR);
     finally
       FindClose(FR);
@@ -265,51 +338,13 @@ begin
   end;
 end;
 
-{ [Files] Check: copy bundled Aslain ModMenu only when none is already present. }
-function NeedMsa(): Boolean;
-begin
-  Result := not FindMsaIn(GetModsVersionDir(''));
-end;
-
-{ Recursive search for me.poliroid.modslistapi*.wotmod under a directory. }
-function FindModsListIn(Dir: string): Boolean;
+{ [Files] AfterInstall: once the bundled build is in, drop the older copies. }
+procedure PurgeOlderVendor(Bundled: string);
 var
-  FR: TFindRec;
+  Id: string;
 begin
-  Result := False;
-  { files in this dir }
-  if FindFirst(Dir + '\me.poliroid.modslistapi*.wotmod', FR) then
-  begin
-    try
-      Result := True;
-      Exit;
-    finally
-      FindClose(FR);
-    end;
-  end;
-  { recurse into subdirs }
-  if FindFirst(Dir + '\*', FR) then
-  begin
-    try
-      repeat
-        if (FR.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
-          if (FR.Name <> '.') and (FR.Name <> '..') then
-            if FindModsListIn(Dir + '\' + FR.Name) then
-            begin
-              Result := True;
-              Exit;
-            end;
-      until not FindNext(FR);
-    finally
-      FindClose(FR);
-    end;
-  end;
-end;
-
-{ [Files] Check: copy bundled Mods List API only when none is already present. }
-function NeedModsList(): Boolean;
-begin
-  Result := not FindModsListIn(GetModsVersionDir(''));
+  Id := WotmodId(Bundled);
+  PurgeOlderWotmodsIn(GetModsVersionDir(''), Id, WotmodVer(Bundled, Id));
 end;
 
 { ---- WoT-running guard (file locks) -------------------------------------- }

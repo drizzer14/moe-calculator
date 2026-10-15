@@ -68,10 +68,11 @@ before every release** (it is part of the gate, alongside `check_version.py`), a
 ## installer/
 
 - **`moe_calculator-setup.iss`** — Inno Setup 6. Detects WoT root, resolves client version, installs
-  to `mods\<version>\`, bundles OpenWG from `installer/vendor/` **only if absent**
-  (`NeedOpenWg`, `uninsneveruninstall`), cleans old builds, WoT-running guard, GitHub
+  to `mods\<version>\`, bundles the vendor deps from `installer/vendor/` **unless a same-or-newer
+  copy is present** (`NeedVendor` Check + `PurgeOlderVendor` AfterInstall deletes older copies of
+  that id; `uninsneveruninstall`), cleans old builds, WoT-running guard, GitHub
   Atom-feed self-update. Repo `drizzer14/moe-calculator`, base name `MoECalculator-Setup`.
-- **`build_installer.ps1`** — preflights the built `.wotmod` + vendor dep, finds `ISCC.exe`, compiles → `dist/MoECalculator-Setup-<version>.exe`.
+- **`build_installer.ps1`** — preflights the built `.wotmod` + vendor dep, finds `ISCC.exe`, compiles → `dist/MoECalculator-Setup-<version>.exe`, writes the `<exe>.sha256` sidecar (.NET hash; a missing sidecar fails the build).
 - **`readme.moe.txt`** — bilingual EN/UA readme for the wgmods zip (the only readme template; the old `readme.wgmods.txt` stub was deleted). **`installer/vendor/`** — `net.openwg.gameface_1.2.2.wotmod` + `aslain.modmenu_2.1.04.wotmod` + `me.poliroid.modslistapi_1.8.0.wotmod` (sha256-pinned in `MANIFEST.json`, guarded by `tests/test_vendor_manifest.py`). Client 2.4.1 needs these builds — the older gameface 1.1.6 / modmenu 2.0.16 / modslist 1.7.9 are dead there.
 
 ## Hot-reload (the split that bites)

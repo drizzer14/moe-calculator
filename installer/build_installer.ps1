@@ -79,8 +79,12 @@ $out = Get-ChildItem (Join-Path $RepoRoot 'dist') -Filter 'MoECalculator-Setup-*
 # The installer's own self-updater (see moe_calculator-setup.iss's DownloadAndRun) refuses
 # to run a downloaded update without a matching "<exe>.sha256" release asset -- emit it here
 # so a release upload is never missing the file the update check depends on.
-$hash = (Get-FileHash -Algorithm SHA256 $out.FullName).Hash.ToLowerInvariant()
-Set-Content -NoNewline -Path "$($out.FullName).sha256" -Value $hash
+# .NET hash -- Get-FileHash is unavailable under `powershell -NoProfile` here.
+$sha = [System.Security.Cryptography.SHA256]::Create()
+$fs = [System.IO.File]::OpenRead($out.FullName)
+try { $hash = ([BitConverter]::ToString($sha.ComputeHash($fs)) -replace '-', '').ToLower() } finally { $fs.Dispose() }
+[System.IO.File]::WriteAllText("$($out.FullName).sha256", $hash)
+if (-not (Test-Path "$($out.FullName).sha256")) { throw "SHA-256 sidecar was not written: $($out.FullName).sha256" }
 
 Write-Host ''
 Write-Host "Built installer: $($out.FullName)" -ForegroundColor Green
