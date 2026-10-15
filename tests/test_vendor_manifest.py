@@ -48,6 +48,16 @@ def test_every_bundled_vendor_file_is_manifested_and_matches_hash():
     assert not mismatches, "\n".join(mismatches)
 
 
+def test_mit_vendor_entry_ships_its_licence_text():
+    mit = [n for n, e in _manifest().items() if e.get("licence", "").startswith("MIT")]
+    assert mit
+    # MIT requires the notice to travel with the copy: ship it and have the .iss install it.
+    lic = os.path.join(_ROOT, "installer", "licenses", "openwg-gameface-LICENSE.txt")
+    assert os.path.getsize(lic) > 0
+    with open(os.path.join(_ROOT, "installer", "moe_calculator-setup.iss"), encoding="utf-8") as fh:
+        assert "licenses\\openwg-gameface-LICENSE.txt" in fh.read()
+
+
 def test_every_manifest_entry_has_a_bundled_file():
     manifest = _manifest()
     present = set(_vendor_wotmods())

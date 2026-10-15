@@ -53,6 +53,10 @@ UninstallDisplayName=14th_ua's MoE Calculator (WoT mod)
 [Files]
 ; The mod itself -> mods\<version>\
 Source: "..\dist\{#ModWotmod}"; DestDir: "{code:GetModsVersionDir}"; Flags: ignoreversion
+; The OpenWG GameFace MIT licence notice -> rides with the GameFace payload it covers,
+; same install/uninstall policy. Listed BEFORE the .wotmod: Checks run per entry, so
+; once the bundled .wotmod is copied NeedVendor would turn False for this line.
+Source: "licenses\openwg-gameface-LICENSE.txt"; DestDir: "{code:GetModsVersionDir}"; Flags: ignoreversion uninsneveruninstall; Check: NeedVendor('{#OpenWgWotmod}')
 ; Bundled OpenWG dependency -> only copied when no same-or-newer copy is installed
 ; (older copies are then deleted), and never removed on uninstall (other GameFace
 ; mods may depend on it).
