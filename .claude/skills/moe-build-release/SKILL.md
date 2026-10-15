@@ -104,7 +104,7 @@ before every release** (it is part of the gate, alongside `check_version.py`), a
 convention). WG 2.4.1 dropped `gen_utils`/`DynAccessor` and stopped processing
 `mods/configs/res_map`, so the three battle windows moved to WG-native resources:
 `src/res/gui/gen_resources/com.14th_ua.moe_calculator.json` declares
-`R.mods.moe_calculator.views.{MoEBattleView,MoEProgressView,MoEEfficiencyView}`, resolved by
+`R.mods.com_14th_ua_moe_calculator.views.{MoEBattleView,MoEProgressView,MoEEfficiencyView}`, resolved by
 `bridge/bar_window.layout_id()` (fail-soft `-1`, logged once). The res_map JSONs are deleted and
 the "one-time client restart" no longer exists. Vendor builds bumped to gameface 1.2.2 / modmenu
 2.1.04 / modslist 1.8.0. `SETTINGS_VERSION` unchanged at **31**. Live in-battle confirm owed.

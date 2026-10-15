@@ -56,7 +56,7 @@ src/res/scripts/client/
     build_config.py       build-injected WG_APPLICATION_ID
     _compat.py            LOG_* shim + _safe/_safe_int
 src/res/gui/gameface/mods/14th_ua/MoECalculator/   the two front-ends + assets (see moe-garage / moe-battle)
-src/res/gui/gen_resources/com.14th_ua.moe_calculator.json   declares the 3 battle views (R.mods.moe_calculator.views.*)
+src/res/gui/gen_resources/com.14th_ua.moe_calculator.json   declares the 3 battle views (R.mods.com_14th_ua_moe_calculator.views.*)
 ```
 
 ## Shared (cross-feature) modules

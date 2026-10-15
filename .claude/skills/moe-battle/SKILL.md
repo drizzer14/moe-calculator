@@ -17,7 +17,7 @@ no shared full-screen Gameface document — each WG battle Gameface view is Flas
 its own placeId. Instead the mod **registers its own view** and opens it as a window:
 
 - **Register** — WG-native resources (client 2.4.1+): `src/res/gui/gen_resources/com.14th_ua.moe_calculator.json`
-  declares `R.mods.moe_calculator.views.MoEBattleView` (`type "Layout"`, `impl "gameface"`, points at
+  declares `R.mods.com_14th_ua_moe_calculator.views.MoEBattleView` (`type "Layout"`, `impl "gameface"`, points at
   `MoEBattleView.html`), plus the two bar views. Ships **inside** the `.wotmod`; no restart. (The old
   OpenWG `mods/configs/res_map` + `ModDynAccessor` path is dead on 2.4.1 — always resolves `-1`.)
 - **Resolve layoutID** — `bar_window.layout_id("MoEBattleView")` → `R.mods.dyn(...).dyn("views").dyn(name)()`;

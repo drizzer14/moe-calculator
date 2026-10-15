@@ -15,7 +15,7 @@ switch mid-battle opens one before the other closes):
     module could not host two windows. Here it is instance state.
   * ONE LAYOUT PER HOST. Reusing another view's resId resolves the WRONG layout and opens a second
     copy of THAT view. Each layout is declared once in res/gui/gen_resources/
-    com.14th_ua.moe_calculator.json as R.mods.moe_calculator.views.<name> (WG-native resources,
+    com.14th_ua.moe_calculator.json as R.mods.com_14th_ua_moe_calculator.views.<name> (WG-native resources,
     client 2.4.1+) and resolved per open by layout_id() below.
 
 Everything WHY-shaped about the hosting model lives in battle_view.py's docstrings (why a
@@ -82,12 +82,12 @@ from moe_calculator.domain.positioning import (anchor_centred_reduced, anchor_mi
                                                cursor_top_left, free_anchor_point, free_top_left)
 
 # Our R.mods subtree -- keep in lockstep with res/gui/gen_resources/com.14th_ua.moe_calculator.json.
-_RES_NODE = "moe_calculator"
+_RES_NODE = "com_14th_ua_moe_calculator"
 _unresolved_logged = set()
 
 
 def layout_id(view_name):
-    """The layoutID of R.mods.moe_calculator.views.<view_name>, or -1 when it does not resolve
+    """The layoutID of R.mods.com_14th_ua_moe_calculator.views.<view_name>, or -1 when it does not resolve
     (gen_resources JSON missing/invalid, pre-2.4.1 client). Fail-soft: the caller skips the window,
     and the miss is logged ONCE per view -- open_window is re-driven every battle tick."""
     try:
@@ -354,7 +354,7 @@ class _BarWindow(WindowImpl):
 class BarHost(object):
     """One centre-screen bar window: its layout, its ViewModel and its own open/closed singleton.
 
-    ``item_id`` is the view name declared as R.mods.moe_calculator.views.<item_id> in
+    ``item_id`` is the view name declared as R.mods.com_14th_ua_moe_calculator.views.<item_id> in
     res/gui/gen_resources/com.14th_ua.moe_calculator.json -- keep in lockstep, and DISTINCT per host.
     ``vm_factory`` is called per open to build a fresh root ViewModel. ``y_frac`` / ``x_off`` /
     ``y_shift`` are the bar's HORIZONTAL-orientation anchor constants (domain/constants), and

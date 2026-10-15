@@ -1,19 +1,19 @@
 [
     {
         "type": "Layout",
-        "id": "R.mods.moe_calculator.views.MoEBattleView",
+        "id": "R.mods.com_14th_ua_moe_calculator.views.MoEBattleView",
         "path": "coui://gui/gameface/mods/14th_ua/MoECalculator/MoEBattleView.html",
         "parameters": {"entrance": "MoEBattleView", "impl": "gameface"}
     },
     {
         "type": "Layout",
-        "id": "R.mods.moe_calculator.views.MoEProgressView",
+        "id": "R.mods.com_14th_ua_moe_calculator.views.MoEProgressView",
         "path": "coui://gui/gameface/mods/14th_ua/MoECalculator/MoEProgressView.html",
         "parameters": {"entrance": "MoEProgressView", "impl": "gameface"}
     },
     {
         "type": "Layout",
-        "id": "R.mods.moe_calculator.views.MoEEfficiencyView",
+        "id": "R.mods.com_14th_ua_moe_calculator.views.MoEEfficiencyView",
         "path": "coui://gui/gameface/mods/14th_ua/MoECalculator/MoEEfficiencyView.html",
         "parameters": {"entrance": "MoEEfficiencyView", "impl": "gameface"}
     }
