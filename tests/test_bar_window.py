@@ -40,7 +40,7 @@ _stub("frameworks.wulf", ViewSettings=_Permissive, ViewFlags=object(), WindowFla
       WindowLayer=object(), PositionAnchor=_PositionAnchor, ViewModel=_Permissive,
       Array=_Permissive)
 _stub("gui.impl.pub", ViewImpl=_Permissive, WindowImpl=_Permissive)
-_stub("openwg_gameface", ModDynAccessor=lambda *a, **k: (lambda: -1))
+_stub("openwg_gameface")
 
 import pytest
 
@@ -1279,7 +1279,7 @@ class _FakeMount(object):
 
 def test_open_window_re_mounts_a_destroyed_handle_but_leaves_a_live_one(monkeypatch):
     host = _bare_host()
-    monkeypatch.setattr(host, "_layout_id", lambda: 7)   # a resolvable res_map layout
+    monkeypatch.setattr(host, "_layout_id", lambda: 7)   # a resolvable layout
     monkeypatch.setattr(bar_window, "_BarView", _FakeMount)
     monkeypatch.setattr(bar_window, "_BarWindow", _FakeMount)
 

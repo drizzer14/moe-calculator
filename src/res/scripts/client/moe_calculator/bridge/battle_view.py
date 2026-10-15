@@ -7,7 +7,7 @@ full-screen Gameface document to inject a position:fixed overlay into -- each WG
 Gameface view (DeathCam / Postmortem / BattleNotifier / Tab) is composited by Flash at
 its own placeId, so `openwg_gameface.gf_mod_inject` (which appends assets to a sub-view's
 host document) has nothing to attach to in battle. Instead we declare our OWN Gameface
-view (R.mods.moe_calculator.views.MoEBattleView in res/gui/gen_resources/
+view (R.mods.com_14th_ua_moe_calculator.views.MoEBattleView in res/gui/gen_resources/
 com.14th_ua.moe_calculator.json -> the MoEBattleView.html bundle) and open
 it as a content-sized, input-transparent top-layer window (content-sized -- NOT full-screen
 -- so it never captures the mouse hit-test outside the small readout corner; see
@@ -26,7 +26,7 @@ root ModelObserver() and battle_bridge pushes into `view.viewModel`.
     wotmod:debug-repl skill) + the extracted me.poliroid.battlehits / net.openwg.gameface
     bundles:
     - bar_window.layout_id(name) resolves the WG-native R.mods node (client 2.4.1+; the old
-      openwg_gameface.ModDynAccessor/res_map path is dead there) and returns -1 if missing.
+      OpenWG dyn-accessor path is dead there) and returns -1 if missing.
     - ViewSettings(layoutID, ViewFlags.VIEW, model); ViewImpl.getViewModel() -> that model.
     - WindowImpl(wndFlags, content=<view>, layer=...); Window._onReady() default shows the
       window (focus=True) -- we override to focus=False.

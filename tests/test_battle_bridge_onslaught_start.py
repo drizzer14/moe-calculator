@@ -39,7 +39,7 @@ class _Permissive(object):
 _stub("frameworks.wulf", ViewModel=_Permissive, Array=_Permissive, ViewSettings=_Permissive,
       ViewFlags=object(), WindowFlags=object(), WindowLayer=object(), PositionAnchor=object())
 _stub("gui.impl.pub", ViewImpl=_Permissive, WindowImpl=_Permissive)
-_stub("openwg_gameface", ModDynAccessor=lambda *a, **k: (lambda: -1),
+_stub("openwg_gameface",
       gf_mod_inject=lambda *a, **k: None)
 
 from moe_calculator.bridge import battle_bridge
