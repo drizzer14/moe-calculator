@@ -11,7 +11,7 @@
     "sha256": "674f95cf3526e646cea64be55767a9bfe51b19b109326e8c4132881a7a76a5b4"
   },
   "me.poliroid.modslistapi_1.8.0.wotmod": {
-    "origin": "https://gitlab.com/wot-public-mods/mods-list (ModsList API)",
+    "origin": "https://gitlab.com/wot-public-mods/mods-list",
     "licence": "proprietary, redistributable as a vendored dependency per its distribution terms",
     "sha256": "c6e4a1d9476b0195c3b4fab392cf5d68c00f1d02fd79e29bd7424ebda88b498c"
   }
