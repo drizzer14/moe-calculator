@@ -1,6 +1,6 @@
 // 14th_ua's MoE Calculator -- in-battle centre-screen DAMAGE EFFICIENCY bar. Front-end of a
-// STANDALONE OpenWG-registered Gameface view (MoEEfficiencyView.html, registered via
-// mods/configs/res_map/MoEEfficiencyView.json) that bridge/efficiency_view.py opens as a
+// STANDALONE registered Gameface view (MoEEfficiencyView.html, declared in
+// gui/gen_resources/com.14th_ua.moe_calculator.json) that bridge/efficiency_view.py opens as a
 // CONTENT-SIZED (NOT full-screen), input-transparent window centred over the battle HUD. Do NOT
 // re-add full-screen sizing / width:100% -- see bridge/battle_view.py for the Ctrl+click/hover
 // input-steal that cost us.
@@ -14,8 +14,7 @@
 // .mp-* by construction -- so the only selectors that can collide are `body`, `#moe-bar-box` and
 // `#moe-bar-root`, and those three are the only ones the vertical sheet scopes under its `body.mev`
 // class. Which composition draws comes from mod_settings' progress_bar_orientation, pushed as the
-// VM's `vertical`, as a MOUNT-TIME branch (goVertical) -- NOT a second res_map layout, because a new
-// itemID would cost every user a one-time client restart. The PLACEMENT half is Python's and already
+// VM's `vertical`, as a MOUNT-TIME branch (goVertical) -- NOT a second registered layout. The PLACEMENT half is Python's and already
 // orientation-aware (bridge/bar_window._resolve).
 //
 // Because this is a registered view, OUR data model (EfficiencyVM) IS the view's own root
@@ -89,7 +88,7 @@ let large = false;
 // A Gameface view PUSHES its own size to C++ through the `viewEnv` global
 // (viewEnv.resizeViewRem(w, h), rem == logical px); a view that never calls it gets the engine's
 // "default view size" fallback after a `Size calculation timeout` -- a flat 256x256 logical px.
-// There is NO Python-side and NO res_map lever for this (see bridge/efficiency_view.py), and
+// There is NO Python-side and NO resource-declaration lever for this (see bridge/efficiency_view.py), and
 // pushing the size is not sufficient on its own: the engine ALSO tries to measure the document and
 // ITS FALLBACK RUNS LAST AND WINS. See SURFACE_REASSERT_MS.
 //
@@ -165,8 +164,8 @@ const CLIP_B_REM = 8;
 // A SECOND COMPOSITION IN THE SAME DOCUMENT, not a restyle of this one: its own stylesheet
 // (MoEEfficiencyVertical.css, <link>ed alongside MoEEfficiency.css from MoEEfficiencyView.html),
 // its own namespace-disjoint prefix (.mev-*), its own DOM order (numeral BEFORE icon, delta LEFT of
-// the numeral) and its own surface. NO second res_map entry: orientation is a MOUNT-TIME branch,
-// and a new itemID would cost every user a one-time client restart.
+// the numeral) and its own surface. NO second registered layout: orientation is a MOUNT-TIME
+// branch.
 //
 // V_BOX_* IS .mev-backdrop, exactly as BOX_* above is .mp-backdrop. Note it is NOT a transpose of
 // these four -- the vertical tuner's own tuned lengths -- but its TOP and HEIGHT are IDENTICAL to

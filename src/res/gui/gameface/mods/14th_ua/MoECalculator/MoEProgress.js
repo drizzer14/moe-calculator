@@ -1,6 +1,6 @@
 // 14th_ua's MoE Calculator -- in-battle centre-screen MoE progress bar (the TRANSIENT one; the
 // always-on corner readout is MoEBattle.js). Front-end of a STANDALONE OpenWG-registered Gameface
-// view (MoEProgressView.html, registered via mods/configs/res_map/MoEProgressView.json) that
+// view (MoEProgressView.html, declared in gui/gen_resources/com.14th_ua.moe_calculator.json) that
 // bridge/progress_view.py opens as a CONTENT-SIZED (NOT full-screen), input-transparent window
 // centred over the battle HUD. Do NOT re-add full-screen sizing / width:100% -- see
 // bridge/battle_view.py for the Ctrl+click/hover input-steal that cost us.
@@ -26,8 +26,7 @@
 // beside the minimap (MoEProgressVertical.css, .mpv-*) depending on mod_settings'
 // progress_bar_orientation, pushed as the VM's `vertical`. Both stylesheets are <link>ed from
 // MoEProgressView.html and are namespace-DISJOINT; the choice is a MOUNT-TIME branch (goVertical),
-// NOT a second res_map layout -- a new itemID would cost every user a one-time client restart. The
-// PLACEMENT half is Python's and already orientation-aware (bridge/bar_window._resolve).
+// NOT a second registered layout. The PLACEMENT half is Python's and already orientation-aware (bridge/bar_window._resolve).
 //
 // pointer-events:none throughout (in the CSS) -- pure HUD info, never an input target.
 import { ModelObserver } from "../../libs/model.js";
@@ -50,7 +49,7 @@ const VALUE_SWAP_MS = FADE_IN_MS;
 // "default view size" fallback after a `Size calculation timeout` -- a flat 256x256 logical px,
 // which is what clipped this bar. WG precedent for the same window shape: DogTagMarkerView.js
 // calls resize(500, 300, "rem") once on mount, and ~85 WG views do the same. There is NO
-// Python-side and NO res_map lever for this (see bridge/bar_window.py).
+// Python-side and NO resource-declaration lever for this (see bridge/bar_window.py).
 //
 // BUT THE ENGINE ALSO TRIES TO MEASURE THE DOCUMENT, AND ITS FALLBACK RUNS LAST AND WINS. Pushing
 // the size is not sufficient on its own: our resize landed at 04.8s, the size-calculation deadline
@@ -192,8 +191,7 @@ const CLIP_B_REM = 8;
 // A SECOND COMPOSITION IN THE SAME DOCUMENT, not a restyle of this one: its own stylesheet
 // (MoEProgressVertical.css, <link>ed alongside MoEProgress.css from MoEProgressView.html), its own
 // namespace-disjoint class prefix (.mpv-*), its own DOM order (numeral BEFORE icon) and its own
-// surface. NO second res_map entry and NO second BarHost: orientation is a MOUNT-TIME branch, and a
-// new itemID would cost every user a one-time client restart.
+// surface. NO second registered layout and NO second BarHost: orientation is a MOUNT-TIME branch.
 //
 // V_BOX_* IS .mpv-backdrop, exactly as BOX_* above is .mp-backdrop -- and it is the axis-swap of it
 // with the tuner's own tuned lengths, NOT a transpose of these four (46 wide against 360 tall, vs

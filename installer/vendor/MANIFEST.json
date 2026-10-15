@@ -1,18 +1,18 @@
 {
   "_comment": "Bundled vendor dependencies, verified via tests/test_vendor_manifest.py. Update this file (filename + sha256) whenever a vendor .wotmod is swapped.",
-  "net.openwg.gameface_1.1.6.wotmod": {
+  "net.openwg.gameface_1.2.2.wotmod": {
     "origin": "https://gitlab.com/openwg/wot.gameface",
     "licence": "MIT (OpenWG GameFace)",
-    "sha256": "26b190d216c758ccffa824766cbd6bb7cbfc9dfa041e530b99b0d1f02129d5e1"
+    "sha256": "2bb65f28663e3ab34b5a1102a1bbd1f6e17a65e1f6a898a8645c4ab732b50184"
   },
-  "aslain.modmenu_2.0.16.wotmod": {
-    "origin": "https://wgmods.net (Aslain ModMenu)",
+  "aslain.modmenu_2.1.04.wotmod": {
+    "origin": "https://github.com/Aslain/modmenu (Aslain ModMenu)",
     "licence": "proprietary, redistributable as a vendored dependency per Aslain's distribution terms",
-    "sha256": "74f04aa85308f4f3f5dee52d5cdabc299a942a19f76fc2a791c544c103a39937"
+    "sha256": "674f95cf3526e646cea64be55767a9bfe51b19b109326e8c4132881a7a76a5b4"
   },
-  "me.poliroid.modslistapi_1.7.9.wotmod": {
-    "origin": "https://wgmods.net (ModsList API)",
+  "me.poliroid.modslistapi_1.8.0.wotmod": {
+    "origin": "https://gitlab.com/wot-public-mods/mods-list (ModsList API)",
     "licence": "proprietary, redistributable as a vendored dependency per its distribution terms",
-    "sha256": "d62237cd755412189f1d62855219c9035d0d0fea315a0d4505971639c86d8283"
+    "sha256": "c6e4a1d9476b0195c3b4fab392cf5d68c00f1d02fd79e29bd7424ebda88b498c"
   }
 }

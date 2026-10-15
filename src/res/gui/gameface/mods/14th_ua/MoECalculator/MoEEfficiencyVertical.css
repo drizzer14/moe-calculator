@@ -14,8 +14,8 @@
    point. Position comes from Python (window.move()), NOT from CSS.
 
    THIS SHEET IS LOADED ALONGSIDE MoEEfficiency.css, NOT INSTEAD OF IT (MoEEfficiencyView.html
-   links both; orientation is a MOUNT-TIME branch in MoEEfficiency.js, not a second res_map layout
-   -- a new itemID would cost every user a one-time client restart). The two sheets are
+   links both; orientation is a MOUNT-TIME branch in MoEEfficiency.js, not a second registered layout).
+   The two sheets are
    namespace-DISJOINT by construction (.mp-* vs .mev-*), so nothing below can collide with a
    horizontal rule except the THREE shared subjects -- `body`, `#moe-bar-box` and `#moe-bar-root` --
    and those are the only selectors here carrying the `body.mev` scope. `mev` goes on the BODY

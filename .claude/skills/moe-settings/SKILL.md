@@ -619,7 +619,7 @@ the gating section above for why (they describe the bar, not when it shows).
 
 ## Registration — soft dep, idempotent, self-healing
 
-MSA (bundled `installer/vendor/aslain.modmenu_2.0.16.wotmod`, import surface
+MSA (bundled `installer/vendor/aslain.modmenu_2.1.04.wotmod`, import surface
 `gui.aslainMenu`; izeberg's `gui.modsSettingsApi` is only a legacy fallback) is a **SOFT
 dependency**: `register()` imports it guarded and, if absent, logs-and-returns with defaults
 intact (both widgets on) and no panel — never a crash. There is no config file of ours; MSA
@@ -632,8 +632,9 @@ key-setter nature of `enableWhen*` / `conditions`, `createControlsGroup`'s singl
 14 component types, zero descriptor validation, varName-less rows excluded from
 `_settingsStructure`, and the two-columns reality) is the **harness** rule — read
 `wotmod:msa-settings`. The installed copy here is byte-identical to
-`installer/vendor/aslain.modmenu_2.0.16.wotmod` and keeps its docstrings, so decompile
-it (`wotmod:debug-repl`'s `uncompyle6` recipe) rather than guessing when a detail is missing.
+`installer/vendor/aslain.modmenu_2.1.04.wotmod`; decompile it (`wotmod:debug-repl`'s
+`uncompyle6` recipe, or live-REPL introspection if the build is obfuscated) rather than guessing
+when a detail is missing.
 
 Mod-relevant consequence: a boolean master's children grey out when it's off, but the disabled
 state is **derived from a `masterVarName` / `conditions` binding**, not a per-control `disabled`

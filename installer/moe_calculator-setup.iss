@@ -14,11 +14,11 @@
 ;         .wotmod already built into ..\dist by build\build_wotmod.py).
 
 #define ModId         "com.14th_ua.moe_calculator"
-#define ModVersion    "7.0.0"
-#define ModWotmod     "com.14th_ua.moe_calculator_7.0.0.wotmod"
-#define OpenWgWotmod   "net.openwg.gameface_1.1.6.wotmod"
-#define MsaWotmod      "aslain.modmenu_2.0.16.wotmod"
-#define ModsListWotmod "me.poliroid.modslistapi_1.7.9.wotmod"
+#define ModVersion    "8.0.0"
+#define ModWotmod     "com.14th_ua.moe_calculator_8.0.0.wotmod"
+#define OpenWgWotmod   "net.openwg.gameface_1.2.2.wotmod"
+#define MsaWotmod      "aslain.modmenu_2.1.04.wotmod"
+#define ModsListWotmod "me.poliroid.modslistapi_1.8.0.wotmod"
 ; Used by the GitHub update check (see [Code]): the Atom feed + release-asset URLs
 ; are built from these, and SetupBaseName must match this .exe's filename convention.
 #define RepoOwner     "drizzer14"

@@ -4,7 +4,7 @@ OpenWG-registered Gameface window.
 
 A thin instantiation of bridge/bar_window.BarHost -- read that module for the whole hosting model
 (why a registered window, why WindowLayer.WINDOW, why NOT WINDOW_FULLSCREEN, why the surface size is
-a JS push, why each bar needs its OWN singleton and ModDynAccessor). The bar-specific facts are the
+a JS push, why each bar needs its OWN singleton and layout). The bar-specific facts are the
 five arguments below and nothing else. The module-level functions stay module-level because
 battle_bridge (and its tests) treat this module AS the window handle.
 
@@ -19,9 +19,7 @@ from moe_calculator.domain.constants import (
     PROGRESS_MM_GAP_LARGE, PROGRESS_MM_GAP_BOTTOM, PROGRESS_MM_TRACK_X,
     PROGRESS_MM_TRACK_X_LARGE)
 
-# itemID registered in mods/configs/res_map/MoEProgressView.json -- keep in lockstep. It MUST
-# differ from every other entry's: OpenWG assigns the numeric resId positionally when it rebuilds
-# res_map.json, so two entries sharing an itemID collide and one layout becomes unreachable.
+# View name declared in res/gui/gen_resources/com.14th_ua.moe_calculator.json -- keep in lockstep.
 RES_MAP_ITEM_ID = "MoEProgressView"
 
 _host = BarHost(RES_MAP_ITEM_ID, ProgressVM,

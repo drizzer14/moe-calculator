@@ -20,8 +20,7 @@
    CONFIRM THE UNIT before translating a maintainer's px count into one of these declarations.
 
    THIS SHEET IS LOADED ALONGSIDE MoEProgress.css, NOT INSTEAD OF IT (MoEProgressView.html links
-   both; orientation is a MOUNT-TIME branch in MoEProgress.js, not a second res_map layout -- a new
-   itemID would cost every user a one-time client restart). The two sheets are namespace-DISJOINT by
+   both; orientation is a MOUNT-TIME branch in MoEProgress.js, not a second registered layout). The two sheets are namespace-DISJOINT by
    construction (.mp-* vs .mpv-*), so nothing below can collide with a horizontal rule except the
    THREE shared subjects -- `body`, `#moe-bar-box` and `#moe-bar-root` -- and those are the only
    selectors here that carry the `body.mpv` scope. `mpv` goes on the BODY (MoEBarTransient's

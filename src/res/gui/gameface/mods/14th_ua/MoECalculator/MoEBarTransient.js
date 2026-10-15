@@ -305,7 +305,7 @@ export function createTransient(cfg) {
     // A Gameface view PUSHES its own size to C++ through the `viewEnv` global
     // (viewEnv.resizeViewRem(w, h), rem == logical px); a view that never calls it gets the
     // engine's default-size fallback (see SURFACE_REASSERT_MS). There is NO Python-side and NO
-    // res_map lever for this (bridge/bar_window.py). The surface is the composition's box plus
+    // resource-declaration lever for this (bridge/bar_window.py). The surface is the composition's box plus
     // `pad` on all four sides MINUS `clipB` off the bottom (see the arg -- 0 for both horizontal
     // bars, non-zero for both vertical ones, and the ONE side that is not uniform), and the whole
     // composition is rigidly translated by `pad` so NOTHING sits at a negative coordinate -- an

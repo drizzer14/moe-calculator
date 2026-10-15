@@ -1,5 +1,5 @@
 ==============================================================
- 14th_ua's MoE Calculator  -  World of Tanks mod (EU 2.4.0.0)
+ 14th_ua's MoE Calculator  -  World of Tanks mod (EU 2.4.1.0)
  by 14th_ua                 version {VERSION}
 ==============================================================
 
@@ -8,9 +8,9 @@ your World of Tanks folder and restart the game.
 
 WHAT'S IN THE BOX
     com.14th_ua.moe_calculator_{VERSION}.wotmod      the mod
-    net.openwg.gameface_1.1.6.wotmod                 REQUIRED dependency
-    aslain.modmenu_2.0.16.wotmod                     optional (settings panel)
-    me.poliroid.modslistapi_1.7.9.wotmod             optional (Modification list window)
+    net.openwg.gameface_1.2.2.wotmod                 REQUIRED dependency
+    aslain.modmenu_2.1.04.wotmod                     optional (settings panel)
+    me.poliroid.modslistapi_1.8.0.wotmod             optional (Modification list window)
 
 
 ==============================================================

@@ -3,8 +3,8 @@
 radio ALTERNATIVE to the Moving Average bar (bridge/progress_view.py).
 
 A thin instantiation of bridge/bar_window.BarHost, identical in shape to its sibling: read that
-module for the hosting model and for why each bar keeps its OWN singleton, ModDynAccessor and
-res_map entry. battle_bridge opens exactly ONE of the two, which is why both stylesheets can own
+module for the hosting model and for why each bar keeps its OWN singleton and layout.
+battle_bridge opens exactly ONE of the two, which is why both stylesheets can own
 #moe-bar-root and the .mp-* namespace without colliding. Placement matches the sibling's shape
 (centred horizontally, proportionally down the screen) but off its OWN anchor constants.
 
@@ -19,9 +19,7 @@ from moe_calculator.domain.constants import (
     EFFICIENCY_MM_GAP_LARGE, EFFICIENCY_MM_GAP_BOTTOM, EFFICIENCY_MM_TRACK_X,
     EFFICIENCY_MM_TRACK_X_LARGE)
 
-# itemID registered in mods/configs/res_map/MoEEfficiencyView.json -- keep in lockstep. It MUST
-# differ from MoEBattleView's AND MoEProgressView's (the positional resId collision -- see
-# bar_window).
+# View name declared in res/gui/gen_resources/com.14th_ua.moe_calculator.json -- keep in lockstep.
 RES_MAP_ITEM_ID = "MoEEfficiencyView"
 
 _host = BarHost(RES_MAP_ITEM_ID, EfficiencyVM,

@@ -1,6 +1,6 @@
 // 14th_ua's MoE Calculator -- in-battle overlay. This JS is the front-end of a
-// STANDALONE OpenWG-registered Gameface view (MoEBattleView.html, registered via
-// mods/configs/res_map/MoEBattleView.json) that the Python side opens as a
+// STANDALONE registered Gameface view (MoEBattleView.html, declared in
+// gui/gen_resources/com.14th_ua.moe_calculator.json) that the Python side opens as a
 // CONTENT-SIZED (NOT full-screen), input-transparent top-layer window OVER the battle
 // HUD (bridge/battle_view.py -- WINDOW_FULLSCREEN was dropped so the window hugs the
 // overlay and can't hit-test across the whole HUD; do NOT re-add full-screen sizing or

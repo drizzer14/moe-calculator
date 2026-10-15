@@ -1,4 +1,4 @@
 # Drop the bundled vendor .wotmod dependency here (tracked despite the
 # repo-wide *.wotmod ignore, via the .gitignore exception):
-#   net.openwg.gameface_1.1.6.wotmod   (REQUIRED)
+#   net.openwg.gameface_1.2.2.wotmod   (REQUIRED)
 # The installer bundles whatever is present here (see installer/build_installer.ps1).

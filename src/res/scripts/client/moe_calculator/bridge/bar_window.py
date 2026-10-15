@@ -5,7 +5,7 @@ bridge/efficiency_view.py).
 
 The two bars -- Moving Average and Damage Efficiency -- are radio ALTERNATIVES: battle_bridge opens
 exactly one of them, which is the only reason both stylesheets can own #moe-bar-root and the .mp-*
-prefix. They differ in FOUR things and nothing else: the res_map itemID, the ViewModel, the anchor
+prefix. They differ in FOUR things and nothing else: the layout view name, the ViewModel, the anchor
 constants and the log tag. So each is a BarHost(...) rather than a hand-clone; what is emphatically
 NOT shared is the per-bar state, because two hosts must be able to be open at once (a live radio
 switch mid-battle opens one before the other closes):
@@ -13,13 +13,10 @@ switch mid-battle opens one before the other closes):
   * ONE ``_active`` PER HOST, not per module. A module-level singleton is exactly what forced the
     clone this replaces -- apply_position / _place / active_view all hard-referenced it, so one
     module could not host two windows. Here it is instance state.
-  * ONE ``ModDynAccessor`` PER HOST. Reusing another view's resId resolves the WRONG layout and
-    opens a second copy of THAT view. It is passed to ViewSettings per instance, which is safe
-    because gen_utils.DynAccessor is a plain ``__slots__`` callable -- ``__call__`` and no
-    ``__get__`` -- so it was never a descriptor and its old class-level home was incidental.
-  * ONE res_map JSON PER LAYOUT. Do NOT merge them: OpenWG assigns the numeric resId POSITIONALLY
-    when it rebuilds res_map.json, so two entries sharing an itemID collide and one layout becomes
-    unreachable. Adding an entry costs a one-time client restart.
+  * ONE LAYOUT PER HOST. Reusing another view's resId resolves the WRONG layout and opens a second
+    copy of THAT view. Each layout is declared once in res/gui/gen_resources/
+    com.14th_ua.moe_calculator.json as R.mods.moe_calculator.views.<name> (WG-native resources,
+    client 2.4.1+) and resolved per open by layout_id() below.
 
 Everything WHY-shaped about the hosting model lives in battle_view.py's docstrings (why a
 registered window and not a garage-style inject; why WindowLayer.WINDOW and not OVERLAY; why NOT
@@ -56,8 +53,8 @@ window's own size; see _space, and do NOT scale a cursor fraction onto _extent's
 
 THE SURFACE IS SIZED FROM THE JS, NOT FROM HERE. There is no Python-side size setter anywhere
 (native PyObjectWindow has no resize / no autoSize; ``windowSize`` writes land silently in
-``__dict__`` and do nothing), and no res_map field for size -- Layout.parameters accepts only
-extension / entrance / impl. What actually sizes a Gameface view is the view PUSHING its own size
+``__dict__`` and do nothing), and no gen_resources field for size -- a Layout's parameters accept
+only entrance / impl. What actually sizes a Gameface view is the view PUSHING its own size
 to C++ via the ``viewEnv`` global: ``viewEnv.resizeViewRem(w, h)`` (rem == logical px). A view that
 never calls it gets the engine's "default view size" fallback after a ``Size calculation timeout``
 -- a flat 256x256 logical px, which is what clipped these bars.
@@ -75,7 +72,6 @@ from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_DEBUG, LOG_PROD
 
 from frameworks.wulf import ViewSettings, ViewFlags, WindowFlags, WindowLayer, PositionAnchor
 from gui.impl.pub import ViewImpl, WindowImpl
-from openwg_gameface import ModDynAccessor
 
 from moe_calculator.bridge import mod_settings
 from moe_calculator.domain.constants import (MINIMAP_SIZES, MM_GAP,
@@ -84,6 +80,29 @@ from moe_calculator.domain.constants import (MINIMAP_SIZES, MM_GAP,
 from moe_calculator.domain.positioning import (anchor_centred_reduced, anchor_minimap,
                                                anchor_offset, cursor_in_rect, cursor_logical,
                                                cursor_top_left, free_anchor_point, free_top_left)
+
+# Our R.mods subtree -- keep in lockstep with res/gui/gen_resources/com.14th_ua.moe_calculator.json.
+_RES_NODE = "moe_calculator"
+_unresolved_logged = set()
+
+
+def layout_id(view_name):
+    """The layoutID of R.mods.moe_calculator.views.<view_name>, or -1 when it does not resolve
+    (gen_resources JSON missing/invalid, pre-2.4.1 client). Fail-soft: the caller skips the window,
+    and the miss is logged ONCE per view -- open_window is re-driven every battle tick."""
+    try:
+        from gui.impl.gen import R
+        res_id = R.mods.dyn(_RES_NODE).dyn("views").dyn(view_name)()
+    except Exception:
+        res_id = -1
+    if res_id is None or res_id < 0:
+        if view_name not in _unresolved_logged:
+            _unresolved_logged.add(view_name)
+            LOG_PROD("[moe] layout R.mods.%s.views.%s unresolved -- window disabled"
+                     % (_RES_NODE, view_name))
+        return -1
+    return res_id
+
 
 # A large sentinel offset used to clamp the window to the far corner (LEFT/TOP anchor) so we can
 # read back the movable extent (= logical space - windowSize) and place proportionally.
@@ -218,7 +237,7 @@ class _BarView(ViewImpl):
     with a bare ModelObserver(), no nested submodel and no unwrap).
 
     layoutID and the model arrive per INSTANCE, so one class serves every bar -- see the module
-    docstring on why a per-instance ModDynAccessor is safe."""
+    docstring on why each host needs its own layout."""
 
     def __init__(self, layout_id, view_model):
         super(_BarView, self).__init__(ViewSettings(layout_id, ViewFlags.VIEW, view_model))
@@ -335,8 +354,8 @@ class _BarWindow(WindowImpl):
 class BarHost(object):
     """One centre-screen bar window: its layout, its ViewModel and its own open/closed singleton.
 
-    ``item_id`` is the itemID registered in mods/configs/res_map/<item_id>.json -- keep in lockstep,
-    and keep it DISTINCT from every other entry's (the positional resId collision above).
+    ``item_id`` is the view name declared as R.mods.moe_calculator.views.<item_id> in
+    res/gui/gen_resources/com.14th_ua.moe_calculator.json -- keep in lockstep, and DISTINCT per host.
     ``vm_factory`` is called per open to build a fresh root ViewModel. ``y_frac`` / ``x_off`` /
     ``y_shift`` are the bar's HORIZONTAL-orientation anchor constants (domain/constants), and
     ``tag`` prefixes its log lines. ``y_shift_large`` is the same intra-surface compensation for the
@@ -394,7 +413,7 @@ class BarHost(object):
         self._mm_gap_large = mm_gap_large
         self._tag = tag
         self._variant = variant
-        self._layout_id = ModDynAccessor(item_id)   # deferred; -1 until OpenWG validates it
+        self._layout_id = lambda: layout_id(item_id)   # -1 when unresolved; see layout_id
         self._active = None                         # (window, view) while open
         self._extent_cache = None                   # memoized movable extent; see _extent
         # The last position a real window.move() applied WITHOUT raising -- ONE per host, same as
@@ -901,7 +920,7 @@ class BarHost(object):
 
     def open_window(self):
         """Idempotently open this bar's window. Returns its _BarView (read ``.viewModel`` to push
-        into), or None on failure / res_map not yet registered.
+        into), or None on failure / layout unresolved.
 
         ALSO SELF-HEALS a handle the engine destroyed out from under us (see _is_dead / the module
         docstring): a dead cached handle is DROPPED and re-mounted through the normal path below,
@@ -920,10 +939,8 @@ class BarHost(object):
             self._active = None   # drop the dead handle; the fresh mount below resets _sized too
         try:
             layout = self._layout_id()
-            if layout is None or layout < 0:
-                LOG_DEBUG("%s res_map layout '%s' unresolved -- a one-time client restart is "
-                          "needed for OpenWG to register it." % (self._tag, self.item_id))
-                return None
+            if layout < 0:
+                return None   # layout_id already logged it once
             # A FRESH window starts at the engine's 256x256 fallback again, same as the very
             # first one -- so the materialise-on-mount latch must reset here too, not just at
             # __init__, or a stale True from a PREVIOUS battle would let _materialise fire

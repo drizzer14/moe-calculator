@@ -16,8 +16,7 @@
              from .mp-* by construction, so the only shared subjects are `body`, `#moe-bar-box` and
              `#moe-bar-root` -- which it scopes under a `body.mev` class MoEEfficiency.js adds only
              when it goes vertical. The composition is picked at MOUNT off the VM's `vertical`
-             (mod_settings.progress_bar_orientation), a branch rather than a second res_map layout:
-             a new itemID would cost every user a one-time client restart.
+             (mod_settings.progress_bar_orientation), a branch rather than a second registered layout.
              ORDER MATTERS: the vertical sheet comes SECOND so its rules are later in the cascade --
              it out-specifies the horizontal ones anyway (see its header), but source order is the
              tiebreak if a future rule ever lands at equal specificity. -->
@@ -25,7 +24,7 @@
         <link rel="stylesheet" href="MoEEfficiencyVertical.css" />
     </head>
     <body>
-        <!-- Registered OpenWG Gameface view (mods/configs/res_map/MoEEfficiencyView.json) opened
+        <!-- Registered Gameface view (gui/gen_resources/com.14th_ua.moe_calculator.json) opened
              as a CONTENT-SIZED (NOT full-screen), input-transparent window centred over the battle
              HUD -- see bridge/efficiency_view.py, and battle_view.py for why full-screen is
              rejected (it steals the whole-screen mouse hit-test under a raised cursor). The bar

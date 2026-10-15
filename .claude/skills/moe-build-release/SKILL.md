@@ -22,12 +22,12 @@ this skill is the concrete file list and command set. **Two Pythons:** package w
 | `INSTALL.md` | `MoECalculator-Setup-X.Y.Z.exe`, `…_X.Y.Z.wotmod` |
 | `dist/INSTALL.txt` | prose `version X.Y.Z` (gitignored build output; checked when present) |
 
-_`X.Y.Z` is illustrative — the live canonical value is in `src/meta.xml` (currently 7.0.0,
-client target EU 2.4.0.2)._
+_`X.Y.Z` is illustrative — the live canonical value is in `src/meta.xml` (currently 8.0.0,
+client target EU 2.4.1.0)._
 
 - `README.md` uses `<version>` placeholders (no hard-coded number). `adapter/moe_wgapi.py`'s
   `_AGENT` string carries the project URL (no version number — nothing cosmetic to bump there).
-- The **client** version `2.3.1.2` is deliberately excluded from the check (a `(?!\.\d)` lookahead skips the 4-part client version).
+- The 4-part **client** version is deliberately excluded from the check (a `(?!\.\d)` lookahead skips the 4-part client version).
 
 ## Release must stay silent (no unconditional logging)
 
@@ -61,7 +61,7 @@ before every release** (it is part of the gate, alongside `check_version.py`), a
   `--clean-overlay` removes the hot-reload overlay. **Needs `WorldOfTanks.exe` closed** (`wgc` ok).
 - **`build_moe_zip.py`** — any Python. Builds `dist/MoECalculator_<version>.zip` = bilingual
   `readme.txt` (from `installer/readme.moe.txt`, `{VERSION}` substituted, CRLF) + the mod `.wotmod`
-  + all `installer/vendor/*.wotmod` under `mods/2.4.0.2/`. Manual upload to wgmods.net. Holds `CLIENT_VERSION="2.4.0.2"`.
+  + all `installer/vendor/*.wotmod` under `mods/<CLIENT_VERSION>/`. Manual upload to wgmods.net. Holds `CLIENT_VERSION` (bump it each client upgrade).
   Packages whatever `.wotmod` is in `dist/` — the same single build the GitHub installer uses.
 - **`check_version.py`** — the version gate above. **`clean_dist.py`** — prunes non-current release artifacts from `dist/` (`--dry-run`).
 
@@ -72,11 +72,11 @@ before every release** (it is part of the gate, alongside `check_version.py`), a
   (`NeedOpenWg`, `uninsneveruninstall`), cleans old builds, WoT-running guard, GitHub
   Atom-feed self-update. Repo `drizzer14/moe-calculator`, base name `MoECalculator-Setup`.
 - **`build_installer.ps1`** — preflights the built `.wotmod` + vendor dep, finds `ISCC.exe`, compiles → `dist/MoECalculator-Setup-<version>.exe`.
-- **`readme.moe.txt`** — bilingual EN/UA readme for the wgmods zip (the only readme template; the old `readme.wgmods.txt` stub was deleted). **`installer/vendor/`** — `net.openwg.gameface_1.1.6.wotmod` + `aslain.modmenu_2.0.16.wotmod` + `me.poliroid.modslistapi_1.7.9.wotmod`.
+- **`readme.moe.txt`** — bilingual EN/UA readme for the wgmods zip (the only readme template; the old `readme.wgmods.txt` stub was deleted). **`installer/vendor/`** — `net.openwg.gameface_1.2.2.wotmod` + `aslain.modmenu_2.1.04.wotmod` + `me.poliroid.modslistapi_1.8.0.wotmod` (sha256-pinned in `MANIFEST.json`, guarded by `tests/test_vendor_manifest.py`). Client 2.4.1 needs these builds — the older gameface 1.1.6 / modmenu 2.0.16 / modslist 1.7.9 are dead there.
 
 ## Hot-reload (the split that bites)
 
-- **Garage widget hot-reloads:** `<py3> tools\dev\sync_gameface.py "D:/Games/World_of_Tanks_EU" 2.4.0.2`
+- **Garage widget hot-reloads:** `<py3> tools\dev\sync_gameface.py "D:/Games/World_of_Tanks_EU" <client ver>`
   copies only the Gameface JS/CSS/assets into `res_mods`, then toggle Tech-Tree↔Garage to re-inject. No relaunch.
 - **The in-battle registered WINDOW does NOT hot-reload** — its resources pin at client launch;
   reopen and `Window.reload()` both serve the launch-time cached document. **Every CSS/JS tweak to
@@ -98,8 +98,19 @@ before every release** (it is part of the gate, alongside `check_version.py`), a
 
 ## Release state
 
+**v8.0.0 is STAGED, not published** (`src/meta.xml` is 8.0.0, committed on `main`, artifacts in
+`dist/`). It retargets the mod to WoT client **EU 2.4.1.0** (up from 2.4.0.2; major bump per
+convention). WG 2.4.1 dropped `gen_utils`/`DynAccessor` and stopped processing
+`mods/configs/res_map`, so the three battle windows moved to WG-native resources:
+`src/res/gui/gen_resources/com.14th_ua.moe_calculator.json` declares
+`R.mods.moe_calculator.views.{MoEBattleView,MoEProgressView,MoEEfficiencyView}`, resolved by
+`bridge/bar_window.layout_id()` (fail-soft `-1`, logged once). The res_map JSONs are deleted and
+the "one-time client restart" no longer exists. Vendor builds bumped to gameface 1.2.2 / modmenu
+2.1.04 / modslist 1.8.0. `SETTINGS_VERSION` unchanged at **31**. Live in-battle confirm owed.
+When it is published, promote it to "current Latest" below and fold v7.0.0 into history.
+
 **v0.1.0 through v7.0.0 are published** on `github.com/drizzer14/moe-calculator` (`origin/main`);
-**v7.0.0 (2026-10-07) is the current Latest** (`src/meta.xml` is 7.0.0). It retargets the mod to
+**v7.0.0 (2026-10-07) is the current Latest**. It retargets the mod to
 WoT client **EU 2.4.0.2** (up from 2.4.0.1; major bump per convention) and ships the MoE `%`
 caption work: a parenthesised MoE % beside both centre bars' current-damage numeral (new
 `ProgressVM.curPercent` / `EfficiencyVM.damagePercent` slots), **four per-bar MSA checkboxes**

@@ -20,9 +20,9 @@ not a rename.
 | File | Scope | Role |
 |---|---|---|
 | `MoEProgressView.html`, `MoEProgress.css`, `MoEProgressVertical.css`, `MoEProgress.js` | Progress-only | Moving Average bar front-end |
-| `bridge/progress_view.py`, res_map `MoEProgressView.json` (itemID `MoEProgressView`) | Progress-only | window instantiation + registration |
+| `bridge/progress_view.py`, gen_resources view `MoEProgressView` | Progress-only | window instantiation + registration |
 | `MoEEfficiencyView.html`, `MoEEfficiency.css`, `MoEEfficiencyVertical.css`, `MoEEfficiency.js` | Efficiency-only | Damage Efficiency bar front-end (mirror) |
-| `bridge/efficiency_view.py`, res_map `MoEEfficiencyView.json` (itemID `MoEEfficiencyView`) | Efficiency-only | window instantiation + registration |
+| `bridge/efficiency_view.py`, gen_resources view `MoEEfficiencyView` | Efficiency-only | window instantiation + registration |
 | `MoEBarTransient.js` | SHARED | fade/hold/peek/size/drag/orientation state machine for BOTH bars |
 | `MoEBattle.ttf`, `checker.png` | SHARED | glyph font + halftone backdrop asset, reused from the corner overlay |
 | `bridge/bar_window.py` (`BarHost`/`_BarView`/`_BarWindow`) | SHARED | ONE hosting implementation, instantiated once per bar |
@@ -127,8 +127,7 @@ mutation exists exactly to catch a swap here).
 Vertical `V_MARKUP` (`MoEProgress.js`): numeral-before-icon, `capR`'s two groups
 reordered. Class prefix `.mpv-*`, gated by `body.mpv`. Both stylesheets are `<link>`ed
 unconditionally (`MoEProgressView.html`) — orientation is a JS **mount-time branch** on
-the `vertical` VM field, not a second res_map layout (a new itemID would cost every user a
-one-time client restart). The two sheets are namespace-DISJOINT (`.mp-*` vs `.mpv-*`); only
+the `vertical` VM field, not a second registered layout. The two sheets are namespace-DISJOINT (`.mp-*` vs `.mpv-*`); only
 `body`, `#moe-bar-box`, `#moe-bar-root` are shared subjects, and `body.mpv` at (1,1,1)
 out-ranks the horizontal `.mp-lg #moe-bar-root` at (1,1,0) — the vertical sheet is linked
 SECOND so source order also backs it up.

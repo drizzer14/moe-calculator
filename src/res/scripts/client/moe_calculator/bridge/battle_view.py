@@ -6,8 +6,9 @@ Why a window and not the garage-style sub-view inject: the battle HUD has NO sha
 full-screen Gameface document to inject a position:fixed overlay into -- each WG battle
 Gameface view (DeathCam / Postmortem / BattleNotifier / Tab) is composited by Flash at
 its own placeId, so `openwg_gameface.gf_mod_inject` (which appends assets to a sub-view's
-host document) has nothing to attach to in battle. Instead we register our OWN Gameface
-view (mods/configs/res_map/MoEBattleView.json -> the MoEBattleView.html bundle) and open
+host document) has nothing to attach to in battle. Instead we declare our OWN Gameface
+view (R.mods.moe_calculator.views.MoEBattleView in res/gui/gen_resources/
+com.14th_ua.moe_calculator.json -> the MoEBattleView.html bundle) and open
 it as a content-sized, input-transparent top-layer window (content-sized -- NOT full-screen
 -- so it never captures the mouse hit-test outside the small readout corner; see
 MoEBattleWindow for the Ctrl+click/hover-steal reasoning).
@@ -24,23 +25,20 @@ root ModelObserver() and battle_bridge pushes into `view.viewModel`.
     Symbols VERIFIED against the ~/wot-src-eu decompile (IzeBerg/wot-src, branch EU, in the
     wotmod:debug-repl skill) + the extracted me.poliroid.battlehits / net.openwg.gameface
     bundles:
-    - openwg_gameface.ModDynAccessor(itemID) is a deferred DynAccessor; calling it returns
-      the layoutID for our res_map itemID (INVALID_RES_ID == -1 until the res_map is
-      validated at client start; resolved well before any battle).
+    - bar_window.layout_id(name) resolves the WG-native R.mods node (client 2.4.1+; the old
+      openwg_gameface.ModDynAccessor/res_map path is dead there) and returns -1 if missing.
     - ViewSettings(layoutID, ViewFlags.VIEW, model); ViewImpl.getViewModel() -> that model.
     - WindowImpl(wndFlags, content=<view>, layer=...); Window._onReady() default shows the
       window (focus=True) -- we override to focus=False.
 
-NOTE: adding the res_map entry triggers a ONE-TIME client restart the first time OpenWG's
-ResMapManager rebuilds res_map.json with our layout. PC-only (needs the live client); not
-imported under pytest. Python 2.7 runtime.
+PC-only (needs the live client); not imported under pytest. Python 2.7 runtime.
 """
 from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_DEBUG
 
 from frameworks.wulf import ViewSettings, ViewFlags, WindowFlags, WindowLayer, PositionAnchor
 from gui.impl.pub import ViewImpl, WindowImpl
-from openwg_gameface import ModDynAccessor
 
+from moe_calculator.bridge.bar_window import layout_id
 from moe_calculator.bridge.view_models import BattleMoEVM
 from moe_calculator.domain.constants import (
     BATTLE_ANCHOR_X, BATTLE_ANCHOR_X_RAISED, BATTLE_ANCHOR_X_SHIFT,
@@ -48,19 +46,15 @@ from moe_calculator.domain.constants import (
 from moe_calculator.domain.positioning import (
     anchor_top_left, battle_y_anchor, damage_log_summary_hidden, efficiency_panel_wide)
 
-# itemID registered in mods/configs/res_map/MoEBattleView.json -- keep in lockstep.
+# View name declared in res/gui/gen_resources/com.14th_ua.moe_calculator.json -- keep in lockstep.
 RES_MAP_ITEM_ID = "MoEBattleView"
 
 
 class MoEBattleView(ViewImpl):
     """The registered Gameface view; its root ViewModel is our BattleMoEVM."""
 
-    # Deferred resId accessor for our res_map-registered layout. Class-level so the
-    # deferred res_map->resId resolution (openwg on_ready) happens once at import.
-    _layoutID = ModDynAccessor(RES_MAP_ITEM_ID)
-
     def __init__(self):
-        settings = ViewSettings(self._layoutID(), ViewFlags.VIEW, BattleMoEVM())
+        settings = ViewSettings(layout_id(RES_MAP_ITEM_ID), ViewFlags.VIEW, BattleMoEVM())
         super(MoEBattleView, self).__init__(settings)
 
     @property
@@ -174,16 +168,14 @@ _active = None
 
 def open_window():
     """Idempotently open the overlay window. Returns its MoEBattleView (read
-    `.viewModel` to push into), or None on failure / res_map not yet registered."""
+    `.viewModel` to push into), or None on failure / layout unresolved."""
     global _active
     if _active is not None:
         return _active[1]
     try:
-        layout = MoEBattleView._layoutID()
-        if layout is None or layout < 0:
-            LOG_DEBUG("[moe-battle] res_map layout '%s' unresolved -- a one-time client "
-                     "restart is needed for OpenWG to register it." % RES_MAP_ITEM_ID)
-            return None
+        layout = layout_id(RES_MAP_ITEM_ID)
+        if layout < 0:
+            return None   # layout_id already logged it once
         view = MoEBattleView()
         window = MoEBattleWindow(view)
         # Publish the singleton BEFORE load() so the view's _onLoading initial-push (which
