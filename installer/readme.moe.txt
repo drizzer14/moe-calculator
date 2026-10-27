@@ -1,5 +1,5 @@
 ==============================================================
- 14th_ua's MoE Calculator  -  World of Tanks mod (EU 2.4.1.0)
+ 14th_ua's MoE Calculator  -  World of Tanks mod (EU 2.4.1.1)
  by 14th_ua                 version {VERSION}
 ==============================================================
 

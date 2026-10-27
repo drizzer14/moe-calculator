@@ -22,8 +22,8 @@ this skill is the concrete file list and command set. **Two Pythons:** package w
 | `INSTALL.md` | `MoECalculator-Setup-X.Y.Z.exe`, `…_X.Y.Z.wotmod` |
 | `dist/INSTALL.txt` | prose `version X.Y.Z` (gitignored build output; checked when present) |
 
-_`X.Y.Z` is illustrative — the live canonical value is in `src/meta.xml` (currently 8.0.0,
-client target EU 2.4.1.0)._
+_`X.Y.Z` is illustrative — the live canonical value is in `src/meta.xml` (currently 9.0.0,
+client target EU 2.4.1.1)._
 
 - `README.md` uses `<version>` placeholders (no hard-coded number). `adapter/moe_wgapi.py`'s
   `_AGENT` string carries the project URL (no version number — nothing cosmetic to bump there).
@@ -99,16 +99,19 @@ before every release** (it is part of the gate, alongside `check_version.py`), a
 
 ## Release state
 
-**v8.0.0 is STAGED, not published** (`src/meta.xml` is 8.0.0, committed on `main`, artifacts in
-`dist/`). It retargets the mod to WoT client **EU 2.4.1.0** (up from 2.4.0.2; major bump per
-convention). WG 2.4.1 dropped `gen_utils`/`DynAccessor` and stopped processing
+**v9.0.0 is STAGED, not published** (`src/meta.xml` is 9.0.0, committed on `main`, artifacts in
+`dist/`). It retargets the mod to WoT client **EU 2.4.1.1** (up from 2.4.1.0; major bump per
+convention). Zero engine-seam divergence (static pass); vendors unchanged (gameface 1.2.2 / modmenu
+2.1.04 / modslist 1.8.0). `SETTINGS_VERSION` unchanged at **31**. Statically re-verified on 2.4.1.1;
+live confirm owed. When it is published, promote it to "current Latest" below and fold v7.0.0/v8.0.0
+into history.
+
+**v8.0.0 (staged, never published)** retargeted to EU 2.4.1.0: WG 2.4.1 dropped `gen_utils`/`DynAccessor` and stopped processing
 `mods/configs/res_map`, so the three battle windows moved to WG-native resources:
 `src/res/gui/gen_resources/com.14th_ua.moe_calculator.json` declares
 `R.mods.com_14th_ua_moe_calculator.views.{MoEBattleView,MoEProgressView,MoEEfficiencyView}`, resolved by
 `bridge/bar_window.layout_id()` (fail-soft `-1`, logged once). The res_map JSONs are deleted and
-the "one-time client restart" no longer exists. Vendor builds bumped to gameface 1.2.2 / modmenu
-2.1.04 / modslist 1.8.0. `SETTINGS_VERSION` unchanged at **31**. Live in-battle confirm owed.
-When it is published, promote it to "current Latest" below and fold v7.0.0 into history.
+the "one-time client restart" no longer exists.
 
 **v0.1.0 through v7.0.0 are published** on `github.com/drizzer14/moe-calculator` (`origin/main`);
 **v7.0.0 (2026-10-07) is the current Latest**. It retargets the mod to
