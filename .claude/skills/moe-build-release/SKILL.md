@@ -22,8 +22,8 @@ this skill is the concrete file list and command set. **Two Pythons:** package w
 | `INSTALL.md` | `MoECalculator-Setup-X.Y.Z.exe`, `…_X.Y.Z.wotmod` |
 | `dist/INSTALL.txt` | prose `version X.Y.Z` (gitignored build output; checked when present) |
 
-_`X.Y.Z` is illustrative — the live canonical value is in `src/meta.xml` (currently 9.0.0,
-client target EU 2.4.1.1)._
+_`X.Y.Z` is illustrative — the live canonical value is in `src/meta.xml` (currently 10.0.0,
+client target EU 2.4.2.0)._
 
 - `README.md` uses `<version>` placeholders (no hard-coded number). `adapter/moe_wgapi.py`'s
   `_AGENT` string carries the project URL (no version number — nothing cosmetic to bump there).
@@ -73,7 +73,7 @@ before every release** (it is part of the gate, alongside `check_version.py`), a
   that id; `uninsneveruninstall`), cleans old builds, WoT-running guard, GitHub
   Atom-feed self-update. Repo `drizzer14/moe-calculator`, base name `MoECalculator-Setup`.
 - **`build_installer.ps1`** — preflights the built `.wotmod` + vendor dep, finds `ISCC.exe`, compiles → `dist/MoECalculator-Setup-<version>.exe`, writes the `<exe>.sha256` sidecar (.NET hash; a missing sidecar fails the build).
-- **`readme.moe.txt`** — bilingual EN/UA readme for the wgmods zip (the only readme template; the old `readme.wgmods.txt` stub was deleted). **`installer/vendor/`** — `net.openwg.gameface_1.2.2.wotmod` + `aslain.modmenu_2.1.04.wotmod` + `me.poliroid.modslistapi_1.8.0.wotmod` (sha256-pinned in `MANIFEST.json`, guarded by `tests/test_vendor_manifest.py`). Client 2.4.1 needs these builds — the older gameface 1.1.6 / modmenu 2.0.16 / modslist 1.7.9 are dead there.
+- **`readme.moe.txt`** — bilingual EN/UA readme for the wgmods zip (the only readme template; the old `readme.wgmods.txt` stub was deleted). **`installer/vendor/`** — `net.openwg.gameface_1.2.2.wotmod` + `aslain.modmenu_2.1.06.wotmod` + `me.poliroid.modslistapi_1.8.0.wotmod` (sha256-pinned in `MANIFEST.json`, guarded by `tests/test_vendor_manifest.py`). Client 2.4.1 needs these builds — the older gameface 1.1.6 / modmenu 2.0.16 / modslist 1.7.9 are dead there.
 
 ## Hot-reload (the split that bites)
 
@@ -99,7 +99,11 @@ before every release** (it is part of the gate, alongside `check_version.py`), a
 
 ## Release state
 
-**v9.0.0 is the current Latest** (published 2026-10-31). It retargets the mod to WoT client
+**v10.0.0 is staged, not yet published** (local commit; EU 2.4.2.0, major bump per convention;
+zero engine-seam divergence in the static pass; bundled modmenu 2.1.04 -> 2.1.06; statically
+re-verified on 2.4.2.0, live confirm owed).
+
+**v9.0.0 is the current published Latest** (published 2026-10-31). It retargets the mod to WoT client
 **EU 2.4.1.1** (up from 2.4.1.0; major bump per convention). Zero engine-seam divergence (static
 pass); vendors unchanged (gameface 1.2.2 / modmenu 2.1.04 / modslist 1.8.0). `SETTINGS_VERSION`
 unchanged at **31**. Statically re-verified on 2.4.1.1; not live-confirmed on 2.4.1.1.

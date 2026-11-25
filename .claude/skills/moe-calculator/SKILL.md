@@ -17,10 +17,10 @@ features and the build each have their own project skill:
 
 ## Identity (facts)
 
-- **Mod id:** `com.14th_ua.moe_calculator` (`src/meta.xml` is the canonical version, currently **9.0.0**).
-- **Client:** WoT **EU 2.4.1.1**. Runtime **Python 2.7** (BigWorld); tests on **Python 3.13**.
+- **Mod id:** `com.14th_ua.moe_calculator` (`src/meta.xml` is the canonical version, currently **10.0.0**).
+- **Client:** WoT **EU 2.4.2.0**. Runtime **Python 2.7** (BigWorld); tests on **Python 3.13**.
 - **Hard dep:** OpenWG GameFace ≥ 1.2.2 (`import openwg_gameface` raises if absent; 1.1.6 dies on
-  2.4.1). Soft dep: ModsSettingsAPI — bundled `aslain.modmenu_2.1.04` + `modslistapi_1.8.0` (absent → mod runs
+  2.4.1). Soft dep: ModsSettingsAPI — bundled `aslain.modmenu_2.1.06` + `modslistapi_1.8.0` (absent → mod runs
   with default settings, no panel). See `moe-settings`, and `wotmod:msa-settings` for the mechanics.
 - **MoE data source (official WG API, single build):** per-tank combined-damage thresholds keyed by intCD, each row keyed by **PERCENTILE** `{20,40,55,65,75,85,95,100}` (the 8 anchors WG actually stores; 65/85/95/100 required all-or-nothing, the rest optional enrichment), come from the Wargaming public API's `wot/tanks/mastery` method (`distribution=damage&percentile=20,40,55,65,75,85,95,100`) via `adapter/moe_wgapi.py` — the sole provider, no facade. **Region-aware:** the host is picked from the client's `constants.CURRENT_REALM` (`EU`→`.eu`, `NA`→`.com`, `ASIA`→`.asia`, `region_for_realm`); any other realm (CT, dev, …) disables fetching (estimator only). Both on-disk envelopes carry `region`, so a cross-region file is discarded, never shown. One `WG_APPLICATION_ID` serves all three hosts. On garage entry it fetches the selected tank, then warms the 100 most-recently-played owned vehicles (`adapter/garage_roster.py`, ranked by dossier `getLastBattleTime()`); an uncached selection fetches that one tank. Worker-thread fetch + `BigWorld.callback` poll; results persisted (`mods_data/14th_ua_moe/moe_wgapi_cache.json`) and revalidated 24h after the reply's `updated_at`. On a request error, `engine_adapter` extrapolates from the player's own dossier point via `domain/moe_estimate.py`. GitHub and WGMods ship the identical build. See [[moe-build-release]].
 
@@ -73,8 +73,8 @@ Deploy yourself — never ask the user to run these (run the commands directly v
 
 | Task | Command |
 |---|---|
-| Package + deploy | `C:\Python27\python.exe build\deploy_wotmod.py "D:/Games/World_of_Tanks_EU" 2.4.1.1` (reads `deploy.local.json` if no args) |
-| Garage hot-reload | `<py3> tools\dev\sync_gameface.py "D:/Games/World_of_Tanks_EU" 2.4.1.1` (front-end only; **battle window can't hot-reload**) |
+| Package + deploy | `C:\Python27\python.exe build\deploy_wotmod.py "D:/Games/World_of_Tanks_EU" 2.4.2.0` (reads `deploy.local.json` if no args) |
+| Garage hot-reload | `<py3> tools\dev\sync_gameface.py "D:/Games/World_of_Tanks_EU" 2.4.2.0` (front-end only; **battle window can't hot-reload**) |
 | Tests | `<py3> -m pytest -q` |
 | Live REPL | harness-owned `repl_client.py` (see `wotmod:debug-repl`) — needs `com.wotmod_harness.debug_repl` on TCP **:2223** |
 

@@ -5,10 +5,10 @@
     "licence": "MIT (OpenWG GameFace)",
     "sha256": "2bb65f28663e3ab34b5a1102a1bbd1f6e17a65e1f6a898a8645c4ab732b50184"
   },
-  "aslain.modmenu_2.1.04.wotmod": {
+  "aslain.modmenu_2.1.06.wotmod": {
     "origin": "https://github.com/Aslain/modmenu (Aslain ModMenu)",
     "licence": "proprietary, redistributable as a vendored dependency per Aslain's distribution terms",
-    "sha256": "674f95cf3526e646cea64be55767a9bfe51b19b109326e8c4132881a7a76a5b4"
+    "sha256": "2df0eb0a2f4debff9b02f40d37e79d6f510e9ff2d869efb269771aa2c8f8f0a6"
   },
   "me.poliroid.modslistapi_1.8.0.wotmod": {
     "origin": "https://gitlab.com/wot-public-mods/mods-list",
