@@ -793,6 +793,8 @@ def _load_cache():
 
 def _save_cache():
     """Persist _table to disk atomically, stamped with the data's updated_at + region."""
+    if not REGION:   # unmapped realm: never stamp (or clobber a live file with) region=None
+        return
     write_json(_store_path(),
                {"version": _STORE_VERSION, "updated_at": _updated_at, "fetched_at": _fetched_at,
                 "region": REGION,
@@ -826,6 +828,8 @@ def _load_list():
 
 def _save_list():
     """Persist _want to disk atomically (shared write_json)."""
+    if not REGION:   # unmapped realm: never overwrite a live list with region=None
+        return
     write_json(_list_store_path(),
                {"version": _LIST_VERSION, "region": REGION,
                 "ids": dict((str(cd), int(rec)) for cd, rec in _want.items())})

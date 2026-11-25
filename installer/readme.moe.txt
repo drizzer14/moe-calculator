@@ -1,5 +1,5 @@
 ==============================================================
- 14th_ua's MoE Calculator  -  World of Tanks mod (EU 2.4.2.0)
+ 14th_ua's MoE Calculator  -  World of Tanks mod (2.4.2.0)
  by 14th_ua                 version {VERSION}
 ==============================================================
 
@@ -80,7 +80,7 @@ UNINSTALL
     Delete com.14th_ua.moe_calculator_{VERSION}.wotmod from
     mods\<version>\ and restart. Leave GameFace if other mods use it.
 
-    Built for the Wargaming EU/global client, NOT the Lesta / Mir
+    Built for the Wargaming EU / NA / Asia client, NOT the Lesta / Mir
     Tankov (RU) client.
 
 
@@ -144,7 +144,8 @@ UNINSTALL
 
 МЕРЕЖА
     Мод звертається до публічного API Wargaming для вашого регіону
-    сервера (api.worldoftanks.eu / .com / .asia), щоб отримати реальні пороги Знаків Класності для вашої техніки.
+    сервера (api.worldoftanks.eu / .com / .asia), щоб отримати
+    реальні пороги Знаків Класності для вашої техніки.
     Жодні інші дані не надсилаються й не збираються.
 
 ВИДАЛЕННЯ
@@ -152,5 +153,5 @@ UNINSTALL
     mods\<версія>\ і перезапустіть. GameFace лишіть, якщо його
     використовують інші моди.
 
-    Зроблено для клієнта Wargaming EU/global, НЕ для клієнта
+    Зроблено для клієнта Wargaming EU / NA / Asia, НЕ для клієнта
     Lesta / Мир танків (RU).

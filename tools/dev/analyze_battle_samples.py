@@ -67,6 +67,7 @@ from moe_calculator.domain import battle_builder as bb
 PCTS8 = (20, 40, 55, 65, 75, 85, 95, 100)
 # Bands of pre_avg_damage / D65 -- the shipped error is band-localised (worst far below 1 mark).
 RATIO_BANDS = ((0.0, 0.3), (0.3, 0.6), (0.6, 0.9), (0.9, 1.1), (1.1, float("inf")))
+REGION = "eu"   # WG API host suffix; --region sets it (eu / com / asia)
 DEFAULT_CACHE8 = os.path.join(tempfile.gettempdir(), "moe_thresholds8.json")
 
 
@@ -330,9 +331,9 @@ def fetch_stops8(int_cds, cache_path):
         app_id = _read_app_id()
         if not app_id:
             raise SystemExit("no WG_APPLICATION_ID in .env -- cannot fetch the 8-stop table")
-        url = ("https://api.worldoftanks.eu/wot/tanks/mastery/?application_id=%s"
+        url = ("https://api.worldoftanks.%s/wot/tanks/mastery/?application_id=%s"
                "&distribution=damage&percentile=%s&tank_id=%s"
-               % (app_id, ",".join(str(p) for p in PCTS8),
+               % (REGION, app_id, ",".join(str(p) for p in PCTS8),
                   ",".join(str(int(cd)) for cd in missing)))
         print("fetching %d tanks x %d percentiles from WG ..." % (len(missing), len(PCTS8)))
         with urllib.request.urlopen(url, timeout=20) as resp:
@@ -628,12 +629,15 @@ def main():
     ap.add_argument("path", nargs="?", default=DEFAULT_PATH, help="battle_samples.jsonl (default: prefs dir)")
     ap.add_argument("--min-delta", type=float, default=0.0,
                     help="skip rows whose |pct_delta| is below this (default 0)")
+    ap.add_argument("--region", choices=("eu", "com", "asia"), default="eu", help="WG API host suffix (default eu)")
     ap.add_argument("--self-check", action="store_true", help="run the assert-based self-test and exit")
     ap.add_argument("--backtest", action="store_true",
                     help="back-test the SHIPPED damage->percent model against WG's own percentile")
     ap.add_argument("--cache8", default=DEFAULT_CACHE8,
                     help="JSON cache of the 8-stop WG table (default: %s)" % DEFAULT_CACHE8)
     args = ap.parse_args()
+    global REGION
+    REGION = args.region
 
     if args.self_check:
         self_check()
