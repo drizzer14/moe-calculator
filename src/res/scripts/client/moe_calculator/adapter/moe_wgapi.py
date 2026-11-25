@@ -3,9 +3,9 @@
 
 Wargaming's public API exposes the real Marks-of-Excellence damage distribution directly
 (no scraping, no estimation), so this replaces the former tomato.gg-scrape / offline-estimator
-build variants. Endpoint (EU cluster):
+build variants. Endpoint (host follows the client realm: .eu / .com (NA) / .asia):
 
-    GET https://api.worldoftanks.eu/wot/tanks/mastery/
+    GET https://api.worldoftanks.<eu|com|asia>/wot/tanks/mastery/
         ?application_id=<APP_ID>&distribution=damage&percentile=20,40,55,65,75,85,95,100
         &tank_id=<up to 100 comma-separated intCDs>
 
@@ -60,17 +60,41 @@ import json
 import threading
 
 from moe_calculator import build_config
-from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_DEBUG, _scrub_paths
+from moe_calculator._compat import LOG_CURRENT_EXCEPTION, LOG_DEBUG, LOG_PROD, _scrub_paths
 from moe_calculator.adapter import garage_roster
 from moe_calculator.domain import constants
 from moe_calculator.domain import fetch_list
 
 # --- source configuration ----------------------------------------------------
-REGION = "eu"                                        # this mod targets the EU client
-API_URL = "https://api.worldoftanks.%s/wot/tanks/mastery/" % REGION
+# Client realm (WG's constants.CURRENT_REALM, baked per regional client build) -> the WG public-API
+# host suffix. MoE distributions are per-server, so each region must hit its own host. Any other
+# realm (CT, sandbox, dev, RU/CN/KR...) has no mapped host: REGION is None and fetching is disabled
+# below, so the bar falls back to the offline estimator instead of silently showing EU numbers.
+_API_HOSTS = {"EU": "eu", "NA": "com", "ASIA": "asia"}
+
+
+def region_for_realm(realm):
+    """WG API host suffix ('eu' / 'com' / 'asia') for a client realm code, or None. Pure."""
+    return _API_HOSTS.get(realm)
+
+
+def _client_realm():
+    """The running client's realm code, or None (e.g. under pytest). Lazy engine import."""
+    try:
+        import constants as wg_constants
+        return wg_constants.CURRENT_REALM
+    except Exception:
+        return None
+
+
+_REALM = _client_realm()
+REGION = region_for_realm(_REALM)    # also stamped into both on-disk envelopes (mismatch = discard)
+API_URL = "https://api.worldoftanks.%s/wot/tanks/mastery/" % REGION if REGION else ""
 # The WG API application_id is a SECRET injected at build time (see build_config.py + .env);
-# it is empty in an unbuilt/source checkout, which just disables fetching (fail-soft).
-APP_ID = build_config.WG_APPLICATION_ID
+# it is empty in an unbuilt/source checkout, which just disables fetching (fail-soft). One id
+# serves all three hosts. An unmapped realm blanks it too, routing everything to the estimator.
+APP_ID = build_config.WG_APPLICATION_ID if REGION else ""
+LOG_PROD("[moe] wgapi realm=%r -> region=%r" % (_REALM, REGION))
 DISTRIBUTION = "damage"
 # The 8 anchors WG stores (its cap is 10 percentile values per call). ALSO the threshold dict's
 # keys: the dict is keyed by PERCENTILE, so nothing is remapped on the way in.

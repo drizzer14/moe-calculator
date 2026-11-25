@@ -71,9 +71,10 @@ DEPENDENCIES
     Keep your existing copy if you already run it.
 
 NETWORK
-    The mod calls Wargaming's own public API (api.worldoftanks.eu) to
-    fetch the real Marks-of-Excellence damage thresholds for your
-    vehicles. No other data is sent or collected.
+    The mod calls Wargaming's own public API for your server region
+    (api.worldoftanks.eu / .com / .asia) to fetch the real
+    Marks-of-Excellence damage thresholds for your vehicles. No other
+    data is sent or collected.
 
 UNINSTALL
     Delete com.14th_ua.moe_calculator_{VERSION}.wotmod from
@@ -142,8 +143,8 @@ UNINSTALL
     Якщо він уже стоїть, лишіть свою копію.
 
 МЕРЕЖА
-    Мод звертається до публічного API Wargaming (api.worldoftanks.eu),
-    щоб отримати реальні пороги Знаків Класності для вашої техніки.
+    Мод звертається до публічного API Wargaming для вашого регіону
+    сервера (api.worldoftanks.eu / .com / .asia), щоб отримати реальні пороги Знаків Класності для вашої техніки.
     Жодні інші дані не надсилаються й не збираються.
 
 ВИДАЛЕННЯ

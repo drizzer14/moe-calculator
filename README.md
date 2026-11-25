@@ -184,7 +184,7 @@ baseline **Moving Average** needs, is described under *In-battle progress bar* a
 
 The per-tank mark thresholds (the combined damage each mark needs) come from the **official
 Wargaming API** — the real damage distribution, so the numbers are authoritative and current.
-Thresholds are cached locally so switching vehicles is instant. The in-battle percentage between
+They are loaded from your own server region (EU, NA or Asia). Thresholds are cached locally so switching vehicles is instant. The in-battle percentage between
 marks is interpolated the same way Wargaming's own Marks of Excellence percentage is, for the
 closest possible match to what the game itself would show you.
 
@@ -392,7 +392,7 @@ Building, deploying, testing, and the repo layout are documented in
 
 Пороги знаків для кожної техніки (комбінована шкода, потрібна для знака) беруться з
 **офіційного API Wargaming** — це реальний розподіл шкоди, тож числа автентичні й актуальні.
-Пороги кешуються локально, тож перемикання техніки миттєве. Відсоток між знаками в бою
+Вони завантажуються для вашого власного регіону сервера (EU, NA чи Asia). Пороги кешуються локально, тож перемикання техніки миттєве. Відсоток між знаками в бою
 інтерполюється так само, як і власний відсоток класності Wargaming, — щоб якнайточніше
 збігатися з тим, що показала б сама гра.
 
