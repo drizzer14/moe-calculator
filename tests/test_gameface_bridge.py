@@ -210,6 +210,7 @@ def test_sync_ordering_keeps_the_persisted_fetch_list(monkeypatch, tmp_path):
     # prior-session list on disk, stage a buy for reconcile to persist, and assert the persisted ids
     # survive. RED if start() is moved back after reconcile_ownership().
     NOW = 1_700_000_000
+    monkeypatch.setattr(moe_wgapi, "REGION", "eu")
     monkeypatch.setattr(moe_wgapi, "data_dir", lambda: str(tmp_path))
     monkeypatch.setattr(moe_wgapi, "_now_epoch", lambda: NOW)
     # A prior session persisted these two owned tanks.
@@ -238,4 +239,5 @@ def test_sync_ordering_keeps_the_persisted_fetch_list(monkeypatch, tmp_path):
     persisted = moe_wgapi.valid_list(
         moe_wgapi.read_json(moe_wgapi._list_store_path()), moe_wgapi.REGION)
     assert 111 in moe_wgapi._want and 222 in moe_wgapi._want   # in-memory list preserved
+    assert persisted, "list file was never written/read back"
     assert 111 in persisted and 222 in persisted               # on-disk list not clobbered

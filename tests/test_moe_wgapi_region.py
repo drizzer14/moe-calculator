@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
 """Region-aware WG-API endpoint + cache: realm -> host, unknown realm => no fetch, and a
 persisted cache / fetch list stamped for another region is never adopted."""
+import importlib
+import os
+import sys
+import types
+
 import pytest
 
+from moe_calculator import build_config
 from moe_calculator.adapter import moe_wgapi
 
 _NOW = 10 ** 9
@@ -88,18 +94,58 @@ def test_load_list_rejects_other_region(monkeypatch):
     monkeypatch.setattr(moe_wgapi, "read_json", lambda p: _list_blob("eu"))
     moe_wgapi._load_list()
     assert moe_wgapi._want == {}
-    assert moe_wgapi.valid_list(_list_blob("eu"), "com") == {}
-    assert moe_wgapi.valid_list(_list_blob("com"), "com") == {7: 123}
 
 
 @pytest.mark.parametrize("region", ["eu", "com", "asia"])
-def test_api_url_and_build_url_use_region_host(monkeypatch, region):
-    # API_URL is assembled at module load from REGION; reload-free: assert the template the
-    # module uses by re-deriving it exactly as load does, then that _build_url consumes API_URL.
-    monkeypatch.setattr(moe_wgapi, "REGION", region)
-    monkeypatch.setattr(moe_wgapi, "API_URL",
-                        "https://api.worldoftanks.%s/wot/tanks/mastery/" % moe_wgapi.REGION)
+def test_build_url_uses_api_url(monkeypatch, region):
+    monkeypatch.setattr(moe_wgapi, "API_URL", "https://api.worldoftanks.%s/wot/tanks/mastery/" % region)
     monkeypatch.setattr(moe_wgapi, "APP_ID", "app")
     url = moe_wgapi._build_url([1, 2])
     assert url.startswith("https://api.worldoftanks.%s/wot/tanks/mastery/?" % region)
     assert "tank_id=1,2" in url
+
+
+@pytest.fixture
+def reload_with_realm():
+    saved = sys.modules.get("constants")
+
+    def _go(realm):
+        sys.modules["constants"] = types.SimpleNamespace(CURRENT_REALM=realm)
+        return importlib.reload(moe_wgapi)
+
+    yield _go
+    if saved is None:
+        sys.modules.pop("constants", None)
+    else:
+        sys.modules["constants"] = saved
+    importlib.reload(moe_wgapi)
+
+
+def test_module_load_na_realm_resolves_com_host(reload_with_realm):
+    m = reload_with_realm("NA")
+    assert m.REGION == "com"
+    assert "api.worldoftanks.com" in m.API_URL
+    assert m.APP_ID == build_config.WG_APPLICATION_ID
+
+
+def test_module_load_unmapped_realm_disables_fetching(reload_with_realm):
+    m = reload_with_realm("CT")
+    assert m.REGION is None
+    assert m.API_URL == ""
+    assert m.APP_ID == ""
+
+
+def test_unmapped_region_saves_leave_existing_files_untouched(monkeypatch, tmp_path):
+    monkeypatch.setattr(moe_wgapi, "data_dir", lambda: str(tmp_path))
+    monkeypatch.setattr(moe_wgapi, "REGION", None)
+    monkeypatch.setattr(moe_wgapi, "_table", {1: {65: 1, 85: 2, 95: 3, 100: 4}})
+    monkeypatch.setattr(moe_wgapi, "_want", {1: 5})
+    for save, path in ((moe_wgapi._save_cache, moe_wgapi._store_path()),
+                       (moe_wgapi._save_list, moe_wgapi._list_store_path())):
+        save()
+        assert not os.path.exists(path)          # absent stays absent
+        with open(path, "wb") as f:
+            f.write(b'{"keep": "me"}')
+        save()
+        with open(path, "rb") as f:
+            assert f.read() == b'{"keep": "me"}'

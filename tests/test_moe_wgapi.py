@@ -464,6 +464,7 @@ def test_write_json_fails_soft(tmp_path):
 
 def test_threshold_cache_save_load_round_trip(monkeypatch, tmp_path):
     _use_tmp(monkeypatch, tmp_path)
+    monkeypatch.setattr(moe_wgapi, "REGION", "eu")
     row = dict(_EIGHT)                                    # a full 8-anchor row round-trips
     monkeypatch.setattr(moe_wgapi, "_table", {69153: dict(row)})
     monkeypatch.setattr(moe_wgapi, "_updated_at", _UPD)
@@ -506,6 +507,7 @@ def test_threshold_cache_load_without_a_file_is_a_noop(monkeypatch, tmp_path):
 
 def test_load_cache_adopts_stale_but_capped_into_stale_table(monkeypatch, tmp_path):
     _use_tmp(monkeypatch, tmp_path)
+    monkeypatch.setattr(moe_wgapi, "REGION", "eu")
     monkeypatch.setattr(moe_wgapi, "_stale_table", {})
     monkeypatch.setattr(moe_wgapi, "_stale_fetched_at", 0)
     monkeypatch.setattr(moe_wgapi, "_table", {69153: {65: 1, 85: 2, 95: 3, 100: 4}})
@@ -596,6 +598,7 @@ def test_poll_evicts_only_the_superseded_stale_row(monkeypatch):
 
 def test_fetch_list_save_load_round_trip(monkeypatch, tmp_path):
     _use_tmp(monkeypatch, tmp_path)
+    monkeypatch.setattr(moe_wgapi, "REGION", "eu")
     monkeypatch.setattr(moe_wgapi, "_want", {69153: 1700000000, 1: 1699999999})
     moe_wgapi._save_list()
 
