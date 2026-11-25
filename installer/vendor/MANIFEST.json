@@ -6,7 +6,8 @@
     "sha256": "2bb65f28663e3ab34b5a1102a1bbd1f6e17a65e1f6a898a8645c4ab732b50184"
   },
   "aslain.modmenu_2.1.06.wotmod": {
-    "origin": "https://github.com/Aslain/modmenu (Aslain ModMenu)",
+    "origin": "https://wgmods.net (Aslain ModMenu)",
+    "source_note": "this build copied from a local client install (mods/2.4.1.1)",
     "licence": "proprietary, redistributable as a vendored dependency per Aslain's distribution terms",
     "sha256": "2df0eb0a2f4debff9b02f40d37e79d6f510e9ff2d869efb269771aa2c8f8f0a6"
   },

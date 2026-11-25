@@ -33,7 +33,7 @@ It uses the game's own mark art.
 
 | Requirement | Detail |
 |-------------|--------|
-| **Game** | World of Tanks **Wargaming EU / NA / Asia** client, version **2.4.2.0**. Built and tested against this version. |
+| **Game** | World of Tanks **Wargaming EU / NA / Asia** client, version **2.4.2.0**. Built for this version. |
 | **Dependency** | **OpenWG GameFace** (required). The installer sets this up for you; for a manual install you add it yourself. |
 | **Optional** | **Aslain ModMenu** — adds the in-game settings panel: the Garage and Battle widgets on/off, the centre-screen progress bar (its mode, orientation, and position), and the Garage widget's position, with a live preview image of both widgets. The installer adds it if missing; without it the mod still runs with both widgets enabled and the progress bar off. |
 
